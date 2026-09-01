@@ -1,0 +1,641 @@
+Register:
+- Add a status feature wherein upon registering, that registered account needs approval by the admin.
+- When the user tries to login, there should be a status wherein if that particular user is approved they can login. Otherwise, if that account wasn't approval yet, there should be new page notifying the user that the user's account needs approval for the admin.
+- replace the student ID input field into a drop down for uploading ID's (Types of ID for example any kind of ID).
+- Build the donation receipt scanner under "make a donation" found in the alumni portal: React component that lets users upload/photograph a receipt, sends it to Claude's vision API to extract organization, amount, currency, and date, and displays an editable receipt-style result card. the scanner should use the same thing as the one found in the ui, and the amount will automatically be inputted in the amount input field
+- add on a campaign management viewable ui that lists of all donations on that specific campaign.
+- change the donation campaign from a grid to a table.
+
+I want to change the Academic section of the registration process as follows:
+1. Remove the Student ID field completely
+    - Remove the "Student ID (e.g., 2023-2110585)" input field.
+    - Remove its format/helper text: "Format: YYYY-NNNNNNN".
+    - Remove the Student ID validation and make sure the system no longer requires a Student ID during registration.
+2. Move "Select ID Type" from Academic to Personal
+    - The "Select ID Type" field currently appears under the Academic section.
+    - Move this field to the Personal Information / Step 1 section.
+    - It should be displayed together with the user's personal identification information.
+    - Keep the existing ID Type dropdown options and functionality unless they depend on Student ID.
+3. Update the step flow
+    - Personal Step 1 should contain the personal information, including Select ID Type.
+    - Academic Step 2 should no longer contain Student ID.
+    - Keep the Department, Course/Program, and Batch Year fields under Academic.
+    - Do not change the overall design, colors, fonts, spacing, buttons, or layout unless necessary to accommodate the changes.
+4. Update the backend/form validation
+    Remove Student ID from required fields and validation.
+    Remove Student ID from the registration data/model/database request if it is no longer needed.
+    Make sure moving ID Type to Personal does not break form submission or the multi-step registration process.
+    Make sure the data is still correctly saved when the user completes registration.
+5. Important
+    Do not simply hide the Student ID field with CSS. Remove it from the actual form structure and validation.
+    Preserve the existing UI style and functionality.
+    Check all references to Student ID throughout the registration code and remove/update them where necessary.
+    After making the changes, make sure the registration process works from Step 1 → Step 2 → Step 3 without errors.
+
+The desired result is:
+
+Personal Step 1
+    Personal information
+    Select ID Type
+
+Academic Step 2
+    Department
+    Course/Program
+    Batch Year
+    No Student ID field
+
+Please modify the relevant frontend, backend, validation, and database-related code as needed.
+
+august 20 2026
+this are the following reccomendation and suggestion from my prof pls dothe following and if the following is already implimented just skip them if not go for it 
+
+## 1. ADMIN PAGE — Registration Review
+- Admin must review and approve every new alumni registration before the 
+  account becomes active.
+- Registrant must submit a valid government-issued I.D. (school I.D. is 
+  NOT required/collected anymore).
+- Build a separate verification page/tab where the admin can view the 
+  submitted I.D. and Accept or Reject the registration.
+- On this page, make the "Accept" button clearly larger and easier to tap 
+  (current version has a button that's too small).
+
+## 2. ADMIN PAGE — Alumni Monitoring
+- Add a separate page (distinct from the alumni's own profile) where the 
+  admin can view an individual alumni's profile and donation activity — 
+  e.g., to check who is donating and how much.
+
+## 3. REGISTRATION PAGE
+- Registration form fields: Name, Address, Course only. 
+  (No Student I.D. field. Valid government I.D. upload is required.)
+- After submitting, the account status must be "Pending Verification" — 
+  NOT invalid/broken. The user should be able to see this state clearly.
+- Show a visible warning/banner: "Your account is under review. Please 
+  wait for admin verification." so the user knows the system is working 
+  and isn't stuck.
+- User should not be able to log in / access full features until admin 
+  approves.
+  
+- Use TABS instead of long vertical scrolling — e.g., separate tabs for 
+  "Pending," "Donation History," "Confirmed," so users don't have to 
+  scroll down to find them (this was a specific usability complaint).
+- Add a strong confirmation step for donation amount:
+  - If a user enters ₱1,000 as the amount donated, but the actual 
+    payment/proof only shows ₱500 was sent, the system must catch this 
+    mismatch and require confirmation or flag it for admin review before 
+    it's recorded as valid.
+  - Consider requiring proof of payment upload + admin verification of 
+    amount before the donation is marked "Confirmed."
+
+## 6. GENERAL UI/UX
+- Design every screen from the actual end user's perspective — think 
+  through the real steps a user/admin would take, not just a static 
+  layout.
+- Prioritize minimal scrolling, clear button sizing, and clear status 
+  indicators (pending / verified / rejected) throughout.
+
+Please [help me design the database schema / write the frontend components / 
+build the admin verification flow — pick what you need].
+
+
+(8/21/0226)
+All roles Deparment and Programs:
+- BAA
+- BS in Accountancy.(BAA)
+- BS in Business Administration Major in:
+	- Marketing Management. (BSMM)
+	- Financial Management. (BSFM)
+
+CSE
+- Bachelor of Multimedia Arts.(BSMA)
+- BS in Computer Engineering. (BSCpE)
+- BS in Computer Science. (BSCS)
+- BS in Information Technology. (BSIT)
+
+THM
+- BS in Hospitality Management. (BSHM)
+- BS in Tourism Management. (BSTM)
+
+
+- Replace the ID found in the registration page to a SMS OTP that can also be used in supabase.
+- make a sign in page for pending accounts that need to be verified by the admin.
+- copy the Alumni filter batch year do it to all batch year filter on whole system.
+
+
+
+Identity Verification and Secure Sign-In Implementation
+    - I want you to implement a secure Identity Verification System into our existing Alumni Tracer and Donation Management System.
+
+Main Goal:
+
+    - The system must verify that the person registering or signing in is the legitimate owner of the account and prevent another person from using someone else's identity.
+
+    - Do not redesign or break the existing system. Inspect the existing codebase first, understand the current authentication, registration, database structure, user roles, and UI, then integrate the verification features into the existing architecture.
+
+1. Mobile Number Verification
+
+- During registration:
+
+    -Require the user's mobile number.
+    -Validate the mobile number format.
+    -Send a One-Time Password (OTP) to the user's mobile number.
+    -Require the user to enter the OTP.
+    -Do not allow account verification until the OTP is successfully verified.
+Add:
+  - OTP expiration
+  - Resend OTP with a cooldown
+  - Maximum OTP attempts
+  - Rate limiting
+  - Secure OTP storage using hashing rather than storing the OTP as plain text.
+
+During login:
+
+Allow the system to require OTP verification when:
+  - The user logs in from a new device.
+  - The login appears suspicious.
+  - The administrator requires additional verification.
+
+2. Valid ID Verification
+
+During registration, add an Identity Verification section.
+
+The user should be able to:
+
+    - Select the type of valid ID.
+    - Upload a clear image of their valid ID.
+    - Display accepted ID types.
+    - Validate the uploaded file type and size.
+    - Store uploaded IDs securely.
+    - Prevent unauthorized users from accessing ID files.
+
+Extract or request the following information from the ID:
+
+    -Full Name
+    -Date of Birth
+    -ID Number
+    -Expiration Date, if applicable
+
+If OCR is available in the current technology stack, implement OCR to extract the information automatically.
+
+Do not assume that OCR alone proves that an ID is legitimate. The system should treat OCR as an information-extraction step and use proper verification or administrator review to confirm identity.
+
+3. Match the ID With the User's Alumni Record
+
+After receiving the ID information:
+
+Compare the user's submitted information with the existing alumni/student records.
+
+Example:
+
+    Submitted Name
+            ↓
+    Alumni Database
+            ↓
+    Submitted ID Information
+            ↓
+    Identity Match
+
+The system should flag mismatches such as:
+
+    -Different full name
+    -Different date of birth
+    -Invalid or inconsistent ID information
+    -Duplicate ID number
+    -ID already associated with another account
+
+If the information cannot be automatically verified, set the account status to:
+
+"Pending Verification"
+
+and allow an authorized administrator/alumni coordinator to review it manually.
+
+4. Face Verification
+
+If the technology stack and available services support it, implement an optional or configurable face verification process.
+
+The user should:
+
+    1. Upload or capture a selfie.
+    2. The system checks whether a real person is present using liveness detection.
+    3. Compare the selfie with the photo on the submitted ID.
+    4. Return a verification result.
+
+Possible statuses:
+
+    Verified
+    Pending Review
+    Failed Verification
+
+Do not implement simple image comparison as if it were secure biometric verification. Use a reputable identity-verification provider or appropriate secure biometric technology if this feature is enabled.
+
+5. Verification Status
+
+Add a verification status to the user account.
+
+Possible statuses:
+
+    Unverified
+    Mobile Verified
+    ID Pending
+    ID Verified
+    Fully Verified
+    Verification Failed
+    Pending Manual Review
+
+Display the user's verification status clearly in their profile.
+
+Example:
+
+    Identity Status: ✓ Fully Verified
+    Mobile Number: ✓ Verified
+    Valid ID: ✓ Verified
+    Identity Match: ✓ Confirmed
+
+6. Database Changes
+
+Inspect the existing database first.
+
+Add only the necessary fields/tables.
+
+For example, you may need a verification table containing:
+
+    verification_id
+    user_id
+    mobile_number
+    mobile_verified
+    id_type
+    id_number_hash
+    id_file_path
+    id_verified
+    identity_match_status
+    face_verification_status
+    verification_status
+    verification_attempts
+    verified_at
+    created_at
+    updated_at
+
+Do not store sensitive information unnecessarily.
+
+For ID numbers and other sensitive values, use secure hashing or encryption where appropriate.
+
+Never store passwords, OTPs, or other authentication secrets as plain text.
+
+7. Admin Verification Panel
+
+Add an administrator/alumni coordinator verification interface.
+
+The administrator should be able to:
+
+    View pending verification requests.
+    View the submitted ID securely.
+    View extracted ID information.
+    View the user's existing alumni record.
+    Compare the submitted information with the alumni record.
+    Approve verification.
+    Reject verification.
+    Request re-verification.
+    Add a reason for rejection.
+
+Example:
+
+    Verification Request
+
+    Name: Juan Dela Cruz
+    Mobile: ********1234
+    ID Type: Government ID
+    ID Number: ************
+    Status: Pending Review
+
+    Alumni Record
+    Name: Juan Dela Cruz
+    Date of Birth: ********
+
+    [ Approve Verification ]
+    [ Reject ]
+    [ Request Re-verification ]
+
+Only authorized administrators should have access to sensitive identity documents.
+
+8. Duplicate Identity Protection
+
+The system must prevent the same identity from being registered multiple times.
+
+Check for:
+
+    Duplicate mobile number
+    Duplicate ID number
+    Existing alumni record
+    Existing verified account
+
+If an ID is already associated with a verified account, prevent another account from using it.
+
+Do not expose sensitive information to the person attempting the duplicate registration. Show a generic message such as:
+
+«"This information cannot be used to create another account. Please contact the administrator if you believe this is an error."»
+
+9. Security Requirements
+
+Implement appropriate security measures:
+
+    Password hashing using a strong password-hashing algorithm.
+    HTTPS/TLS for data transmission.
+    CSRF protection where applicable.
+    Input validation and sanitization.
+    SQL injection protection using prepared statements/ORM.
+    Secure file-upload validation.
+    File type verification instead of relying only on file extensions.
+    File size limits.
+    Rate limiting.
+    Login attempt limits.
+    OTP expiration.
+    Secure sessions.
+    Session timeout.
+    Secure cookies.
+    Authorization checks for administrator functions.
+    Audit logs for verification actions.
+    Do not expose ID images through publicly accessible URLs.
+
+10. Privacy
+
+Because valid IDs and identity verification information are sensitive:
+
+    Collect only the information necessary for verification.
+    Encrypt sensitive data where appropriate.
+    Restrict access based on user roles.
+    Do not display complete ID numbers unnecessarily.
+    Mask sensitive information in the UI.
+    Define a retention/deletion policy for uploaded IDs.
+    Do not log passwords, OTPs, complete ID numbers, or other sensitive information.
+    Provide users with appropriate information about why identity data is being collected.
+
+11. User Interface
+
+Keep the existing design and branding of our system.
+
+Add a clean verification flow:
+
+    Registration
+        ↓
+    Account Information
+        ↓
+    Mobile Number Verification
+        ↓
+    Valid ID Verification
+        ↓
+    Identity Matching
+        ↓
+    Face Verification (if enabled)
+        ↓
+    Verification Result
+        ↓
+    Account Activation
+
+Use clear messages for each stage.
+
+Examples:
+
+OTP sent:
+
+«"A verification code has been sent to your registered mobile number."»
+
+Verification successful:
+
+«"Your mobile number has been successfully verified."»
+
+Pending ID verification:
+
+«"Your identity verification is currently under review."»
+
+Failed verification:
+
+«"We couldn't verify your identity. Please check your information and try again."»
+
+12. Important Implementation Instructions
+
+Before making changes:
+
+1. Inspect the entire existing project structure.
+2. Identify the current frontend framework.
+3. Identify the backend framework.
+4. Identify the database.
+5. Identify the current authentication system.
+6. Identify the existing user and alumni tables.
+7. Identify the current registration and login pages.
+8. Identify the existing admin dashboard.
+9. Determine the safest way to integrate identity verification without breaking existing functionality.
+
+Then implement the feature using the project's existing technologies and coding conventions.
+
+Do not replace the existing authentication system unless necessary.
+
+Do not create unnecessary duplicate tables or components.
+
+Reuse existing components, layouts, authentication middleware, database connections, and UI styles whenever possible.
+
+After implementation:
+
+    Test registration.
+    Test OTP verification.
+    Test invalid OTP.
+    Test expired OTP.
+    Test duplicate mobile number.
+    Test duplicate ID.
+    Test ID mismatch.
+    Test pending verification.
+    Test administrator approval/rejection.
+    Test unauthorized access to ID documents.
+    Test login after verification.
+    Test login from a new device.
+    Test rate limiting.
+    Test failed verification attempts.
+
+Finally, provide:
+
+1. A summary of the changes made.
+2. List of modified/created files.
+3. Database migrations/schema changes.
+4. Required environment variables/API keys.
+5. Installation commands for dependencies.
+6. How to configure the OTP service.
+7. How to configure ID/OCR verification if used.
+8. How to configure face/liveness verification if used.
+9. Testing instructions.
+10. Any security or privacy considerations.
+
+Most importantly: inspect the existing project first and adapt the implementation to it. Do not blindly generate a separate authentication system.
+
+
+Register: 
+ 
+- Add a Dropdown button in create account page that the user can pick first their department before picking a course
+- Add a mobile number format dropdown in the user registration so that user can pick what type of mobile number format they use(e.g. Philippine, US, etc.).
+- Add a pending page wherein the newly register account can sign in and check their account status whether it was approved by the admin.
+
+
+--August 22--
+## ✅ RESOLVED (2026-08-22)
+
+This todo's ask — splitting the generic "Invalid email or password" error into
+distinct states (invalid credentials / pending approval / rejected-suspended)
+— was already implemented in the live app, just in a different file than this
+prompt assumed.
+
+The prompt below was written against `src/app/components/LoginPage.tsx`, but
+that component is **dead code**: it's not imported by `App.tsx` or anywhere
+else, so it was never actually reachable at `/login`.
+
+The real `/login` route renders `AuthPage.tsx`'s `SignInForm`, which already
+handles this distinction end-to-end:
+
+- `AuthContext.tsx`'s `login()` returns `'success' | 'invalid' | 'pending' | 'rejected'`
+  (see `login()` around line 198).
+- `invalid` → inline red error banner on the sign-in form.
+- `pending` → the user IS signed in (deliberately, per the comment at
+  `AuthContext.tsx` ~line 213) and redirected to a dedicated
+  `/pending-approval` page (`PendingApprovalPage.tsx`) instead of being
+  bounced back to the login form with a banner.
+- `rejected` → a distinct full-panel "Registration Not Approved" status
+  screen (via the `check_registration_status` RPC) in `AuthPage.tsx`
+  (`SignInForm`, `checkStatus`/`statusMode`), around lines 278–396.
+- There is no `suspended` status in the current schema — only
+  `pending` / `approved` / `rejected`. Decided not to add one for now.
+
+`LoginPage.tsx` has since been deleted from the codebase (it was confirmed
+unused, not imported anywhere).
+
+---
+
+<details>
+<summary>Original todo (for reference)</summary>
+
+Here's a prompt you can hand to Claude Code (or paste into your dev assistant) to implement this distinction:
+
+---
+
+**Prompt:**
+
+> In the login flow (`/login` page), the backend currently returns a generic "Invalid email or password" error for all failed sign-in attempts. I need this split into two distinct, differentiated error states:
+>
+> 1. **Invalid credentials** — email doesn't exist, or password doesn't match an existing, approved account.
+>    - Message: `"Invalid email or password."`
+>    - Style: red/error banner (as currently shown).
+>
+> 2. **Pending admin approval** — email and password are correct, but the account's `status` field is `"pending"` (not yet approved by an admin).
+>    - Message: `"Your account is pending admin approval. You'll be notified once it's approved."`
+>    - Style: amber/warning banner (not red) — this isn't an error, it's a status notice. Optionally include a small icon (clock/hourglass) instead of the error icon.
+>
+> **Backend logic:**
+> - On sign-in attempt, first check if a user record exists for the submitted email.
+> - If no user found, OR password hash doesn't match → return `INVALID_CREDENTIALS`.
+> - If user found AND password matches AND `status === "pending"` → return `ACCOUNT_PENDING` (do NOT reveal this before verifying the password, to avoid leaking account existence to unauthenticated attackers — only return the pending message once credentials are confirmed correct).
+> - If user found, password matches, and `status === "approved"` → proceed with normal sign-in.
+> - If `status === "rejected"` or `"suspended"`, return a separate message: `"Your account has been suspended. Contact the administrator."`
+>
+> **Frontend:**
+> - Update the sign-in handler to read an `error_code` (or `status`) field from the API response instead of just a generic message string.
+> - Render a different banner component/style depending on the code:
+>   - `INVALID_CREDENTIALS` → red banner, existing behavior.
+>   - `ACCOUNT_PENDING` → amber/yellow banner, different icon, no "Forgot your password?" nudge (irrelevant in this case).
+>   - `ACCOUNT_SUSPENDED` → red banner with a "Contact Admin" link/mailto instead of "Sign In" retry emphasis.
+> - Keep the rest of the sign-in form layout unchanged.
+
+---
+
+A couple things worth deciding before you hand this off:
+- What's the actual field/enum you're using for account status in Supabase (`status`, `is_approved`, etc.)? I based this on a generic `status` field — swap it for your real schema.
+- Do you want the "pending" check to happen only after password verification (recommended, for security) or does your current flow already validate password separately?
+
+Want me to also draft the actual React/Supabase code for this instead of just the prompt?
+
+</details>
+
+
+- add a funtion for admin donation management campaign that can create a campaign in advance and schedule the date and time. schedule the release of campaign.
+
+--------
+-------- 
+
+8-24-26
+"On the Donation Management page, remove the 'Scheduled Campaigns' tab (the one next to 'Campaigns' and 'Transactions'). Do not change anything else under the 'Campaigns' tab — keep the filter row as is with all three options: Active, Scheduled, and History.
+
+Make sure History is connected to the Campaigns backend: when a campaign is deleted or ended, it should move into History as a record instead of being permanently removed, rather than History being a static/separate list."
+
+--------
+--------
+
+Add the school logo (asiancollege2.jpeg, already in the imports folder) to the top-left corner of the sidebar, positioned beside/next to the hamburger menu button. Right now that top area is empty/blank space above the nav items — the logo should fill that space.
+
+Make sure the logo displays consistently across all account roles that use this sidebar layout — Admin, Faculty, Alumni, and Batch Representative — since it should be part of the shared sidebar/header component. Keep it sized appropriately so it doesn't push down or misalign the hamburger button or the nav items below it, and make sure it also looks correct on the mobile/collapsed view shown in the second screenshot."
+
+--------
+--------
+
+"The left side navigation bar is currently scrolling along with the main page content. When the sidebar's content is shorter than the page, or when the user scrolls down on a long page, it leaves a large empty white space at the bottom of the sidebar instead of staying fixed in place.
+
+Please fix the sidebar's positioning so it stays fixed/sticky relative to the viewport (e.g., `position: fixed` or `position: sticky` with proper height/overflow handling) while only the main content area scrolls independently. The sidebar itself should have its own internal scroll if its nav items exceed the viewport height, rather than scrolling with the page.
+
+Apply this fix globally across all account roles that use this layout — Admin, Faculty, Batch Representative, and Alumni dashboards — since they likely share the same layout/sidebar component."
+
+--------
+--------
+"Add a 'Donate' button positioned near/below the user profile section in the top header (next to Francis James Omnos' profile info, top-right area) — not just as a sidebar nav link. It should be text-based (no icon), styled to stand out, and use a subtle animation (e.g., pulse, glow, or gentle bounce) to draw attention so users notice it easily. Clicking it should link to the Donation Center.
+
+Apply the same change to the Alumni role — replace/move their current Donation Center sidebar link with this same noticeable animated button placed near the profile section instead, so both Batch Representative and Alumni have consistent, easy-to-spot access to donations near their profile."
+
+========
+========
+
+
+"Please do a full audit and cleanup pass across the entire codebase, covering all account roles (Admin, Faculty, Alumni, and Batch Representative). Do this carefully and incrementally — do not break or change existing working functionality. Specifically:
+
+**1. Scan for unwired/broken UI elements**
+- Find buttons, links, menu items, and form actions that don't have a working handler, route, or API call connected (dead clicks, placeholder onClick, missing href, TODO stubs)
+- Find pages/components that are built but not linked anywhere in navigation
+- Find UI elements that call an endpoint that doesn't exist or returns errors
+
+**2. Check backend consistency**
+- Verify each frontend action (create, update, delete, promote, verify, etc.) has a matching, correctly implemented backend endpoint/function
+- Check for endpoints that exist but are never called (dead code) vs. ones that are called but missing
+- Check that role-based permissions are correctly enforced on both frontend (UI visibility) and backend (actual authorization), not just hidden in UI
+
+**3. Fix UI inconsistencies**
+- Check that shared components (sidebar, header, buttons, cards) render consistently across all four roles
+- Flag and fix any layout bugs, misaligned elements, or inconsistent styling between role dashboards
+
+**4. Report before major changes**
+- Before touching authentication, user roles, or database schema/relationships, list out what you found and what you plan to change, so nothing critical breaks
+- For anything ambiguous (unclear if a feature is intentionally incomplete vs. broken), flag it instead of guessing and changing it
+
+Go module by module (Alumni Management, Donation Center, Batch Representatives, Events, Announcements, Job Board, Tracer Surveys, User Accounts, etc.) rather than all at once, and confirm each module works before moving to the next."
+
+In the alumni registration form (Step 1 "Your Info"), replace the Phone Number field with an ID Upload field:
+
+    - Remove the country-code selector + phone number input.
+    - Add a file upload field labeled "Upload Valid ID"* (required) that accepts image/PDF files (e.g., school ID, government ID) for identity verification.
+    - Include a short helper text under the field, e.g. "Upload a clear photo or scan of your school ID or a valid government ID."
+    - Validate file type (jpg, png, pdf) and max file size (e.g., 5MB), and show an error message if invalid.
+    - Show a preview thumbnail (for images) or filename (for PDFs) once uploaded, with an option to remove/replace the file before submitting.
+    - Store the uploaded file (e.g., in Supabase Storage / your existing storage bucket) and save its reference URL/path in the alumni's profile record with a new field id_verification_url and a status field verification_status (default: "pending").
+
+On the Admin side:
+
+- On "Pending Registrations" section/table in the admin dashboard listing all users with verification_status = "pending".
+- Each row should show the applicant's name, email, department/course, batch year, and a link/preview to view their uploaded ID.
+- Add Approve and Reject actions for each pending registration:
+- Approve → sets verification_status = "approved" and activates/enables the account.
+- Reject → sets verification_status = "rejected" (optionally with a reason field) and notifies the user (email or in-app message) that their ID could not be verified.
+- Only approved accounts should be able to log in / access the alumni portal; pending or rejected accounts should see a status message when they try to sign in.
+
+- In signing up an alumni account, replace the phone number field to a field that uploads a photo of any valid IDs
+- In pending registrations, upon reviewing the registration review layout, the uploaded ID text field will view the photo of the ID.
+- In Donation Management on the Admin, remove the API functionality and replace it with just the Admin manually check the uploaded photo of the reciept from the donators.
+
+
+> Add donation campaign creation to Faculty, scoped to their department:
+>
+> 1. In faculty's Donation view, reuse `admin/DonationManagement.tsx`'s create-campaign form/logic (don't duplicate). Faculty submits set `target_department = user.department` automatically — no department picker shown.
+> 2. Faculty can verify/reject donations only where `department = user.department` (same filter pattern as `UserDashboard.tsx`'s alumni directory query).
+> 3. Faculty cannot see/manage other departments' campaigns or access admin payment settings.
+> 4. Enforce via RLS on `donations`/`campaigns` tables (not just client filtering) — check if a `department` column exists in `schema.sql`; add via migration if missing.
+> 5. Alumni-facing donation list shows department label per campaign (e.g. "CSE Dept" vs "College-wide").
+> 6. Update `FacultyDonationMonitor.tsx` to support create+manage, not just view.

@@ -1,0 +1,6 @@
+/* Font entry point.
+   No custom @font-face / web font is referenced elsewhere in the app
+   (no font-family overrides exist in theme.css or components), so this
+   file intentionally stays empty to preserve the current look exactly
+   and avoid introducing an unrequested visual change. Add @font-face
+   or @import rules here if/when a brand font is chosen. */

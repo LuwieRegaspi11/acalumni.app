@@ -1,0 +1,445 @@
+@custom-variant dark (&:is(.dark *));
+
+/* ── Asian College Brand Colors ──
+   Navy:       #1B3A6B
+   Blue:       #2B5BA8
+   Light Blue: #5B9BD5
+   Red:        #CC2200
+──────────────────────────────── */
+:root {
+  --font-size: 16px;
+  --ac-navy:        #1B3A6B;
+  --ac-blue:        #2B5BA8;
+  --ac-light-blue:  #5B9BD5;
+  --ac-red:         #CC2200;
+  --ac-bg:          #f0f4fa;        /* page background — soft blue tint  */
+  --ac-surface:     #ffffff;        /* cards / panels                     */
+  --ac-border:      #c8d8ee;        /* borders — light navy tint          */
+  --ac-muted-bg:    #e4ecf7;        /* muted / secondary surfaces         */
+
+  /* Light mode text: dark blue-black blend */
+  --ac-text-primary:   #0d1b2e;   /* near-black with deep blue tone */
+  --ac-text-secondary: #1e3a5f;   /* dark navy                      */
+  --ac-text-muted:     #4a6a8a;   /* medium blue-gray               */
+
+  --background:           var(--ac-bg);
+  --foreground:           var(--ac-text-primary);
+  --card:                 var(--ac-surface);
+  --card-foreground:      var(--ac-text-primary);
+  --popover:              var(--ac-surface);
+  --popover-foreground:   var(--ac-text-primary);
+  --primary:              var(--ac-blue);
+  --primary-foreground:   #ffffff;
+  --secondary:            var(--ac-muted-bg);
+  --secondary-foreground: var(--ac-text-secondary);
+  --muted:                var(--ac-muted-bg);
+  --muted-foreground:     var(--ac-text-muted);
+  --accent:               var(--ac-light-blue);
+  --accent-foreground:    #ffffff;
+  --destructive:          var(--ac-red);
+  --destructive-foreground: #ffffff;
+  --border:               var(--ac-border);
+  --input:                transparent;
+  --input-background:     var(--ac-muted-bg);
+  --switch-background:    var(--ac-light-blue);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring:                 var(--ac-blue);
+  --chart-1: var(--ac-blue);
+  --chart-2: var(--ac-light-blue);
+  --chart-3: var(--ac-navy);
+  --chart-4: var(--ac-red);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar:                      var(--ac-surface);
+  --sidebar-foreground:           var(--ac-navy);
+  --sidebar-primary:              var(--ac-blue);
+  --sidebar-primary-foreground:   #ffffff;
+  --sidebar-accent:               var(--ac-muted-bg);
+  --sidebar-accent-foreground:    var(--ac-navy);
+  --sidebar-border:               var(--ac-border);
+  --sidebar-ring:                 var(--ac-blue);
+}
+
+.dark {
+  /* Dark mode text: dark blue + white blend */
+  --ac-dark-text-primary:   #e8f2ff;   /* near-white with blue tint  */
+  --ac-dark-text-secondary: #b8d4f0;   /* soft blue-white            */
+  --ac-dark-text-muted:     #7aaad4;   /* medium blue                */
+
+  --background: #0d1117;
+  --foreground: var(--ac-dark-text-primary);
+  --card: #1a2332;
+  --card-foreground: var(--ac-dark-text-primary);
+  --popover: #1a2332;
+  --popover-foreground: var(--ac-dark-text-primary);
+  --primary: #5B9BD5;
+  --primary-foreground: #0d1117;
+  --secondary: #1e2d42;
+  --secondary-foreground: var(--ac-dark-text-secondary);
+  --muted: #1e2d42;
+  --muted-foreground: var(--ac-dark-text-muted);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ══════════════════════════════════════════
+   LIGHT MODE — Asian College brand overrides
+   Scoped to .dashboard-root so login/landing
+   pages are completely unaffected.
+══════════════════════════════════════════ */
+.dashboard-root .bg-gray-50   { background-color: #f0f4fa !important; }
+.dashboard-root .bg-gray-100  { background-color: #e4ecf7 !important; }
+.dashboard-root .bg-gray-200  { background-color: #c8d8ee !important; }
+.dashboard-root .border-gray-100 { border-color: #c8d8ee !important; }
+.dashboard-root .border-gray-200 { border-color: #b0c4e0 !important; }
+.dashboard-root .divide-gray-50 > * + *  { border-color: #dde8f5 !important; }
+.dashboard-root .divide-gray-100 > * + * { border-color: #c8d8ee !important; }
+/* Light mode text — dark blue-black tones */
+.dashboard-root .text-gray-800 { color: #0d1b2e !important; }
+.dashboard-root .text-gray-700 { color: #1a2e4a !important; }
+.dashboard-root .text-gray-600 { color: #1e3a5f !important; }
+.dashboard-root .text-gray-500 { color: #4a6a8a !important; }
+.dashboard-root .text-gray-400 { color: #6a8aaa !important; }
+
+/* MUI light mode brand tints — dashboard only */
+.dashboard-root .MuiTableHead-root .MuiTableCell-root { background-color: #e4ecf7 !important; color: #1B3A6B !important; }
+.dashboard-root .MuiTableRow-root:hover { background-color: #edf3fb !important; }
+
+/* ══════════════════════════════════════════
+   DARK MODE — overrides when .dark on <html>
+══════════════════════════════════════════ */
+html.dark .bg-white          { background-color: #1a2332 !important; }
+html.dark .bg-gray-50        { background-color: #0d1117 !important; }
+html.dark .bg-gray-100       { background-color: #1a2332 !important; }
+html.dark .bg-gray-200       { background-color: #243448 !important; }
+html.dark .bg-amber-50       { background-color: #2a1800 !important; }
+html.dark .bg-blue-50        { background-color: #0a1628 !important; }
+html.dark .bg-green-50       { background-color: #041e10 !important; }
+html.dark .bg-red-50         { background-color: #200808 !important; }
+html.dark .bg-orange-50      { background-color: #1e0d00 !important; }
+html.dark .bg-purple-50      { background-color: #100318 !important; }
+
+/* Dark mode text — dark blue + white blend */
+html.dark .text-gray-800     { color: #e8f2ff !important; }
+html.dark .text-gray-700     { color: #d0e4f8 !important; }
+html.dark .text-gray-600     { color: #b8d4f0 !important; }
+html.dark .text-gray-500     { color: #7aaad4 !important; }
+html.dark .text-gray-400     { color: #5a8ab4 !important; }
+
+html.dark .border-gray-100   { border-color: #334155 !important; }
+html.dark .border-gray-200   { border-color: #334155 !important; }
+html.dark .border-gray-300   { border-color: #475569 !important; }
+html.dark .border-amber-200  { border-color: #78350f !important; }
+html.dark .border-blue-200   { border-color: #1e3a5f !important; }
+html.dark .border-green-200  { border-color: #14532d !important; }
+html.dark .border-red-200    { border-color: #7f1d1d !important; }
+
+html.dark .divide-gray-50 > * + *   { border-color: #334155 !important; }
+html.dark .divide-gray-100 > * + *  { border-color: #334155 !important; }
+html.dark .divide-gray-200 > * + *  { border-color: #475569 !important; }
+
+html.dark .shadow-sm  { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+html.dark .shadow-md  { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+html.dark .shadow-lg  { box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important; }
+
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #64748b !important; }
+
+html.dark .MuiPaper-root     { background-color: #1a2332 !important; color: #e8f2ff !important; }
+html.dark .MuiTableCell-root { color: #d0e4f8 !important; border-color: #243448 !important; }
+html.dark .MuiTableHead-root .MuiTableCell-root { background-color: #0d1827 !important; color: #b8d4f0 !important; }
+html.dark .MuiTableRow-root:hover { background-color: #1e2d42 !important; }
+html.dark .MuiChip-root      { background-color: #1e2d42 !important; color: #e8f2ff !important; }
+html.dark .MuiInputBase-root { background-color: #1a2332 !important; color: #e8f2ff !important; }
+html.dark .MuiOutlinedInput-notchedOutline { border-color: #2d4460 !important; }
+html.dark .MuiInputLabel-root { color: #7aaad4 !important; }
+html.dark .MuiCard-root       { background-color: #1a2332 !important; }
+
+/* Hover states — light-mode hover fills stayed light without these */
+html.dark .hover\:bg-gray-50:hover  { background-color: #243448 !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #2a3a52 !important; }
+html.dark .hover\:bg-gray-200:hover { background-color: #334155 !important; }
+html.dark .hover\:text-gray-600:hover,
+html.dark .hover\:text-gray-700:hover,
+html.dark .hover\:text-gray-800:hover,
+html.dark .hover\:text-gray-900:hover { color: #e8f2ff !important; }
+
+/* Cards/sections that opt into an explicit dark background directly */
+html.dark .bg-gray-900 { background-color: #0d1117 !important; }
+
+/* ── Status badges / pills (Verified, Pending, Rejected, Active, etc.) ──
+   These use saturated bg-*-100 + text-*-700/800 pairs that weren't covered
+   before, so they stayed bright pastel against the dark background. Give
+   each family a dark-tinted background and a brightened, readable text
+   color instead. */
+html.dark .bg-green-100  { background-color: #0f3d24 !important; }
+html.dark .bg-blue-100   { background-color: #0f2c4d !important; }
+html.dark .bg-orange-100 { background-color: #4a2600 !important; }
+html.dark .bg-red-100    { background-color: #4a1414 !important; }
+html.dark .bg-purple-100 { background-color: #2d0f47 !important; }
+html.dark .bg-yellow-100 { background-color: #4a3c00 !important; }
+html.dark .bg-amber-100  { background-color: #4a3300 !important; }
+html.dark .bg-teal-100   { background-color: #0a3d38 !important; }
+html.dark .bg-indigo-100 { background-color: #1e1a5c !important; }
+html.dark .bg-yellow-50  { background-color: #2a2400 !important; }
+
+html.dark .text-green-700,  html.dark .text-green-800  { color: #6ee7a8 !important; }
+html.dark .text-blue-700,   html.dark .text-blue-800   { color: #7cb8f0 !important; }
+html.dark .text-orange-700, html.dark .text-orange-800 { color: #ffb366 !important; }
+html.dark .text-red-700,    html.dark .text-red-800    { color: #ff8a8a !important; }
+html.dark .text-purple-700, html.dark .text-purple-800 { color: #d4a8f5 !important; }
+html.dark .text-yellow-700, html.dark .text-yellow-800 { color: #f5d976 !important; }
+html.dark .text-amber-700                              { color: #f5c453 !important; }
+html.dark .text-indigo-700                              { color: #a9a5f5 !important; }
+
+html.dark .border-orange-200 { border-color: #7c3a00 !important; }
+html.dark .border-yellow-200 { border-color: #78350f !important; }
+html.dark .border-purple-200 { border-color: #4c1d95 !important; }
+html.dark .border-red-300    { border-color: #991b1b !important; }
+html.dark .border-orange-100 { border-color: #5c2e00 !important; }
+html.dark .border-amber-100  { border-color: #5c3d00 !important; }
+
+/* ── Branded focus ring & accent (dark mode) ──
+   Previously fell back to generic grayscale, breaking the brand-blue
+   accent that light mode uses throughout. */
+html.dark {
+  --ring: var(--ac-light-blue);
+  --accent: #1e2d42;
+  --accent-foreground: #e8f2ff;
+}
+
+/* ── Scrollbar (dark mode only) ── */
+html.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+html.dark ::-webkit-scrollbar-track { background: #0d1117; }
+html.dark ::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 8px; }
+html.dark ::-webkit-scrollbar-thumb:hover { background-color: #475569; }
+html.dark { scrollbar-color: #334155 #0d1117; }
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  /* Custom Animations */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+    50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8); }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes rainbow {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  .animate-gradient-shift {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  .animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+
+  .animate-rainbow {
+    animation: rainbow 3s linear infinite;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+}
