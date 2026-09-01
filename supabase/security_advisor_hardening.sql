@@ -57,6 +57,11 @@
 --     something expressible as SQL here.
 --
 -- Safe to re-run: CREATE OR REPLACE + idempotent REVOKE/GRANT.
+--
+-- Applied live to amzteigyblhrbycussys on 2026-09-01; verified via
+-- pg_get_functiondef() and information_schema.role_routine_grants
+-- (release_scheduled_campaigns now grants EXECUTE only to
+-- service_role/postgres, anon+authenticated are gone).
 -- =====================================================================
 
 create or replace function public.set_updated_at()
