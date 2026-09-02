@@ -181,7 +181,12 @@ export default function AlumniManagementView({ department }: Props) {
   }, [monitorTarget]);
 
   const loadAlumni = async () => {
-    let query = supabase.from('profiles').select('*').eq('role', 'alumni');
+    // Only admin-approved accounts belong here — Pending Registrations
+    // (and Rejected) are handled on their own screen. Without this filter
+    // an account still awaiting approval (or turned down) would already
+    // show up as a manageable/verifiable alumnus before the admin ever
+    // acted on it.
+    let query = supabase.from('profiles').select('*').eq('role', 'alumni').eq('registration_status', 'approved');
     if (department) query = query.eq('department', department);
     const { data } = await query.order('created_at', { ascending: false });
     setAlumni((data || []).map(mapRow));
