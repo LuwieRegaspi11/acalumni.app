@@ -55,8 +55,9 @@ export default function PendingApprovalPage() {
         <p className="text-sm text-gray-400 mb-5">{user.name}</p>
 
         <p className="text-sm text-gray-500 leading-relaxed mb-6">
-          Thanks for registering, {user.name.split(' ')[0]}! The Alumni Office still needs to review and approve your account
-          before you can access the portal. This is usually quick — please check back soon.
+          Thanks for completing the Alumni Tracer Survey, {user.name.split(' ')[0]}! We couldn't automatically verify
+          your info against our alumni records, so the Alumni Office still needs to review it before you can access
+          the portal. This is usually quick — please check back soon.
         </p>
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left">

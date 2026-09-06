@@ -70,7 +70,7 @@ export function FacultyDashboardHome() {
   const { deptAlumni, pendingDonations, upcomingEvents } = useDepartmentStats(user?.department);
 
   const links: QuickLink[] = [
-    { label: 'Alumni Management', desc: 'Edit & verify department alumni', icon: <Users className="w-5 h-5" />, path: 'alumni', color: '#2B5BA8' },
+    { label: 'Alumni Tracer', desc: 'Track department alumni records', icon: <Users className="w-5 h-5" />, path: 'alumni', color: '#2B5BA8' },
     { label: 'Tracer Surveys', desc: 'Create & deploy department surveys', icon: <FileText className="w-5 h-5" />, path: 'surveys', color: '#7c3aed' },
     { label: 'Tracer Responses', desc: 'View responses & analytics', icon: <ClipboardList className="w-5 h-5" />, path: 'tracer-responses', color: '#0891b2' },
     { label: 'Donation Center', desc: 'Monitor & verify donations', icon: <DollarSign className="w-5 h-5" />, path: 'donations', color: '#059669' },

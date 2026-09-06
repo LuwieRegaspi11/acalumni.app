@@ -30,6 +30,7 @@ export default function PopulationAnalytics() {
       .from('profiles')
       .select('department, program, batch_year')
       .eq('role', 'alumni')
+      .eq('registration_status', 'approved')
       .then(({ data }) => setAlumniData(
         (data || [])
           .filter((r: any) => r.department && r.program && r.batch_year)

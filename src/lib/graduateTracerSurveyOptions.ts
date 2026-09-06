@@ -1,103 +1,159 @@
 // =====================================================================
 // GRADUATE TRACER SURVEY — shared question/option catalog.
 // Single source of truth for every picklist used by the alumni-facing
-// form (alumni/GraduateTracerForm.tsx) AND the admin analytics module
-// (admin/TracerResponses.tsx), so the two can't drift out of sync the
-// same way src/lib/academicPrograms.ts keeps department/program
-// pickers in sync across the app.
+// forms (alumni/GraduateTracerForm.tsx — the mandatory post-login
+// gate for already-approved accounts, and alumni/PublicTracerSurveyPage.tsx
+// — the public pre-account intake form that replaced self-registration)
+// AND the admin analytics module (admin/TracerResponses.tsx), so none of
+// them can drift out of sync with each other.
+//
+// Every question and answer choice here is copied verbatim from the
+// college's official Graduate Tracer Survey document (Asian College
+// Alumni Association) so the in-app survey matches the paper/PDF
+// instrument exactly, plus a few deliberate additions beyond that
+// document:
+//   - Birthdate and Email (needed to create a submission's login; the
+//     match to an existing alumni record is by name + department +
+//     program — see supabase/functions/tracer-intake/index.ts) and a
+//     free-text Job Title (distinct from the categorical Job
+//     Classification below; maps to profiles.current_position).
+//   - Number of Companies Worked For Since Graduation / Reasons for
+//     Leaving Previous Job (NUMBER_OF_EMPLOYERS_OPTIONS /
+//     REASON_FOR_LEAVING_JOB_OPTIONS below) — not in the official
+//     document, briefly dropped from the in-app survey during an
+//     earlier realignment to that document, then reinstated by request.
+//     graduate_tracer_responses/alumni_tracer_intake had already kept
+//     the (until-then dormant) number_of_employers/reasons_for_leaving_job
+//     (+_other) columns from before that realignment (see
+//     graduate_tracer_job_history.sql), so reinstating the question
+//     needed no new response-table columns — only
+//     alumni_tracer_intake_job_history.sql, mirroring them onto the
+//     intake table, which never had them at all.
 // =====================================================================
 
+export const SEX_OPTIONS = ['Male', 'Female'];
 export const CIVIL_STATUS_OPTIONS = ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'];
 
 export const EMPLOYMENT_STATUS_OPTIONS = [
-  'Regular/Permanent', 'Temporary', 'Contractual', 'Casual', 'Job Order',
-  'Probationary', 'Self-Employed', 'Currently Pursuing Further/Graduate Studies',
-  'Unemployed', 'Not Seeking Employment',
+  'Employed (Full-Time)', 'Employed (Part-Time)', 'Self-Employed', 'Business Owner',
+  'Freelancer', 'Contract-Based Worker', 'Pursuing Graduate Studies',
+  'Preparing for Licensure Examination',
+  'Currently Unemployed (Seeking Employment)', 'Currently Unemployed (Not Seeking Employment)',
 ];
 // Statuses that mean "not currently working" — softens Employment
 // Information's required-ness on the form; irrelevant to the admin side.
-export const NOT_EMPLOYED_STATUSES = ['Currently Pursuing Further/Graduate Studies', 'Unemployed', 'Not Seeking Employment'];
+export const NOT_EMPLOYED_STATUSES = [
+  'Pursuing Graduate Studies', 'Preparing for Licensure Examination',
+  'Currently Unemployed (Seeking Employment)', 'Currently Unemployed (Not Seeking Employment)',
+];
 
 export const EMPLOYMENT_CLASSIFICATION_OPTIONS = [
-  'Private Sector', 'Government/Public Sector', 'Government-Owned or Controlled Corporation',
-  'Non-Government Organization (NGO)', 'Self-Employed/Own Business', 'Family-Owned Business',
-  'Freelance/Consultant', 'International/Overseas Employer', 'Not Applicable',
+  'Permanent', 'Regular', 'Probationary', 'Contractual', 'Casual',
+  'Project-Based', 'Seasonal', 'Freelance', 'Self-Employed',
 ];
 export const JOB_CLASSIFICATION_OPTIONS = [
-  'Managerial/Executive', 'Supervisory', 'Technical/Professional', 'Clerical/Administrative',
-  'Skilled Worker', 'Semi-Skilled Worker', 'Sales/Marketing', 'Other',
+  'Supervisory', 'Managerial', 'Rank and File (Administrative & Support)', 'Other',
 ];
 export const INDUSTRY_SECTOR_OPTIONS = [
-  'Information Technology', 'Business/Finance/BPO', 'Tourism/Hospitality', 'Education',
-  'Healthcare', 'Manufacturing', 'Government', 'Agriculture', 'Other',
+  'Government', 'Education', 'Banking and Finance', 'Hospitality', 'Tourism',
+  'Information Technology', 'Engineering', 'Manufacturing', 'Construction', 'Healthcare',
+  'Retail', 'Business Process Outsourcing (BPO)', 'Telecommunications', 'Logistics',
+  'Marketing and Advertising', 'Media and Communications', 'Agriculture',
+  'Non-Government Organization (NGO)', 'Freelancing', 'Entrepreneurship', 'Other',
 ];
-export const JOB_RELATED_OPTIONS = ['Highly Related', 'Moderately Related', 'Slightly Related', 'Not Related'];
-export const TIME_TO_FIRST_JOB_OPTIONS = ['Less than 1 month', '1–3 months', '4–6 months', '7–12 months', 'More than 1 year', 'Not applicable'];
+export const JOB_RELATED_OPTIONS = ['Related', 'Not Related'];
+export const JOB_RELATED_HINT =
+  'Related: your primary daily tasks, core job responsibilities, or required qualifications directly ' +
+  'utilize the knowledge, specialized skills, or technical training acquired from your degree program. ' +
+  'Not Related: your current role operates in a completely different field or function, where the ' +
+  'specific technical knowledge or specialized training from your degree is not required or utilized.';
+export const TIME_TO_FIRST_JOB_OPTIONS = [
+  'Before Graduation', 'Less than 1 Month', '1–3 Months', '4–6 Months', '7–12 Months', 'More than 1 year',
+];
+// Asked right after Time to First Job (same placement as the original
+// graduate_tracer_job_history.sql design): first, how many employers an
+// alumnus has had since graduating; the second question only appears on
+// the form at all once that isn't "first employer" (see
+// tracerSurveySections.tsx's hasChangedEmployers) — no point asking why
+// someone left a previous job if they've never had one.
+export const NUMBER_OF_EMPLOYERS_OPTIONS = [
+  '1 (Current employer is my first employer)', '2', '3', '4', '5 or more',
+];
+export const REASON_FOR_LEAVING_JOB_OPTIONS = [
+  'Higher Salary / Better Compensation', 'Career Advancement or Promotion', 'Job Not Related to Degree',
+  'Contract or Project Ended', 'Company Downsizing or Closure', 'Relocation',
+  'Better Work-Life Balance', 'Health Reasons', 'Family Reasons', 'Pursued Further Studies',
+  'Work Environment or Management Issues', 'Other',
+];
+// A lighter-weight, single-select companion question — asked on
+// shared/JobInfoCard.tsx every time an alumnus actually edits Company /
+// Organization to something new (not the broader "select up to 3"
+// question above, which is only asked once, at initial survey
+// submission). 3 common reasons plus a free-text "Other", same
+// RadioGroup+hasOther pattern as every other single-select question here.
+export const COMPANY_CHANGE_REASON_OPTIONS = [
+  'Better Opportunity / Higher Salary', 'Contract Ended / Company Downsizing or Closure',
+  'Personal or Family Reasons', 'Other',
+];
 export const SALARY_RANGE_OPTIONS = [
-  'Below ₱10,000', '₱10,000 – ₱15,000', '₱15,001 – ₱20,000', '₱20,001 – ₱25,000',
-  '₱25,001 – ₱30,000', '₱30,001 – ₱40,000', '₱40,001 – ₱50,000', 'Above ₱50,000',
+  'Below ₱15,000', '₱15,000–24,999', '₱25,000–39,999', '₱40,000–59,999',
+  '₱60,000–79,999', '₱80,000–99,999', '₱100,000 and above', 'Prefer not to answer',
 ];
 export const FIRST_JOB_SOURCE_OPTIONS = [
-  'School Placement Office', 'Job Fair', 'Online Job Portal (e.g. JobStreet, LinkedIn)',
-  'Referral (Family/Friend)', 'Walk-in Application', 'Social Media', 'Company Website', 'Other',
+  'School Referral', 'Internship/OJT', 'Job Fair', 'JobStreet', 'LinkedIn', 'Facebook',
+  'Walk-in Application', 'Family/Friend Referral', 'Other',
 ];
-export const WORK_LOCATION_OPTIONS = ['Local (same city/province)', 'Domestic (different region)', 'International/Overseas'];
+export const WORK_LOCATION_OPTIONS = ['Within Negros Island Region', 'Other Province in the Philippines', 'Overseas'];
 export const JOB_SECURING_FACTOR_OPTIONS = [
-  'Academic Performance/Grades', 'Relevant Skills/Competencies', 'Work Experience/OJT',
-  'Personal Connections/Referrals', 'Certifications/Licenses', 'Communication Skills',
-  'School Reputation', 'Other',
+  'Academic Knowledge', 'Technical Skills', 'Internship/OJT Experience',
+  'Communication Skills', 'Leadership Skills', 'Other',
 ];
 export const PROGRAM_RELEVANCE_OPTIONS = ['Highly Relevant', 'Moderately Relevant', 'Slightly Relevant', 'Not Relevant'];
 export const COMPETENCIES = [
-  'Communication Skills', 'Critical Thinking & Problem Solving', 'Technical/Professional Knowledge',
-  'Teamwork & Collaboration', 'Leadership Skills', 'Adaptability/Flexibility', 'Time Management',
-  'Information Technology/Computer Literacy', 'Research Skills', 'Ethical & Professional Values',
+  'Communication Skills', 'Critical Thinking', 'Leadership Skills', 'Teamwork and Collaboration',
+  'Technical/Professional Competence', 'Digital Literacy', 'Professional Ethics',
+  'Entrepreneurial Skills', 'Research Skills', 'Adaptability and Lifelong Learning',
 ];
 export const COMPETENCY_LEVELS = ['Excellent', 'Very Good', 'Good', 'Poor'];
 export const EMPLOYABILITY_EXPERIENCE_OPTIONS = [
-  'On-the-Job Training/Internship', 'Classroom Lectures & Discussions', 'Group Projects & Case Studies',
-  'Laboratory/Hands-on Activities', 'Seminars & Workshops', 'Extracurricular Activities/Student Organizations',
-  'Community Extension Programs', 'Research Projects/Thesis', 'Industry Immersion/Field Trips',
-  'Mentoring from Faculty', 'Part-time/Working Student Experience', 'Other',
+  'Classroom Instruction', 'Laboratory Activities', 'Internship / On-the-Job Training (OJT)',
+  'Community Extension Programs', 'Student Organizations', 'Research Projects',
+  'Seminars and Workshops', 'Industry Visits', 'Capstone Project / Thesis',
+  'Career Guidance Services', 'Other',
 ];
 export const AREAS_TO_STRENGTHEN_OPTIONS = [
-  'Curriculum Content', 'Laboratory Facilities & Equipment', 'Internship/OJT Program',
-  'Faculty Teaching Competence', 'Industry Partnerships', 'Career Guidance & Counseling',
-  'Research Support', 'Library Resources', 'Communication Skills Training', 'Computer/IT Skills Training',
-  'Foreign Language Training', 'Entrepreneurship Training', 'Extracurricular Opportunities',
-  'Alumni Networking', 'Job Placement Assistance', 'Scholarship/Financial Support', 'Other',
+  'Communication Skills', 'Technical Skills', 'Leadership Development', 'Critical Thinking',
+  'Problem-Solving Skills', 'Research Skills', 'Entrepreneurship', 'Digital Literacy',
+  'Artificial Intelligence (AI)', 'Data Analytics', 'Customer Service', 'Industry Certifications',
+  'Internship/OJT Opportunities', 'Career Placement Services', 'Foreign Language Skills', 'Other',
 ];
 export const LICENSURE_STATUS_OPTIONS = [
-  'Passed the Licensure Examination', 'Took the Exam but Did Not Pass', 'Currently Reviewing for the Exam',
-  'Not Yet Taken the Examination', 'Not Applicable (Program has No Licensure Exam)',
+  'Yes, Passed', 'Yes, Did Not Pass', 'Currently Preparing', 'Not Yet Taken', 'Not Applicable',
 ];
 export const ALUMNI_ACTIVITY_OPTIONS = [
-  'Alumni Homecoming/Reunion', 'Mentorship Program for Current Students', 'Job Fairs & Career Events',
-  'Continuing Education/Seminars', 'Sports Fest/Social Events', 'Community Service/Outreach Programs',
-  'Fundraising/Donation Drives', 'Networking Events', 'Guest Lecturing/Resource Speaking', 'Other',
+  'Alumni Homecoming', 'Career Talks and Seminars', 'Professional Development and Skills Training',
+  'Networking Events', 'Community Outreach Programs', 'Sports and Recreational Activities',
+  'Entrepreneurship Programs', 'Volunteer Activities', 'Alumni Reunions', 'Other',
 ];
 export const PROGRAM_IMPROVEMENT_OPTIONS = [
-  'Update Curriculum to Match Industry Needs', 'Improve Laboratory/Facility Equipment',
-  'Strengthen OJT/Internship Partnerships', 'Enhance Faculty Training & Qualifications',
-  'Expand Scholarship Opportunities', 'Improve Career Placement Services',
-  'Increase Industry Guest Speakers', 'Modernize Teaching Methods/Technology', 'Other',
+  'Curriculum & Content', 'Hands-on Training', 'Industry Integration', 'Technical Skills',
+  'Soft Skills', 'Research & Innovation', 'Faculty & Instruction', 'Elective Courses', 'Other',
 ];
 export const ADDITIONAL_SERVICES_OPTIONS = [
-  'Job Placement Assistance', 'Continuing Education Programs', 'Alumni Networking Events',
-  'Career Counseling Services', 'Skills Training/Certification Programs', 'Health & Wellness Programs',
-  'Financial/Livelihood Assistance', 'Legal Assistance', 'Other',
+  'Professional Training', 'Soft Skills & Career Training', 'Modernized Facilities',
+  'Learning Resources', 'Career & Placement Services', 'Internship / OJT Support',
+  'Student Counseling & Mentorship', 'Incubation & Innovation', 'Other',
 ];
-export const RECOMMEND_OPTIONS = ['Definitely Yes', 'Probably Yes', 'Not Sure', 'Probably Not', 'Definitely Not'];
+export const RECOMMEND_OPTIONS = ['Definitely Yes', 'Probably Yes', 'Not Sure', 'Probably No', 'Definitely No'];
 
 export const CONSENT_TEXT =
-  'In compliance with the Data Privacy Act of 2012 (RA 10173), Asian College collects and processes the ' +
-  'personal information you provide in this survey solely to track graduate employment outcomes, improve ' +
-  'academic programs, and enhance alumni services. Your responses are treated with strict confidentiality, ' +
-  'stored securely, and accessed only by authorized Alumni Office personnel. Aggregated, anonymized data may ' +
-  'be used in institutional reports. You may contact the Alumni Office at any time to inquire about, correct, ' +
-  'or request deletion of your personal data. By checking the box below, you acknowledge that you have read ' +
-  'and understood this notice and voluntarily consent to the collection and processing of your personal data ' +
-  'for the stated purposes.';
+  'I have read and understood the purpose of this survey. I voluntarily agree to participate in the ' +
+  'Asian College Graduate Tracer Survey and consent to the collection, processing, and use of my personal ' +
+  'information for educational, research, quality assurance, alumni engagement, and institutional ' +
+  'development purposes, in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173).';
+
+export const CONSENT_CHECKBOX_LABEL =
+  'I have read, understood, and agree to participate in the Asian College Graduate Tracer Survey';
 
 export const ALL_SECTIONS = [
   { key: 'consent', title: 'Consent' },
@@ -111,8 +167,9 @@ export const ALL_SECTIONS = [
 
 // -- Per-question breakdown catalog (admin/TracerResponses.tsx View 2) --
 // Deliberately excludes free-text identity/contact fields (name, phone,
-// addresses) and department/program/year, which View 1's table/filters
-// already surface — this list is the "aggregatable opinion" questions.
+// addresses, birthdate, email) and department/program/year,
+// which View 1's table/filters already surface — this list is the
+// "aggregatable opinion" questions.
 export type TracerQuestionType = 'single' | 'multi' | 'rating' | 'text';
 
 export interface TracerQuestion {
@@ -133,6 +190,8 @@ export interface TracerQuestion {
 export const TRACER_DETAIL_FIELDS: Record<string, { key: string; label: string }[]> = {
   profile: [
     { key: 'first_name', label: 'First Name' }, { key: 'last_name', label: 'Last Name' },
+    { key: 'date_of_birth', label: 'Birthdate' },
+    { key: 'email', label: 'Email' },
     { key: 'mobile_number', label: 'Mobile Number' }, { key: 'social_network_id', label: 'Social Network ID' },
     { key: 'current_address', label: 'Current Address' }, { key: 'permanent_address', label: 'Permanent Address' },
     { key: 'sex', label: 'Sex' }, { key: 'civil_status', label: 'Civil Status' },
@@ -145,10 +204,15 @@ export const TRACER_DETAIL_FIELDS: Record<string, { key: string; label: string }
   ],
   employment_info: [
     { key: 'company_organization', label: 'Company / Organization' },
+    { key: 'company_change_reason', label: 'Reason for Changing Employer' }, { key: 'company_change_reason_other', label: 'Reason for Changing Employer (Other)' },
+    { key: 'job_title', label: 'Job Title' },
     { key: 'job_classification', label: 'Job Classification' }, { key: 'job_classification_other', label: 'Job Classification (Other)' },
     { key: 'industry_sector', label: 'Industry / Sector' }, { key: 'industry_sector_other', label: 'Industry / Sector (Other)' },
     { key: 'job_related_to_degree', label: 'Job Related to Degree' },
-    { key: 'time_to_first_job', label: 'Time to First Job' }, { key: 'monthly_salary_range', label: 'Monthly Salary Range' },
+    { key: 'time_to_first_job', label: 'Time to First Job' },
+    { key: 'number_of_employers', label: 'Number of Companies Worked For Since Graduation' },
+    { key: 'reasons_for_leaving_job', label: 'Reasons for Leaving Previous Job' }, { key: 'reasons_for_leaving_job_other', label: 'Reasons for Leaving (Other)' },
+    { key: 'monthly_salary_range', label: 'Monthly Salary Range' },
     { key: 'first_job_source', label: 'How First Job Was Obtained' }, { key: 'first_job_source_other', label: 'How First Job Was Obtained (Other)' },
     { key: 'current_work_location', label: 'Current Work Location' },
     { key: 'job_satisfaction_rating', label: 'Job Satisfaction (1–5)' },
@@ -177,14 +241,17 @@ export const TRACER_DETAIL_FIELDS: Record<string, { key: string; label: string }
 };
 
 export const TRACER_QUESTIONS: TracerQuestion[] = [
-  { key: 'sex', label: 'Sex', section: 'Graduate Profile', type: 'single', options: ['Male', 'Female'] },
+  { key: 'sex', label: 'Sex', section: 'Graduate Profile', type: 'single', options: SEX_OPTIONS },
   { key: 'civil_status', label: 'Civil Status', section: 'Graduate Profile', type: 'single', options: CIVIL_STATUS_OPTIONS },
   { key: 'employment_status', label: 'Current Employment Status', section: 'Employment Status', type: 'single', options: EMPLOYMENT_STATUS_OPTIONS },
   { key: 'employment_classification', label: 'Employment Classification', section: 'Employment Status', type: 'single', options: EMPLOYMENT_CLASSIFICATION_OPTIONS },
+  { key: 'company_change_reason', label: 'Reason for Changing Employer', section: 'Employment Information', type: 'single', options: COMPANY_CHANGE_REASON_OPTIONS },
   { key: 'job_classification', label: 'Job Classification', section: 'Employment Information', type: 'single', options: JOB_CLASSIFICATION_OPTIONS },
   { key: 'industry_sector', label: 'Industry / Sector', section: 'Employment Information', type: 'single', options: INDUSTRY_SECTOR_OPTIONS },
   { key: 'job_related_to_degree', label: 'Job Related to Degree', section: 'Employment Information', type: 'single', options: JOB_RELATED_OPTIONS },
   { key: 'time_to_first_job', label: 'Time to First Job', section: 'Employment Information', type: 'single', options: TIME_TO_FIRST_JOB_OPTIONS },
+  { key: 'number_of_employers', label: 'Number of Companies Worked For Since Graduation', section: 'Employment Information', type: 'single', options: NUMBER_OF_EMPLOYERS_OPTIONS },
+  { key: 'reasons_for_leaving_job', label: 'Reasons for Leaving Previous Job', section: 'Employment Information', type: 'multi', options: REASON_FOR_LEAVING_JOB_OPTIONS },
   { key: 'monthly_salary_range', label: 'Monthly Salary Range', section: 'Employment Information', type: 'single', options: SALARY_RANGE_OPTIONS },
   { key: 'first_job_source', label: 'How First Job Was Obtained', section: 'Employment Information', type: 'single', options: FIRST_JOB_SOURCE_OPTIONS },
   { key: 'current_work_location', label: 'Current Work Location', section: 'Employment Information', type: 'single', options: WORK_LOCATION_OPTIONS },

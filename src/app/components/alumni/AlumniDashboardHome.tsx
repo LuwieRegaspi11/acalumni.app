@@ -48,9 +48,13 @@ export default function AlumniDashboardHome() {
             </div>
           </div>
           {user?.registrationStatus !== 'pending' && (
+            // bg-[#ffffff] (not bg-white) deliberately — theme.css forces the plain
+            // `bg-white` class to a dark navy in dark mode for card surfaces, which
+            // would sit this button's hardcoded navy text on a near-matching navy
+            // background. This button must stay literally white in both modes.
             <button
               onClick={() => navigate('donations')}
-              className="donate-cta-glow flex-shrink-0 flex items-center justify-center gap-2 bg-white text-[#1B3A6B] font-bold text-2xl px-10 py-5 rounded-xl shadow-lg hover:bg-white/90 active:scale-[0.98] transition-all w-full sm:w-auto"
+              className="donate-cta-glow flex-shrink-0 flex items-center justify-center gap-2 bg-[#ffffff] text-[#1B3A6B] font-bold text-2xl px-10 py-5 rounded-xl shadow-lg hover:bg-[#ffffff]/90 active:scale-[0.98] transition-all w-full sm:w-auto"
             >
               <DollarSign className="w-6 h-6" /> Make a Donation
             </button>

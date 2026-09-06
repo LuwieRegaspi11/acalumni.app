@@ -24,6 +24,11 @@ import NotificationPanel from './shared/NotificationPanel';
 import JobBoard from './shared/JobBoard';
 import ProfilePage from './shared/ProfilePage';
 
+// -- Local image assets ------------------------------------------------
+// Transparent-background version of the Asian College logo (white matte
+// removed) so it reads cleanly on both the light and dark header.
+import asianCollegeLogo from '@/imports/asiancollege-logo-transparent.png';
+
 // -- 6. Admin-only sub-pages (one file per sidebar item, routed below) -
 import AlumniManagement from './admin/AlumniManagement';
 import AnnouncementManagement from './admin/AnnouncementManagement';
@@ -60,7 +65,7 @@ const NAV_GROUPS = [
   {
     label: 'Alumni',
     items: [
-      { label: 'Alumni Management',      icon: <Users className="w-4 h-4" />,    path: 'alumni' },
+      { label: 'Alumni Tracer',          icon: <Users className="w-4 h-4" />,    path: 'alumni' },
       { label: 'Pending Registrations',  icon: <UserCheck className="w-4 h-4" />, path: 'registrations' },
       { label: 'Batch Representatives',  icon: <UserCog className="w-4 h-4" />,  path: 'representatives' },
       { label: 'Population Analytics',   icon: <TrendingUp className="w-4 h-4" />,path: 'analytics' },
@@ -99,16 +104,17 @@ export default function AdminDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileDropOpen, setProfileDropOpen] = useState(false);
+  // Closed by default on entering the dashboard — an admin opens a group
+  // by clicking it (toggleGroup below), nothing pre-expands on its own.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Overview: true, Alumni: true, Programs: true, Administration: true
+    Overview: false, Alumni: false, Programs: false, Administration: false
   });
 
   const [pendingCount, setPendingCount] = useState(0);
   useEffect(() => {
     let active = true;
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
-      .eq('role', 'alumni')
-      .eq('registration_status', 'pending')
+    supabase.from('alumni_tracer_intake').select('*', { count: 'exact', head: true })
+      .eq('status', 'pending')
       .then(({ count }) => { if (active) setPendingCount(count || 0); });
     return () => { active = false; };
   }, []);
@@ -139,7 +145,7 @@ export default function AdminDashboard() {
     <div className={`dashboard-root h-screen w-full flex flex-col overflow-hidden ${dark ? 'bg-gray-900' : 'bg-gray-50'}`}>
 
       {/* -- TOP HEADER -- */}
-      <header className={`flex-shrink-0 h-14 flex items-center justify-between px-4 border-b z-40 ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <header className={`flex-shrink-0 h-16 flex items-center justify-between px-4 border-b z-40 ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
 
         {/* Left: hamburger/sidebar toggle + logo */}
         <div className="flex items-center gap-2">
@@ -149,10 +155,8 @@ export default function AdminDashboard() {
           <button onClick={() => setCollapsed(c => !c)} className={`hidden lg:flex p-2 rounded-lg transition-colors ${dark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
             <Menu className="w-4 h-4" />
           </button>
-          <div className="flex-shrink-0">
-            <div className="font-extrabold text-base leading-tight" style={{ color: 'rgb(204, 34, 0)' }}>Asian</div>
-            <div className="font-extrabold text-base leading-tight -mt-1" style={{ color: 'rgb(27, 58, 107)' }}>College</div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'rgb(91, 155, 213)' }}>Alumni Tracer &amp; Donation System</div>
+          <div className="flex-shrink-0 leading-none">
+            <img src={asianCollegeLogo} alt="Asian College" className="h-14 w-auto object-contain" />
           </div>
         </div>
 
@@ -226,11 +230,11 @@ export default function AdminDashboard() {
 
         {/* -- SIDEBAR (nav links only) -- */}
         <aside className={`
-          fixed lg:static z-50 lg:z-auto top-14 lg:top-auto
+          fixed lg:static z-50 lg:z-auto top-16 lg:top-auto
           flex flex-col border-r shadow-lg lg:shadow-none
           ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
           transition-all duration-300 ease-in-out
-          h-[calc(100vh-3.5rem)] lg:h-full
+          h-[calc(100vh-4rem)] lg:h-full
           ${collapsed ? 'w-0 border-r-0 overflow-hidden' : 'w-[22%] min-w-[200px] max-w-[260px]'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
@@ -338,14 +342,14 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
         { count: pendingRegistrations },
         { count: surveyResponses },
         { data: deptRows },
-        { data: recentProfiles },
+        { data: recentSubmissions },
       ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'alumni'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'alumni').eq('registration_status', 'pending'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'alumni').eq('registration_status', 'approved'),
+        supabase.from('alumni_tracer_intake').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('tracer_survey_responses').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('department').eq('role', 'alumni'),
-        supabase.from('profiles').select('name, program, department, batch_year, registration_status, created_at')
-          .eq('role', 'alumni').order('created_at', { ascending: false }).limit(4),
+        supabase.from('profiles').select('department').eq('role', 'alumni').eq('registration_status', 'approved'),
+        supabase.from('alumni_tracer_intake').select('first_name, last_name, program_graduated, college_department, year_graduated, status, created_at')
+          .order('created_at', { ascending: false }).limit(4),
       ]);
 
       if (!active) return;
@@ -363,7 +367,7 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
         departments: Object.keys(deptCounts).length,
       });
       setDepartmentDist(Object.entries(deptCounts).map(([dept, count]) => ({ dept, count })));
-      setRecentRegistrations(recentProfiles || []);
+      setRecentRegistrations(recentSubmissions || []);
       setLoading(false);
     })();
     return () => { active = false; };
@@ -381,7 +385,7 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
     { label: 'Total Donations', value: `₱${totalDonationsVerified.toLocaleString()}`, sub: 'Verified only', icon: <DollarSign className="w-5 h-5" />, color: '#d97706', path: 'donations' },
     { label: 'Active Campaigns', value: String(activeCampaignsCount), sub: `${campaigns.length} total`, icon: <DollarSign className="w-5 h-5" />, color: '#7c3aed', path: 'donations' },
     { label: 'Upcoming Events', value: String(upcomingEventsCount), sub: `${events.length} total`, icon: <Calendar className="w-5 h-5" />, color: '#0891b2', path: 'events' },
-    { label: '', value: String(counts.pendingRegistrations), sub: 'Needs review', icon: <UserCheck className="w-5 h-5" />, color: '#dc2626', path: 'registrations' },
+    { label: 'Pending Registrations', value: String(counts.pendingRegistrations), sub: 'Needs review', icon: <UserCheck className="w-5 h-5" />, color: '#dc2626', path: 'registrations' },
     { label: 'Survey Responses', value: String(counts.surveyResponses), sub: 'Total submitted', icon: <FileText className="w-5 h-5" />, color: '#1B3A6B', path: 'surveys' },
     { label: 'Departments', value: String(counts.departments), sub: 'With alumni', icon: <Building2 className="w-5 h-5" />, color: '#374151', path: 'departments' },
   ];
@@ -416,15 +420,15 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
             <button onClick={() => onNavigate('registrations')} className="text-xs text-blue-600 hover:underline">View all</button>
           </div>
           <div className="space-y-3">
-            {recentRegistrations.length === 0 && <p className="text-sm text-gray-400">No registrations yet.</p>}
+            {recentRegistrations.length === 0 && <p className="text-sm text-gray-400">No submissions yet.</p>}
             {recentRegistrations.map((r, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{r.name}</p>
-                  <p className="text-xs text-gray-400">{r.program || '—'} · {r.department || '—'} · {new Date(r.created_at).toLocaleDateString()}</p>
+                  <p className="text-sm font-semibold text-gray-800">{[r.first_name, r.last_name].filter(Boolean).join(' ') || '(no name)'}</p>
+                  <p className="text-xs text-gray-400">{r.program_graduated || '—'} · {r.college_department || '—'} · {new Date(r.created_at).toLocaleDateString()}</p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${r.registration_status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                  {r.registration_status === 'pending' ? 'Pending' : 'Approved'}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${r.status === 'pending' ? 'bg-orange-100 text-orange-700' : r.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                  {r.status === 'pending' ? 'Pending' : r.status === 'rejected' ? 'Rejected' : r.status === 'matched' ? 'Auto-Matched' : 'Approved'}
                 </span>
               </div>
             ))}

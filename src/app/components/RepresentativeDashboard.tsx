@@ -87,7 +87,7 @@ export default function RepresentativeDashboard() {
 
 /* -- Batch Verification (Alumni Directory for Rep) -- */
 interface BatchAlumni {
-  id: string; name: string; email: string; studentId: string;
+  id: string; name: string; email: string;
   department: string; program: string; isBatchVerified: boolean;
   isAdminApproved: boolean; surveyCompleted: boolean; profileImage?: string;
 }
@@ -135,7 +135,7 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
   const load = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, name, email, student_id, department, program, batch_verified, registration_status, profile_image')
+      .select('id, name, email, department, program, batch_verified, registration_status, profile_image')
       .eq('role', 'alumni')
       .eq('department', department)
       .eq('program', program)
@@ -144,7 +144,7 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
     const { data: responses } = await supabase.from('tracer_survey_responses').select('respondent_id');
     const completed = new Set((responses || []).map((r: any) => r.respondent_id));
     setAlumni(data.map((a: any) => ({
-      id: a.id, name: a.name, email: a.email, studentId: a.student_id || '—',
+      id: a.id, name: a.name, email: a.email,
       department: a.department, program: a.program,
       isBatchVerified: a.batch_verified, isAdminApproved: a.registration_status === 'approved',
       surveyCompleted: completed.has(a.id), profileImage: a.profile_image || undefined,
@@ -170,7 +170,7 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
 
   const filtered = alumni.filter(a =>
     a.department === department && a.program === program &&
-    (a.name.toLowerCase().includes(search.toLowerCase()) || a.email.includes(search) || a.studentId.includes(search))
+    (a.name.toLowerCase().includes(search.toLowerCase()) || a.email.includes(search))
   );
 
   return (
@@ -200,7 +200,7 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, or student ID..."
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
           className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
       </div>
 
@@ -217,7 +217,7 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>{['Alumni','Student ID','Program','Batch Verified','Admin Approved','Actions'].map(h => (
+                <tr>{['Alumni','Program','Batch Verified','Admin Approved','Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -233,7 +233,6 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{a.studentId}</td>
                     <td className="px-4 py-3 text-gray-600">{a.program}</td>
                     <td className="px-4 py-3"><Chip label={a.isBatchVerified ? 'Verified' : 'Pending'} size="small" color={a.isBatchVerified ? 'info' : 'warning'} /></td>
                     <td className="px-4 py-3"><Chip label={a.isAdminApproved ? 'Approved' : 'Pending'} size="small" color={a.isAdminApproved ? 'success' : 'default'} /></td>
@@ -258,7 +257,6 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
                 <div>
                   <h3 className="text-lg font-bold">{selected.name}</h3>
                   <p className="text-gray-500 text-sm">{selected.email}</p>
-                  <p className="text-xs text-gray-400">Student ID: {selected.studentId}</p>
                 </div>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">

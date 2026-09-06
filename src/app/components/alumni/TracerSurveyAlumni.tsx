@@ -71,10 +71,9 @@ export default function TracerSurveyAlumni() {
           surveyLink: s.survey_link || null,
         }));
       setSurveys(eligible);
-      // Only auto-open the built-in form for a lone standard survey —
-      // auto-opening an external link isn't safe (popup blockers) and
-      // wouldn't be a real user gesture anyway.
-      if (eligible.length === 1 && eligible[0].surveyType === 'standard') setActive(eligible[0]);
+      // Always land on the survey list first, even when there's only one
+      // eligible survey — the alumnus picks a survey by clicking it,
+      // rather than being dropped straight into a form.
       setLoading(false);
     })();
   }, [user]);
@@ -113,30 +112,38 @@ export default function TracerSurveyAlumni() {
 
   if (!active) {
     return (
-      <div className="max-w-xl space-y-4">
+      // No fixed max-width here — this list should make use of however
+      // much room the dashboard's main column actually has, whether the
+      // sidebar is expanded or collapsed, instead of sitting in a narrow
+      // fixed column with a wall of empty space next to it. The grid
+      // itself is what actually adapts: more columns as more width
+      // becomes available, one column on narrow screens.
+      <div className="space-y-4">
         <h2 className="text-2xl font-bold text-gray-800">Tracer Surveys</h2>
         <p className="text-sm text-gray-500">Choose a survey to complete.</p>
-        {surveys.map(s => (
-          s.surveyType === 'external' ? (
-            <a key={s.id} href={s.surveyLink || '#'} target="_blank" rel="noopener noreferrer"
-              className="w-full flex items-center justify-between gap-3 text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
-              <div>
-                <p className="font-semibold text-gray-800 flex items-center gap-1.5">
-                  <LinkIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> {s.title}
-                </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {surveys.map(s => (
+            s.surveyType === 'external' ? (
+              <a key={s.id} href={s.surveyLink || '#'} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between gap-3 text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
+                <div>
+                  <p className="font-semibold text-gray-800 flex items-center gap-1.5">
+                    <LinkIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> {s.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{s.description}</p>
+                  <p className="text-xs text-blue-500 mt-1">Opens in a new tab</p>
+                </div>
+                <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />
+              </a>
+            ) : (
+              <button key={s.id} onClick={() => { setActive(s); setAnswers({}); setCurrentSection(0); }}
+                className="text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
+                <p className="font-semibold text-gray-800">{s.title}</p>
                 <p className="text-xs text-gray-500 mt-1">{s.description}</p>
-                <p className="text-xs text-blue-500 mt-1">Opens in a new tab</p>
-              </div>
-              <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />
-            </a>
-          ) : (
-            <button key={s.id} onClick={() => { setActive(s); setAnswers({}); setCurrentSection(0); }}
-              className="w-full text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
-              <p className="font-semibold text-gray-800">{s.title}</p>
-              <p className="text-xs text-gray-500 mt-1">{s.description}</p>
-            </button>
-          )
-        ))}
+              </button>
+            )
+          ))}
+        </div>
       </div>
     );
   }
@@ -165,8 +172,21 @@ export default function TracerSurveyAlumni() {
   };
 
   return (
-    <div className="max-w-2xl space-y-5">
+    // Wider than before (was max-w-2xl) so an opened survey uses the room
+    // the dashboard's main column actually has instead of sitting in a
+    // narrow strip — same reasoning as the survey list above. Still
+    // capped (not full-width) so long option rows stay readable rather
+    // than stretching thin across a huge screen. Every row below wraps
+    // instead of squeezing/overlapping once the screen gets narrow.
+    <div className="max-w-4xl space-y-5">
       <div>
+        {/* Lets the alumnus back out to the survey list — e.g. a wrong
+            click, or they want to check another survey first — without
+            losing their place among however many are eligible. */}
+        <button onClick={() => { setActive(null); setAnswers({}); setCurrentSection(0); }}
+          className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700 mb-2">
+          <ChevronLeft className="w-3.5 h-3.5" /> All Surveys
+        </button>
         <h2 className="text-2xl font-bold text-gray-800">{active.title}</h2>
         <p className="text-sm text-gray-500">{active.description}</p>
       </div>
@@ -180,10 +200,14 @@ export default function TracerSurveyAlumni() {
         <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
           <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#1B3A6B,#2B5BA8)' }} />
         </div>
-        <div className="flex items-center gap-2">
+        {/* flex-wrap so many/long section names stack onto extra lines on
+            a narrow screen instead of squeezing into unreadable slivers;
+            min-w keeps a wrapped button from shrinking to nothing, and
+            truncate+title keeps one long name from blowing out its row. */}
+        <div className="flex flex-wrap items-center gap-2">
           {sections.map((s, i) => (
-            <button key={s} onClick={() => setCurrentSection(i)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${currentSection === i ? 'text-white' : i < currentSection ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+            <button key={s} onClick={() => setCurrentSection(i)} title={s}
+              className={`flex-1 min-w-[100px] py-1.5 px-2 rounded-lg text-xs font-semibold truncate transition-colors ${currentSection === i ? 'text-white' : i < currentSection ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
               style={currentSection === i ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
               {i < currentSection ? '✓ ' : ''}{s}
             </button>
@@ -238,9 +262,9 @@ export default function TracerSurveyAlumni() {
               </select>
             )}
             {q.type === 'linear_scale' && (
-              <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                 {q.scaleLowLabel && <span className="text-xs text-gray-400 flex-shrink-0">{q.scaleLowLabel}</span>}
-                <div className="flex items-center gap-2 flex-1 justify-center">
+                <div className="flex flex-wrap items-center gap-2 flex-1 justify-center">
                   {LINEAR_SCALE_VALUES.map(n => {
                     const selected = answer === String(n);
                     return (
@@ -274,8 +298,9 @@ export default function TracerSurveyAlumni() {
         </p>
       )}
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
+      {/* Navigation — wraps (Previous on its own line above Next/Submit)
+          rather than the two buttons ever overlapping on a narrow screen. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button onClick={() => setCurrentSection(s => Math.max(0, s - 1))} disabled={currentSection === 0}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
           <ChevronLeft className="w-4 h-4" /> Previous

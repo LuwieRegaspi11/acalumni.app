@@ -26,6 +26,14 @@ import { LogOut, Menu, X, Bell, Sun, Moon, User } from 'lucide-react';
 // -- Shared components ---------------------------------------------------
 import NotificationPanel from './NotificationPanel';
 
+// -- Local image assets --------------------------------------------------
+// Transparent-background version of the Asian College logo. The wordmark's
+// navy half has ~1.5:1 contrast against the dark header background (well
+// under the 3:1 minimum), so on dark mode it renders on a small white chip
+// instead — see the header markup below — rather than needing a second,
+// specially-recolored image variant.
+import asianCollegeLogo from '@/imports/asiancollege-logo-transparent.png';
+
 export interface NavItem {
   label: string;
   icon: React.ReactNode;
@@ -109,7 +117,7 @@ export default function DashboardLayout({
       `}</style>
 
       {/* -- TOP HEADER -- */}
-      <header className={`flex-shrink-0 h-14 flex items-center justify-between px-4 border-b z-40 ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <header className={`flex-shrink-0 h-16 flex items-center justify-between px-4 border-b z-40 ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
 
         {/* Left: hamburger/sidebar toggle + logo */}
         <div className="flex items-center gap-2">
@@ -119,10 +127,8 @@ export default function DashboardLayout({
           <button onClick={() => setCollapsed(c => !c)} className={`hidden lg:flex p-2 rounded-lg transition-colors ${dark ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
             <Menu className="w-4 h-4" />
           </button>
-          <div className="flex-shrink-0">
-            <div className="font-extrabold text-base leading-tight" style={{ color: 'rgb(204, 34, 0)' }}>Asian</div>
-            <div className="font-extrabold text-base leading-tight -mt-1" style={{ color: 'rgb(27, 58, 107)' }}>College</div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'rgb(91, 155, 213)' }}>Alumni Tracer &amp; Donation System</div>
+          <div className={`flex-shrink-0 leading-none ${dark ? 'bg-[#ffffff] rounded-lg px-2 py-1' : ''}`}>
+            <img src={asianCollegeLogo} alt="Asian College" className={dark ? 'h-10 w-auto object-contain' : 'h-14 w-auto object-contain'} />
           </div>
         </div>
 
@@ -205,11 +211,11 @@ export default function DashboardLayout({
 
         {/* -- SIDEBAR (nav links only) -- */}
         <aside className={`
-          fixed lg:static z-50 lg:z-auto top-14 lg:top-auto
+          fixed lg:static z-50 lg:z-auto top-16 lg:top-auto
           flex flex-col border-r shadow-lg lg:shadow-none
           ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
           transition-all duration-300 ease-in-out
-          h-[calc(100vh-3.5rem)] lg:h-full
+          h-[calc(100vh-4rem)] lg:h-full
           ${collapsed ? 'w-0 border-r-0 overflow-hidden' : 'w-[22%] min-w-[200px] max-w-[260px]'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>

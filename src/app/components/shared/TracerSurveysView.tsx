@@ -188,7 +188,7 @@ export default function TracerSurveysView({ department }: Props) {
     const { data } = await supabase.from('tracer_surveys').select('*').order('created_at', { ascending: false });
     if (!data) return;
 
-    let alumniQuery = supabase.from('profiles').select('department').eq('role', 'alumni');
+    let alumniQuery = supabase.from('profiles').select('department').eq('role', 'alumni').eq('registration_status', 'approved');
     if (department) alumniQuery = alumniQuery.eq('department', department);
     const { data: alumniRows } = await alumniQuery;
     const deptCounts: Record<string, number> = {};

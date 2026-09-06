@@ -5,6 +5,7 @@ import { useDarkMode } from './DarkModeContext';
 import { useDonations } from './DonationContext';
 import { supabase } from '../../../lib/supabaseClient';
 import PhoneNumberField from './PhoneNumberField';
+import JobInfoCard from './JobInfoCard';
 import { Sun, Moon, Camera, Mail, Phone, MapPin, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Briefcase, Heart, DollarSign } from 'lucide-react';
 
 const DONATION_STATUS_LABELS: Record<string, string> = { Pending: 'Pending', Verified: 'Confirmed', Rejected: 'Rejected' };
@@ -20,7 +21,7 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'donations'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'job' | 'donations'>('profile');
   const [form, setForm] = useState({
     phone: user?.phone || '',
     address: user?.address || '',
@@ -85,6 +86,19 @@ export default function ProfilePage() {
     ? `${user.currentPosition}${user.currentCompany ? ` at ${user.currentCompany}` : ''}`
     : '—';
 
+  // A rep is an alumnus first (see TRACER_GATED_ROLES in App.tsx) and is
+  // gated through the same mandatory Graduate Tracer Survey, and gives
+  // personally too (see RepDonationMonitor's "My Donations" section) —
+  // so alumni and reps get an identical set of profile tabs.
+  const showJobTab = user?.role === 'alumni' || user?.role === 'representative';
+  const showDonationsTab = user?.role === 'alumni' || user?.role === 'representative';
+  const profileTabs = [
+    { key: 'profile' as const, label: 'Profile Info' },
+    ...(showJobTab ? [{ key: 'job' as const, label: 'Job Information' }] : []),
+    ...(showDonationsTab ? [{ key: 'donations' as const, label: 'My Donations' }] : []),
+  ];
+  const hasProfileTabs = profileTabs.length > 1;
+
   return (
     <div className="space-y-5 w-full">
       {/* Header */}
@@ -144,13 +158,12 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Tab switcher — only alumni have a donation history to show */}
-      {user?.role === 'alumni' && (
+      {/* Tab switcher — Job Information applies to alumni and reps alike
+          (a rep is an alumnus first, and goes through the same mandatory
+          Graduate Tracer Survey); My Donations is alumni-only. */}
+      {hasProfileTabs && (
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-          {([
-            { key: 'profile', label: 'Profile Info' },
-            { key: 'donations', label: 'My Donations' },
-          ] as const).map(t => (
+          {profileTabs.map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === t.key ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
               {t.label}
@@ -159,14 +172,17 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {user?.role === 'alumni' && activeTab === 'donations' && (() => {
+      {showJobTab && activeTab === 'job' && <JobInfoCard />}
+
+      {showDonationsTab && activeTab === 'donations' && (() => {
         const myDonations = donations.filter(d => d.alumniEmail === user?.email);
         const confirmedTotal = myDonations.filter(d => d.status === 'Verified').reduce((s, d) => s + d.amount, 0);
+        const donationsBasePath = user?.role === 'representative' ? '/representative/donations' : '/alumni/donations';
         return (
           <div className={card}>
             <div className="flex items-center justify-between mb-4">
               <h3 className={dark ? 'text-white font-bold text-base' : 'text-gray-800 font-bold text-base'}>My Donations</h3>
-              <button onClick={() => navigate('/alumni/donations')}
+              <button onClick={() => navigate(donationsBasePath)}
                 className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white"
                 style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
                 <Heart className="w-3.5 h-3.5" /> Go to Donation Portal
@@ -206,7 +222,7 @@ export default function ProfilePage() {
         );
       })()}
 
-      {(user?.role !== 'alumni' || activeTab === 'profile') && (
+      {(!hasProfileTabs || activeTab === 'profile') && (
         <>
       {/* Settings card — dark/light mode */}
       <div className={card}>
@@ -308,6 +324,17 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Batch Year</span></div>
             <p className={value}>{user?.batchYear?.toString() || '—'}</p>
           </div>
+
+          {/* Set once from the Alumni Tracer Survey (or an admin's manual
+              approval) — see graduate_tracer_job_info_edit.sql's edit lock,
+              which treats these as permanent identity fields. Not editable
+              here, same split as GraduateTracerForm.tsx vs JobInfoCard.tsx. */}
+          {(user?.role === 'alumni' || user?.role === 'representative') && (
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Birthdate</span></div>
+              <p className={value}>{user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : '—'}</p>
+            </div>
+          )}
 
           <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-2 mb-1"><Building className="w-4 h-4 text-gray-400" /><span className={label}>Employment</span></div>

@@ -60,9 +60,10 @@ pnpm dev
 
 ## 5. Try it
 
-- Go to `/register` and create a real account. It's saved in your
-  Supabase project (check **Table Editor -> profiles** to see it).
-- Go to `/login` and sign in with that account.
+There's no self-service sign-up form — go to `/tracer-survey` and
+submit the Alumni Tracer Survey instead (see "Creating new accounts"
+below for what happens next), then `/login` with whatever credentials
+you end up with.
 
 ## Expense receipts (Fund Transparency)
 
@@ -87,11 +88,30 @@ shows entries marked Active, in the order set there.
 
 ## Creating new accounts
 
-Register through `/register` — new alumni accounts start
-`registration_status = 'pending'` and land on a restricted view until
-an admin approves them in **Pending Registrations**. Non-alumni roles
-(faculty, representative) aren't self-serve; promote an existing
-account by updating its `role` column directly:
+There is no self-service Sign Up form. Every alumni account is created
+by submitting the public **Alumni Tracer Survey** at `/tracer-survey`
+(see `supabase/alumni_tracer_intake.sql` and the `tracer-intake` Edge
+Function for the full flow) — **every submission gets a real login
+immediately**, generated email + password shown once right there in
+the browser, regardless of whether it can be verified:
+
+- If the submitted First Name + Last Name + Department + Program match
+  a row in the **Alumni Roster** (its own tab on **Admin -> Alumni
+  Tracer**, imported from the registrar as a CSV), the account is
+  `registration_status = 'approved'` — signing in goes straight to the
+  dashboard.
+- If nothing matches, the account is created the same way but starts
+  `registration_status = 'pending'` — signing in shows a pending-
+  approval status page instead of the dashboard until an admin reviews
+  the full survey in **Admin -> Pending Registrations** and Approves or
+  Rejects it. Approving just lifts that gate (there's no password left
+  to relay — the alumnus already has their own from when they
+  submitted); Rejecting blocks sign-in entirely.
+
+Either way, the new account is forced to set its own password on first
+login (`profiles.must_change_password`). Non-alumni roles (faculty,
+representative) aren't self-serve; promote an existing account by
+updating its `role` column directly:
 
 ```sql
 update public.profiles set role = 'faculty' where email = 'someone@asiancollege.edu.ph';
@@ -101,6 +121,37 @@ Batch representatives are a special case — assign them from
 **Admin -> Batch Representatives** in the app itself (it validates the
 alumni's own batch year/department/program match the assignment and
 enforces one rep per combination), rather than by hand in SQL.
+
+## Bulk-importing alumni
+
+Two different CSV imports exist, for two different purposes:
+
+- **Admin -> Alumni Tracer -> Alumni Roster tab -> Import CSV** —
+  populates the *match source* the Alumni Tracer Survey is checked
+  against (`first_name, last_name, department, program, batch_year`;
+  use "Download Template" on that tab if unsure). Importing here does
+  **not** create any accounts by itself; it just means a matching
+  survey submission will auto-provision one.
+- `scripts/import-alumni.mjs` — a separate, local power-tool that
+  creates one real account per valid row directly (bypassing the
+  survey entirely) and auto-approves it. A row is only imported if it
+  has all required fields, its department/program match
+  `src/lib/academicPrograms.ts`, and its email isn't already in use;
+  anything else is skipped and listed with the reason so it can be
+  fixed and re-run. See the comment block at the top of the script for
+  full details, and `scripts/alumni-import-template.csv` for the
+  expected columns.
+
+```
+SUPABASE_URL=https://amzteigyblhrbycussys.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service_role secret, Dashboard > Settings > API> \
+node scripts/import-alumni.mjs path/to/alumni.csv
+```
+
+Each imported alumnus gets an invite email to set their own password.
+If you're importing more than a handful at once, configure Custom SMTP
+under **Authentication -> Emails** first — Supabase's built-in mail
+sender has a low rate limit on projects without it.
 
 ## Everything is connected
 

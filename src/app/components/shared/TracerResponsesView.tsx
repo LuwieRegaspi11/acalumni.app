@@ -9,17 +9,12 @@ import {
 import { getBatchYearOptions } from '../../../lib/batchYears';
 import {
   EMPLOYMENT_STATUS_OPTIONS, WORK_LOCATION_OPTIONS, COMPETENCIES, COMPETENCY_LEVELS,
-  ALL_SECTIONS, TRACER_QUESTIONS, JOB_RELATED_OPTIONS, TIME_TO_FIRST_JOB_OPTIONS,
+  ALL_SECTIONS, TRACER_QUESTIONS,
 } from '../../../lib/graduateTracerSurveyOptions';
-import { useDarkMode } from './DarkModeContext';
 import {
   ClipboardList, Search, Filter, Eye, X, Users, TrendingUp, Star, ListChecks,
-  BarChart3, Download, ChevronDown,
+  Download, ChevronDown,
 } from 'lucide-react';
-import {
-  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
 import {
   Card, CardContent, TextField, Button, ToggleButton, ToggleButtonGroup,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -27,20 +22,29 @@ import {
   LinearProgress, Chip,
 } from '@mui/material';
 
-// ================= [SHARED: TRACERRESPONSESVIEW — read-only analytics] =================
+// ================= [SHARED: TRACERRESPONSESVIEW — read-only] =================
 // Reads the graduate_tracer_responses table (see
-// supabase/graduate_tracer_survey.sql) — filters, views, and aggregate
-// breakdowns, no CRUD. Shared verbatim between admin/TracerResponses.tsx
-// and faculty/FacultyTracerResponses.tsx — one implementation so a
-// feature added here reaches both roles instead of two copies silently
-// drifting apart. Same split as shared/DonationManagementView.tsx.
+// supabase/graduate_tracer_survey.sql) — filters plus two views (the raw
+// response list, and a per-question breakdown), no CRUD. Shared verbatim
+// between admin/TracerResponses.tsx and faculty/FacultyTracerResponses.tsx
+// — one implementation so a feature added here reaches both roles instead
+// of two copies silently drifting apart. Same split as
+// shared/DonationManagementView.tsx.
+//
+// The aggregate "Analytics Report" (employment-outcome charts + Graduate
+// Profile breakdowns) that used to live here as a third view has moved to
+// shared/AlumniManagementView.tsx ("Alumni Tracer" in the nav) — it now
+// runs off that screen's already-loaded, unrestricted-to-submitted-only
+// alumni roster instead of a separate fetch, so its response-rate framing
+// covers every alumnus Alumni Tracer manages, not just the ones who've
+// submitted. See that file for the moved code.
 //
 // `department` is the ONLY behavioral difference between the two:
 //   - omitted (admin): sees every submitted response, unrestricted.
-//   - set (faculty): every list, stat, filter, and chart below is scoped
-//     to just that department's alumni, and the Department filter is
-//     hidden (nothing to switch between). This is a UI convenience
-//     only — the real boundary is enforced at the database via RLS (see
+//   - set (faculty): every list, stat, and filter below is scoped to just
+//     that department's alumni, and the Department filter is hidden
+//     (nothing to switch between). This is a UI convenience only — the
+//     real boundary is enforced at the database via RLS (see
 //     supabase/faculty_alumni_tracer_scope.sql's "Faculty can view
 //     tracer responses in their department" policy), so a faculty
 //     account can't reach another department's responses even by
@@ -105,10 +109,14 @@ const DETAIL_FIELDS: Record<string, { key: string; label: string }[]> = {
   ],
   employment_info: [
     { key: 'company_organization', label: 'Company / Organization' },
+    { key: 'company_change_reason', label: 'Reason for Changing Employer' }, { key: 'company_change_reason_other', label: 'Reason for Changing Employer (Other)' },
     { key: 'job_classification', label: 'Job Classification' }, { key: 'job_classification_other', label: 'Job Classification (Other)' },
     { key: 'industry_sector', label: 'Industry / Sector' }, { key: 'industry_sector_other', label: 'Industry / Sector (Other)' },
     { key: 'job_related_to_degree', label: 'Job Related to Degree' },
-    { key: 'time_to_first_job', label: 'Time to First Job' }, { key: 'monthly_salary_range', label: 'Monthly Salary Range' },
+    { key: 'time_to_first_job', label: 'Time to First Job' },
+    { key: 'number_of_employers', label: 'Number of Companies Worked For Since Graduation' },
+    { key: 'reasons_for_leaving_job', label: 'Reasons for Leaving Previous Job' }, { key: 'reasons_for_leaving_job_other', label: 'Reasons for Leaving (Other)' },
+    { key: 'monthly_salary_range', label: 'Monthly Salary Range' },
     { key: 'first_job_source', label: 'How First Job Was Obtained' }, { key: 'first_job_source_other', label: 'How First Job Was Obtained (Other)' },
     { key: 'current_work_location', label: 'Current Work Location' },
     { key: 'job_satisfaction_rating', label: 'Job Satisfaction (1–5)' },
@@ -157,24 +165,6 @@ function aggregateRating(rows: ResponseRow[], key: string) {
   return { avg, dist, count: vals.length };
 }
 
-// ---- Analytics Report ----
-// Collapses the granular employment_status picklist into the four outcome
-// buckets an actual tracer study reports on, so "employment rate" means
-// something consistent across every chart/table below.
-type EmploymentBucket = 'Employed' | 'Further Studies' | 'Unemployed' | 'Not Seeking' | 'No Response';
-const EMPLOYMENT_BUCKETS: EmploymentBucket[] = ['Employed', 'Further Studies', 'Unemployed', 'Not Seeking', 'No Response'];
-const EMPLOYMENT_BUCKET_COLORS: Record<EmploymentBucket, string> = {
-  Employed: '#10b981', 'Further Studies': '#3b82f6', Unemployed: '#ef4444', 'Not Seeking': '#f59e0b', 'No Response': '#9ca3af',
-};
-
-function classifyEmployment(status: string | null | undefined): EmploymentBucket {
-  if (!status) return 'No Response';
-  if (status === 'Currently Pursuing Further/Graduate Studies') return 'Further Studies';
-  if (status === 'Unemployed') return 'Unemployed';
-  if (status === 'Not Seeking Employment') return 'Not Seeking';
-  return 'Employed';
-}
-
 // Bulk export of the (filtered, scoped) tracer responses — tabular
 // formats only, same rationale as AlumniManagementView's export.
 const EXPORT_FORMATS = [
@@ -196,13 +186,12 @@ interface Props {
 }
 
 export default function TracerResponsesView({ department }: Props) {
-  const { dark } = useDarkMode();
   const [rows, setRows] = useState<ResponseRow[]>([]);
   const [draftCount, setDraftCount] = useState(0);
   const [approvedAlumniCount, setApprovedAlumniCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [view, setView] = useState<'all' | 'breakdown' | 'analytics'>('all');
+  const [view, setView] = useState<'all' | 'breakdown'>('all');
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('All');
   const [filterProgram, setFilterProgram] = useState('All');
@@ -282,73 +271,6 @@ export default function TracerResponsesView({ department }: Props) {
   const satisfactionVals = rows.map(r => r.raw.job_satisfaction_rating).filter((v: any) => typeof v === 'number');
   const avgSatisfaction = satisfactionVals.length ? satisfactionVals.reduce((s: number, v: number) => s + v, 0) / satisfactionVals.length : 0;
 
-  // ---- Analytics Report data — all derived from `filtered`, so it always
-  // reflects whatever's currently filtered to (and, for faculty, already
-  // scoped to their own department). ----
-  const employmentOverview = useMemo(() => {
-    const counts: Record<EmploymentBucket, number> = { Employed: 0, 'Further Studies': 0, Unemployed: 0, 'Not Seeking': 0, 'No Response': 0 };
-    filtered.forEach(r => { counts[classifyEmployment(r.raw.employment_status)]++; });
-    const total = filtered.length;
-    return EMPLOYMENT_BUCKETS
-      .map(bucket => ({ name: bucket, value: counts[bucket], pct: total ? (counts[bucket] / total) * 100 : 0, color: EMPLOYMENT_BUCKET_COLORS[bucket] }))
-      .filter(b => b.value > 0);
-  }, [filtered]);
-
-  const employmentByDept = useMemo(() => (department ? [department] : ACADEMIC_DEPARTMENTS).map(dept => {
-    const deptRows = filtered.filter(r => r.department === dept);
-    const total = deptRows.length;
-    const counts: Record<EmploymentBucket, number> = { Employed: 0, 'Further Studies': 0, Unemployed: 0, 'Not Seeking': 0, 'No Response': 0 };
-    deptRows.forEach(r => { counts[classifyEmployment(r.raw.employment_status)]++; });
-    const pct = (bucket: EmploymentBucket) => total ? Math.round((counts[bucket] / total) * 1000) / 10 : 0;
-    return {
-      department: dept, total,
-      Employed: pct('Employed'), 'Further Studies': pct('Further Studies'),
-      Unemployed: pct('Unemployed'), 'Not Seeking': pct('Not Seeking'), 'No Response': pct('No Response'),
-    };
-  }).filter(d => d.total > 0), [filtered, department]);
-
-  const employmentByProgram = useMemo(() => {
-    const programs = Array.from(new Set(filtered.map(r => normalizeProgramCode(r.program)).filter(Boolean)));
-    return programs.map(program => {
-      const programRows = filtered.filter(r => normalizeProgramCode(r.program) === program);
-      const total = programRows.length;
-      const employed = programRows.filter(r => classifyEmployment(r.raw.employment_status) === 'Employed').length;
-      return { program, department: PROGRAM_TO_DEPARTMENT[program] || '—', total, employedPct: total ? (employed / total) * 100 : 0 };
-    }).sort((a, b) => a.department.localeCompare(b.department) || a.program.localeCompare(b.program));
-  }, [filtered]);
-
-  const trendByBatchYear = useMemo(() => {
-    const years = Array.from(new Set(filtered.map(r => r.batchYear).filter((y): y is number => !!y))).sort((a, b) => a - b);
-    return years.map(year => {
-      const yearRows = filtered.filter(r => r.batchYear === year);
-      const employed = yearRows.filter(r => classifyEmployment(r.raw.employment_status) === 'Employed').length;
-      const satVals = yearRows.map(r => r.raw.job_satisfaction_rating).filter((v: any) => typeof v === 'number');
-      const avgSat = satVals.length ? satVals.reduce((s: number, v: number) => s + v, 0) / satVals.length : null;
-      return {
-        year: String(year), respondents: yearRows.length,
-        employmentRate: yearRows.length ? (employed / yearRows.length) * 100 : 0,
-        avgSatisfaction: avgSat,
-      };
-    });
-  }, [filtered]);
-
-  const jobRelevance = useMemo(() => {
-    const counts = aggregateBucket(filtered, 'job_related_to_degree', false);
-    const total = filtered.length;
-    return JOB_RELATED_OPTIONS.map(opt => ({ name: opt, value: counts[opt] || 0, pct: total ? ((counts[opt] || 0) / total) * 100 : 0 }));
-  }, [filtered]);
-
-  const timeToFirstJob = useMemo(() => {
-    const counts = aggregateBucket(filtered, 'time_to_first_job', false);
-    const total = filtered.length;
-    return TIME_TO_FIRST_JOB_OPTIONS.map(opt => ({ name: opt, value: counts[opt] || 0, pct: total ? ((counts[opt] || 0) / total) * 100 : 0 }));
-  }, [filtered]);
-
-  const chartAxisColor = dark ? '#b8d4f0' : '#4b5563';
-  const chartLineColor = dark ? '#334155' : '#d1d5db';
-  const chartGridColor = dark ? '#334155' : '#e5e7eb';
-  const chartTooltipStyle = { background: dark ? '#1a2332' : '#ffffff', border: `1px solid ${dark ? '#334155' : '#e5e7eb'}`, borderRadius: 8, color: dark ? '#e8f2ff' : '#111827' };
-
   // Exports the currently filtered responses — not the full dataset — so
   // what downloads always matches what's on screen (matches AlumniManagementView's export UX).
   const exportResponses = (format: ExportFormat) => {
@@ -425,8 +347,8 @@ export default function TracerResponsesView({ department }: Props) {
           <h2 className="text-2xl mb-1">Tracer Responses</h2>
           <p className="text-gray-600">
             {department
-              ? <>Submitted Graduate Tracer Survey responses and analytics for <strong>{department}</strong></>
-              : 'Submitted Graduate Tracer Survey responses and aggregate analytics'}
+              ? <>Submitted Graduate Tracer Survey responses for <strong>{department}</strong></>
+              : 'Submitted Graduate Tracer Survey responses, question by question'}
           </p>
         </div>
         <div className="relative" ref={exportMenuRef}>
@@ -452,7 +374,7 @@ export default function TracerResponsesView({ department }: Props) {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
           <span className="text-amber-600">🔒</span>
           <p className="text-xs text-amber-700 font-medium">
-            You can only view tracer responses and analytics for <strong>{department}</strong>. Other departments are out of reach — enforced by database policy, not just this screen.
+            You can only view tracer responses for <strong>{department}</strong>. Other departments are out of reach — enforced by database policy, not just this screen.
           </p>
         </div>
       )}
@@ -503,7 +425,6 @@ export default function TracerResponsesView({ department }: Props) {
       <ToggleButtonGroup exclusive size="small" value={view} onChange={(_e, v) => { if (v) setView(v); }}>
         <ToggleButton value="all"><Eye className="w-4 h-4 mr-1.5" /> All Responses</ToggleButton>
         <ToggleButton value="breakdown"><ListChecks className="w-4 h-4 mr-1.5" /> Per-Question Breakdown</ToggleButton>
-        <ToggleButton value="analytics"><BarChart3 className="w-4 h-4 mr-1.5" /> Analytics Report</ToggleButton>
       </ToggleButtonGroup>
 
       {/* Shared filters */}
@@ -730,154 +651,6 @@ export default function TracerResponsesView({ department }: Props) {
                             </TableRow>
                           );
                         })}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </div>
-      )}
-
-      {view === 'analytics' && (
-        <div className="space-y-4">
-          {filtered.length === 0 ? (
-            <Card><CardContent className="text-center py-8"><p className="text-gray-500">No submitted responses match these filters.</p></CardContent></Card>
-          ) : (
-            <>
-              {/* Quick outcome KPIs */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                {employmentOverview.map(b => (
-                  <Card key={b.name}>
-                    <CardContent>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-gray-600">{b.name}</span>
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} />
-                      </div>
-                      <p className="text-2xl">{b.pct.toFixed(1)}%</p>
-                      <p className="text-xs text-gray-400">{b.value} of {filtered.length}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
-                  <CardContent>
-                    <h3 className="font-bold text-gray-800 mb-3">Employment Outcomes</h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={employmentOverview} cx="50%" cy="50%" labelLine={false} outerRadius={95} dataKey="value"
-                          label={(entry: any) => `${entry.name}: ${entry.pct.toFixed(0)}%`}
-                        >
-                          {employmentOverview.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={chartTooltipStyle}
-                          formatter={(value: any, name: any, props: any) => [`${value} (${props.payload.pct.toFixed(1)}%)`, name]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent>
-                    <h3 className="font-bold text-gray-800 mb-3">{department ? 'Employment Outcomes' : 'Employment Rate by Department'}</h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={employmentByDept}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis dataKey="department" tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <YAxis unit="%" tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <Tooltip contentStyle={chartTooltipStyle} formatter={(v: any) => `${v}%`} />
-                        <Legend wrapperStyle={{ color: chartAxisColor }} />
-                        {EMPLOYMENT_BUCKETS.map(bucket => (
-                          <Bar key={bucket} dataKey={bucket} stackId="outcome" fill={EMPLOYMENT_BUCKET_COLORS[bucket]} />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardContent>
-                  <h3 className="font-bold text-gray-800 mb-3">Employment Rate & Job Satisfaction Trend by Batch Year</h3>
-                  {trendByBatchYear.length === 0 ? (
-                    <p className="text-sm text-gray-400">No batch year data to trend.</p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={trendByBatchYear}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis dataKey="year" tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <YAxis yAxisId="left" unit="%" domain={[0, 100]} tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <YAxis yAxisId="right" orientation="right" domain={[0, 5]} tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <Tooltip contentStyle={chartTooltipStyle} />
-                        <Legend wrapperStyle={{ color: chartAxisColor }} />
-                        <Line yAxisId="left" type="monotone" dataKey="employmentRate" name="Employment Rate (%)" stroke="#10b981" strokeWidth={2} />
-                        <Line yAxisId="right" type="monotone" dataKey="avgSatisfaction" name="Avg Job Satisfaction (/5)" stroke="#f59e0b" strokeWidth={2} connectNulls />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
-                  <CardContent>
-                    <h3 className="font-bold text-gray-800 mb-3">Job–Degree Relevance</h3>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={jobRelevance}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis dataKey="name" tick={{ fill: chartAxisColor, fontSize: 11 }} axisLine={{ stroke: chartLineColor }} />
-                        <YAxis tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <Tooltip contentStyle={chartTooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} (${p.payload.pct.toFixed(0)}%)`, 'Respondents']} />
-                        <Bar dataKey="value" fill="#8b5cf6" name="Respondents" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent>
-                    <h3 className="font-bold text-gray-800 mb-3">Time to First Job</h3>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={timeToFirstJob} layout="vertical" margin={{ left: 24 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
-                        <XAxis type="number" tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} />
-                        <YAxis type="category" dataKey="name" width={110} tick={{ fill: chartAxisColor, fontSize: 11 }} axisLine={{ stroke: chartLineColor }} />
-                        <Tooltip contentStyle={chartTooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} (${p.payload.pct.toFixed(0)}%)`, 'Respondents']} />
-                        <Bar dataKey="value" fill="#3b82f6" name="Respondents" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardContent>
-                  <h3 className="font-bold text-gray-800 mb-3">Employment Rate by Program</h3>
-                  <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360, overflow: 'auto' }}>
-                    <Table stickyHeader size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Program</TableCell>
-                          <TableCell>Department</TableCell>
-                          <TableCell align="right">Respondents</TableCell>
-                          <TableCell align="right">Employment Rate</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {employmentByProgram.map(p => (
-                          <TableRow key={p.program}>
-                            <TableCell>{p.program}</TableCell>
-                            <TableCell><Chip size="small" label={p.department} /></TableCell>
-                            <TableCell align="right">{p.total}</TableCell>
-                            <TableCell align="right">{p.employedPct.toFixed(1)}%</TableCell>
-                          </TableRow>
-                        ))}
                       </TableBody>
                     </Table>
                   </TableContainer>

@@ -22,7 +22,8 @@ export default function Reports() {
       const { data: alumni } = await supabase
         .from('profiles')
         .select('department, batch_year')
-        .eq('role', 'alumni');
+        .eq('role', 'alumni')
+        .eq('registration_status', 'approved');
 
       const yearMap: Record<string, number> = {};
       (alumni || []).forEach((a: any) => {

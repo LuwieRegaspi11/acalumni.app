@@ -1,10 +1,9 @@
 // =====================================================================
 // TERMS & PRIVACY CONTENT — single source of truth for the Terms of
-// Service and Privacy Policy body. Rendered both by the standalone
-// /terms page (TermsPage.tsx) and by the sign-up "read before you
-// check the box" modal (shared/TermsModal.tsx). Edit the copy here —
-// it stays in sync everywhere automatically. Mirrors
-// docs/TERMS_AND_PRIVACY.md; keep the two in sync when either is edited.
+// Service and Privacy Policy body, rendered by the standalone /terms
+// page (TermsPage.tsx). Edit the copy here — it stays in sync
+// everywhere automatically. Mirrors docs/TERMS_AND_PRIVACY.md; keep the
+// two in sync when either is edited.
 // =====================================================================
 import React from 'react';
 

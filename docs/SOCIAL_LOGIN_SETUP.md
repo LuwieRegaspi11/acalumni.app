@@ -1,9 +1,21 @@
-# Social Login Setup (Google / Facebook / LinkedIn)
+# Social Login Setup (Google / Facebook / LinkedIn) — RETIRED
 
-The app code for social sign-in is already fully wired — see `AuthPage.tsx`
-(`SocialIcons`), `AuthCallback.tsx`, and `CompleteProfilePage.tsx`. The buttons
-on `/login` and `/register` call real `supabase.auth.signInWithOAuth()`; there
-is nothing left to build in the frontend.
+**This feature has been removed from the app.** Self-service
+registration (including OAuth sign-in, which created an account just
+as directly as the old email/password Sign Up form) was replaced by
+the Alumni Tracer Survey intake flow — see `alumni/PublicTracerSurveyPage.tsx`
+and `supabase/alumni_tracer_intake.sql`. `AuthPage.tsx`'s `SocialIcons`,
+`AuthCallback.tsx`, and `CompleteProfilePage.tsx` no longer exist. This
+doc is kept only as a reference in case social sign-*in* (for an
+account that already exists, not account creation) is deliberately
+reintroduced later — none of the steps below have been undone on the
+provider side, only the app code that called them.
+
+---
+
+The app code for social sign-in used to be fully wired — see the note
+above for what changed. The buttons on `/login` and `/register` called
+real `supabase.auth.signInWithOAuth()`.
 
 **All that's left is enabling each provider in the Supabase Dashboard**, which
 requires registering an OAuth app with Google/Meta/LinkedIn (their consoles,

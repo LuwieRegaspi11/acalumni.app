@@ -1,9 +1,8 @@
 // =====================================================================
 // TERMS PAGE — the full "Terms of Service & Privacy Policy" document
 // as a standalone route. The actual copy lives in
-// src/app/content/TermsAndPrivacyContent.tsx (shared with the sign-up
-// "read before you check the box" modal, see shared/TermsModal.tsx) —
-// this file is just the page chrome around it.
+// src/app/content/TermsAndPrivacyContent.tsx — this file is just the
+// page chrome around it.
 // =====================================================================
 import { useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
@@ -19,7 +18,7 @@ export default function TermsPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
           <button
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/register'))}
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
             className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back

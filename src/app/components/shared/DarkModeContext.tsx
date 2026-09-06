@@ -5,9 +5,10 @@ interface DarkModeCtx { dark: boolean; toggle: () => void; }
 const Ctx = createContext<DarkModeCtx>({ dark: false, toggle: () => {} });
 
 // These routes must always render in light mode (landing page, sign in,
-// sign up) even if the user previously turned dark mode on from a
-// dashboard. Their saved preference is kept, just not applied here.
-const FORCE_LIGHT_ROUTES = ['/', '/login', '/register'];
+// the public Alumni Tracer Survey, forced password change) even if the
+// user previously turned dark mode on from a dashboard. Their saved
+// preference is kept, just not applied here.
+const FORCE_LIGHT_ROUTES = ['/', '/login', '/register', '/tracer-survey', '/change-password'];
 
 export function DarkModeProvider({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');

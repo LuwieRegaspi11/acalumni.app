@@ -16,12 +16,18 @@ export interface User {
  assignedProgram?: string;
  phone?: string;
  address?: string;
- studentId?: string;
+ dateOfBirth?: string;
  graduationDate?: string;
  currentCompany?: string;
  currentPosition?: string;
  username?: string;   // admin accounts
  position?: string;   // faculty accounts (job title, distinct from alumni's currentPosition)
+ // True whenever the system (not the alumnus) generated this account's
+ // password — the Alumni Tracer Survey intake flow, or an admin
+ // approving a Pending submission (see supabase/alumni_tracer_intake.sql
+ // and admin/PendingRegistrations.tsx). Gates the dashboard via
+ // ProtectedRoute in App.tsx until ChangePasswordPage.tsx clears it.
+ mustChangePassword?: boolean;
 }
 
 // Fields on `profiles` that a signed-in user is allowed to update about
@@ -40,24 +46,6 @@ export interface ProfileUpdate {
  position?: string;
 }
 
-export interface RegistrationData {
- firstName: string;
- lastName: string;
- email: string;
- password: string;
- address: string;
- department: string;
- program: string;
- batchYear?: number;
- profileImage?: string;
- studentId?: string;
- // Valid-ID photo, collected in place of a phone number at signup (see
- // id_document_upload.sql / handle_new_user()) — base64 data URL, same
- // convention as profileImage, copied into profiles.id_document_url.
- idType?: string;
- idDocument?: string;
-}
-
 export type LoginStatus = 'success' | 'invalid' | 'pending' | 'rejected' | 'unconfirmed' | 'error' | 'no_profile';
 export interface LoginResult {
  status: LoginStatus;
@@ -73,7 +61,6 @@ interface AuthContextType {
  loading: boolean;
  login: (email: string, password: string) => Promise<LoginResult>;
  logout: () => void;
- register: (data: RegistrationData) => Promise<{ ok: boolean; error?: string }>;
  updateProfile: (patch: ProfileUpdate) => Promise<boolean>;
  refreshProfile: () => Promise<{ ok: boolean; error?: string }>;
 }
@@ -96,12 +83,13 @@ function mapProfileToUser(profile: any): User {
    assignedProgram: profile.assigned_program ?? undefined,
    phone: profile.phone ?? undefined,
    address: profile.address ?? undefined,
-   studentId: profile.student_id ?? undefined,
+   dateOfBirth: profile.date_of_birth ?? undefined,
    graduationDate: profile.graduation_date ?? undefined,
    currentCompany: profile.current_company ?? undefined,
    currentPosition: profile.current_position ?? undefined,
    username: profile.username ?? undefined,
    position: profile.position ?? undefined,
+   mustChangePassword: profile.must_change_password ?? false,
  };
 }
 
@@ -445,62 +433,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    return true;
  };
 
- const register = async (data: RegistrationData): Promise<{ ok: boolean; error?: string }> => {
-   try {
-     const { data: signUpData, error: signUpError } = await withTimeout(
-       supabase.auth.signUp({
-         email: data.email,
-         password: data.password,
-         options: {
-           data: {
-             name: `${data.firstName} ${data.lastName}`,
-             department: data.department,
-             batch_year: data.batchYear || null,
-             program: data.program,
-             address: data.address,
-             student_id: data.studentId || null,
-             id_type: data.idType || null,
-             id_document: data.idDocument || null,
-             profile_image:
-               data.profileImage ||
-               `https://ui-avatars.com/api/?name=${data.firstName}+${data.lastName}&background=0ea5e9&color=fff`,
-           },
-         },
-       }),
-       10000,
-       'signUp'
-     );
-
-     if (signUpError) {
-       console.error('[auth] register: signUp error', signUpError);
-       // Surface the actual reason instead of guessing — this used to be
-       // hardcoded to "email already registered" for every failure, which
-       // was flat wrong for e.g. oversized photo uploads (413s) or
-       // network/timeout errors.
-       const status = (signUpError as { status?: number }).status;
-       const code = (signUpError as { code?: string }).code;
-       const message = signUpError.message || '';
-       if (status === 413 || code === 'request_entity_too_large' || /too large/i.test(message)) {
-         return { ok: false, error: 'Your uploaded photos are too large. Please try smaller images and submit again.' };
-       }
-       if (code === 'user_already_exists' || /already registered|already exists/i.test(message)) {
-         return { ok: false, error: 'This email is already registered. Please use a different email or sign in.' };
-       }
-       return { ok: false, error: message || 'Registration failed. Please try again.' };
-     }
-     if (!signUpData.user) {
-       return { ok: false, error: 'Registration failed. Please try again.' };
-     }
-     return { ok: true };
-   } catch (err) {
-     console.error('[auth] register: threw', err);
-     const message = err instanceof Error ? err.message : '';
-     return { ok: false, error: message || 'Registration failed. Please try again.' };
-   }
- };
-
  return (
-   <AuthContext.Provider value={{ user, loading, login, logout, register, updateProfile, refreshProfile }}>
+   <AuthContext.Provider value={{ user, loading, login, logout, updateProfile, refreshProfile }}>
      {children}
    </AuthContext.Provider>
  );

@@ -23,12 +23,12 @@ import FacultyTracerResponses from './faculty/FacultyTracerResponses';
 
 // Sidebar nav links shown for this role (label, icon, and URL path).
 // Mirrors AdminDashboard's "Alumni" + "Programs" nav groupings/labels
-// (Alumni Management, Tracer Surveys, Tracer Responses) so faculty gets
+// (Alumni Tracer, Tracer Surveys, Tracer Responses) so faculty gets
 // a recognizably identical set of tools, just department-scoped — see
 // each faculty/* page's own header comment for how that scoping works.
 const NAV_ITEMS = [
   { label: 'Dashboard',         icon: <BarChart3 className="w-4 h-4" />,        path: '' },
-  { label: 'Alumni Management', icon: <Users className="w-4 h-4" />,             path: 'alumni' },
+  { label: 'Alumni Tracer',     icon: <Users className="w-4 h-4" />,             path: 'alumni' },
   { label: 'Donation Center',   icon: <DollarSign className="w-4 h-4" />,        path: 'donations' },
   { label: 'Tracer Surveys',    icon: <FileText className="w-4 h-4" />,          path: 'surveys' },
   { label: 'Tracer Responses',  icon: <ClipboardList className="w-4 h-4" />,     path: 'tracer-responses' },

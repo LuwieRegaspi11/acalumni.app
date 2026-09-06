@@ -27,7 +27,7 @@ export default function DepartmentManagement() {
   const loadDepartments = async () => {
     const [{ data: deptRows }, { data: alumniRows }] = await Promise.all([
       supabase.from('departments').select('*').order('created_at', { ascending: true }),
-      supabase.from('profiles').select('department').eq('role', 'alumni'),
+      supabase.from('profiles').select('department').eq('role', 'alumni').eq('registration_status', 'approved'),
     ]);
     const counts: Record<string, number> = {};
     (alumniRows || []).forEach((r: any) => {

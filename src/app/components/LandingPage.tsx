@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 
 // -- Local image assets --------------------------------------------------
-import asianCollegeLogo from '../../imports/asiancollege_logo.jpeg';
-import headerLogo from '@/imports/asiancollege_logo.jpeg';
+import asianCollegeLogo from '../../imports/asiancollege-logo-transparent.png';
+import headerLogo from '@/imports/asiancollege-logo-transparent.png';
 import heroGraduation1 from '../../imports/hero-graduation-1.jpeg';
 import heroCampusStudents from '../../imports/hero-campus-students.jpeg';
 import heroGraduation2 from '../../imports/hero-graduation-2.jpeg';
@@ -52,7 +52,7 @@ const HERO_SLIDES = [
     tag: 'Alumni Network',
     title: 'Stay Connected\nWith Your Alma Mater',
     subtitle: 'Join thousands of Asian College alumni and be part of a thriving community dedicated to giving back.',
-    cta: 'Register as Alumni',
+    cta: 'Take the Alumni Survey',
     ctaSecondary: 'Sign In',
   },
   {
@@ -206,12 +206,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <img src={headerLogo} alt="Asian College" className="w-12 h-12 object-contain" />
-            <div>
-              <div className="font-extrabold text-base leading-tight" style={{ color: RED }}>Asian</div>
-              <div className="font-extrabold text-base leading-tight -mt-1" style={{ color: NAVY }}>College</div>
-              <div className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: LBLUE }}>Alumni Tracer & Donation System</div>
-            </div>
+            <img src={headerLogo} alt="Asian College" className="h-9 sm:h-10 w-auto object-contain" />
           </div>
 
           {/* Desktop nav */}
@@ -238,11 +233,11 @@ export default function LandingPage() {
             >
               Sign In
             </button>
-            <button onClick={() => navigate('/register')}
+            <button onClick={() => navigate('/tracer-survey')}
               className="px-4 py-2 text-sm font-bold text-white rounded-lg shadow-md hover:shadow-lg hover:opacity-90 transition-all duration-200"
               style={{ background: PANEL }}
             >
-              Register Now
+              Take the Survey
             </button>
           </div>
 
@@ -284,11 +279,11 @@ export default function LandingPage() {
                 Sign In
               </button>
               <button
-                onClick={() => { navigate('/register'); setMenuOpen(false); }}
+                onClick={() => { navigate('/tracer-survey'); setMenuOpen(false); }}
                 className="flex-1 py-2.5 text-sm font-bold text-white rounded-lg transition-all hover:opacity-90"
                 style={{ background: PANEL }}
               >
-                Register
+                Take Survey
               </button>
             </div>
           </div>
@@ -317,7 +312,7 @@ export default function LandingPage() {
               {slide.subtitle}
             </p>
             <div className="flex items-center gap-3 flex-wrap">
-              <button onClick={() => navigate('/register')}
+              <button onClick={() => navigate('/tracer-survey')}
                 className="px-6 py-3 text-white text-sm font-bold rounded-lg shadow-xl flex items-center gap-2 hover:opacity-90 hover:shadow-2xl transition-all"
                 style={{ background: PANEL }}>
                 {slide.cta} <ArrowRight className="w-4 h-4" />
@@ -489,7 +484,7 @@ export default function LandingPage() {
                     <p className="text-gray-600 mb-6">
                       Our {p.dept} department provides world-class education with industry-aligned curriculum, hands-on training, and professional development opportunities.
                     </p>
-                    <button onClick={() => navigate('/register')}
+                    <button onClick={() => navigate('/tracer-survey')}
                       className="px-6 py-3 text-white rounded-lg font-bold shadow-md hover:shadow-xl hover:opacity-90 transition-all flex items-center gap-2"
                       style={{ background: p.gradient }}>
                       Join as {p.dept} Alumni <ArrowRight className="w-4 h-4" />
@@ -584,13 +579,13 @@ export default function LandingPage() {
                   <span style={{ color: '#a8c8f0' }}>Alumni Network</span>
                 </h2>
                 <p className="leading-relaxed mb-8 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                  Register now to update your career information, connect with batchmates, participate in surveys, and give back through donations that help current students.
+                  Take the Alumni Tracer Survey to set up your account, connect with batchmates, and give back through donations that help current students.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <button onClick={() => navigate('/register')}
+                  <button onClick={() => navigate('/tracer-survey')}
                     className="px-6 py-3 text-sm font-bold rounded-lg shadow-lg flex items-center gap-2 hover:opacity-90 transition-all"
                     style={{ background: 'white', color: NAVY }}>
-                    Register as Alumni <ArrowRight className="w-4 h-4" />
+                    Take the Survey <ArrowRight className="w-4 h-4" />
                   </button>
                   <button onClick={() => navigate('/login')}
                     className="px-6 py-3 text-sm font-bold text-white rounded-lg hover:bg-white/20 transition-all"
@@ -665,7 +660,7 @@ export default function LandingPage() {
             {/* Brand */}
             <div>
               <div className="flex items-center gap-3 mb-5">
-                <img src={asianCollegeLogo} alt="Asian College" className="w-12 h-12 object-contain rounded-lg bg-white/10 p-1" />
+                <img src={asianCollegeLogo} alt="Asian College" className="h-9 w-auto object-contain bg-white rounded-lg px-2 py-1.5" />
                 <div>
                   <div className="font-extrabold text-lg text-white leading-tight">Asian College</div>
                   <div className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Dumaguete City, Philippines</div>
