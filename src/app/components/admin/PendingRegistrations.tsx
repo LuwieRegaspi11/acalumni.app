@@ -185,11 +185,11 @@ export default function PendingRegistrations() {
     loadSubmissions();
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (submission: Submission) => {
     setRejecting(true);
     setActionError('');
     const { error } = await supabase.functions.invoke('tracer-intake', {
-      body: { action: 'reject', intakeId: id, reason: rejectReason || undefined },
+      body: { action: 'reject', intakeId: submission.id, reason: rejectReason || undefined },
     });
     setRejecting(false);
     if (error) {
@@ -197,6 +197,26 @@ export default function PendingRegistrations() {
       return;
     }
     setViewDialogOpen(false);
+    // Mirrors handleApprove's trigger() call below. Most rejected accounts
+    // can never actually see this — AuthContext.tsx's login() signs a
+    // rejected account straight back out, so the notifications bell is
+    // unreachable for them afterward (AuthPage.tsx's status screen is what
+    // they see instead, now including this same reason — see
+    // check_registration_status_rejection_reason.sql). Still worth sending:
+    // a still-'pending' account can already sign in and have a live session
+    // open (see AuthContext.tsx's login()), so this can arrive in real time
+    // right up until that session's next status check signs them out.
+    const existingUserId = submission.raw?.linked_profile_id;
+    if (existingUserId) {
+      trigger({
+        title: 'Registration Rejected',
+        message: rejectReason
+          ? `Your Alumni Tracer Survey submission was not approved: ${rejectReason}`
+          : 'Your Alumni Tracer Survey submission was not approved. Contact the Alumni Office for details.',
+        type: 'error',
+        targetUserId: existingUserId,
+      });
+    }
     loadSubmissions();
   };
 
@@ -419,7 +439,7 @@ export default function PendingRegistrations() {
 
               {selected.status === 'pending' && (
                 <div>
-                  <p className="text-xs text-gray-600 mb-1">Rejection reason (optional, shown only in admin records)</p>
+                  <p className="text-xs text-gray-600 mb-1">Rejection reason (optional — shown to the alumnus on their status screen if provided)</p>
                   <TextField fullWidth size="small" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="e.g. Could not verify identity" />
                 </div>
               )}
@@ -431,7 +451,7 @@ export default function PendingRegistrations() {
           {selected?.status === 'pending' && (
             <>
               <Button color="error" startIcon={<XCircle className="w-4 h-4" />} disabled={actionLoading || rejecting}
-                onClick={() => selected && handleReject(selected.id)}>
+                onClick={() => selected && handleReject(selected)}>
                 {rejecting ? 'Rejecting…' : 'Reject'}
               </Button>
               <Button variant="contained" color="success" startIcon={<CheckCircle className="w-4 h-4" />} disabled={actionLoading || rejecting}

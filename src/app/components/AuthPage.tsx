@@ -378,7 +378,7 @@ function SignInForm({ onToast, autoCheckEmail, onAutoChecked }: { onToast: (m: s
   const [statusMode, setStatusMode]       = useState(false);
   const [statusEmail, setStatusEmail]     = useState('');
   const [statusLoading, setStatusLoading] = useState(false);
-  const [statusResult, setStatusResult]   = useState<{ status: string; name: string } | 'not_found' | null>(null);
+  const [statusResult, setStatusResult]   = useState<{ status: string; name: string; rejection_reason?: string | null } | 'not_found' | null>(null);
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
@@ -532,9 +532,16 @@ function SignInForm({ onToast, autoCheckEmail, onAutoChecked }: { onToast: (m: s
             </div>
             <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>Registration Not Approved</h2>
             <p className="text-xs text-gray-400 mb-4">{statusResult.name || statusEmail}</p>
-            <p className="text-sm text-gray-500 max-w-xs mb-6">
-              Your submission could not be verified. Please contact the alumni office for details or assistance.
-            </p>
+            {statusResult.rejection_reason ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 max-w-xs mb-6 text-left">
+                <p className="font-semibold mb-1">Reason given by the Alumni Office:</p>
+                <p>{statusResult.rejection_reason}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 max-w-xs mb-6">
+                Your submission could not be verified. Please contact the alumni office for details or assistance.
+              </p>
+            )}
           </>
         )}
 
