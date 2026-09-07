@@ -115,34 +115,60 @@ export default function TracerSurveyAlumni() {
       // No fixed max-width here — this list should make use of however
       // much room the dashboard's main column actually has, whether the
       // sidebar is expanded or collapsed, instead of sitting in a narrow
-      // fixed column with a wall of empty space next to it. The grid
-      // itself is what actually adapts: more columns as more width
-      // becomes available, one column on narrow screens.
+      // fixed column with a wall of empty space next to it.
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-gray-800">Tracer Surveys</h2>
         <p className="text-sm text-gray-500">Choose a survey to complete.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {surveys.map(s => (
-            s.surveyType === 'external' ? (
-              <a key={s.id} href={s.surveyLink || '#'} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
-                <div>
-                  <p className="font-semibold text-gray-800 flex items-center gap-1.5">
-                    <LinkIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> {s.title}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">{s.description}</p>
-                  <p className="text-xs text-blue-500 mt-1">Opens in a new tab</p>
-                </div>
-                <ExternalLink className="w-4 h-4 text-blue-500 flex-shrink-0" />
-              </a>
-            ) : (
-              <button key={s.id} onClick={() => { setActive(s); setAnswers({}); setCurrentSection(0); }}
-                className="text-left bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:border-blue-300 transition-colors">
-                <p className="font-semibold text-gray-800">{s.title}</p>
-                <p className="text-xs text-gray-500 mt-1">{s.description}</p>
-              </button>
-            )
-          ))}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <span className="text-sm font-semibold text-gray-600">{surveys.length} survey{surveys.length === 1 ? '' : 's'} available</span>
+          </div>
+          {/* Wide-content rule: the table scrolls inside its own container
+              on a narrow screen instead of the whole page scrolling
+              sideways. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-left bg-gray-50 border-b border-gray-100">Survey</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-left bg-gray-50 border-b border-gray-100">Description</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-left bg-gray-50 border-b border-gray-100">Type</th>
+                  <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-left bg-gray-50 border-b border-gray-100">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {surveys.map(s => (
+                  <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-gray-800 whitespace-nowrap">
+                      <span className="flex items-center gap-1.5">
+                        {s.surveyType === 'external' && <LinkIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                        {s.title}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={s.description}>{s.description || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${s.surveyType === 'external' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+                        {s.surveyType === 'external' ? 'External Link' : 'Standard'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.surveyType === 'external' ? (
+                        <a href={s.surveyLink || '#'} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 whitespace-nowrap">
+                          Open <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <button onClick={() => { setActive(s); setAnswers({}); setCurrentSection(0); }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                          Start <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -172,13 +198,12 @@ export default function TracerSurveyAlumni() {
   };
 
   return (
-    // Wider than before (was max-w-2xl) so an opened survey uses the room
-    // the dashboard's main column actually has instead of sitting in a
-    // narrow strip — same reasoning as the survey list above. Still
-    // capped (not full-width) so long option rows stay readable rather
-    // than stretching thin across a huge screen. Every row below wraps
-    // instead of squeezing/overlapping once the screen gets narrow.
-    <div className="max-w-4xl space-y-5">
+    // No max-width cap — same reasoning as the survey list above: this
+    // should use however much room the dashboard's main column actually
+    // has instead of leaving a big blank strip beside a narrower fixed
+    // column on a wide screen. Every row below (options, nav buttons)
+    // already wraps instead of squeezing/overlapping on a narrow one.
+    <div className="space-y-5">
       <div>
         {/* Lets the alumnus back out to the survey list — e.g. a wrong
             click, or they want to check another survey first — without
@@ -200,14 +225,15 @@ export default function TracerSurveyAlumni() {
         <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
           <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#1B3A6B,#2B5BA8)' }} />
         </div>
-        {/* flex-wrap so many/long section names stack onto extra lines on
-            a narrow screen instead of squeezing into unreadable slivers;
-            min-w keeps a wrapped button from shrinking to nothing, and
-            truncate+title keeps one long name from blowing out its row. */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Pills size to their own text (flex-shrink-0) and the row
+            scrolls horizontally instead of stretching — with just one or
+            two sections, flex-1 used to blow each pill up to fill the
+            whole row width, looking like a giant misplaced button. Same
+            pattern as GraduateTracerForm.tsx / PublicTracerSurveyPage.tsx. */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
           {sections.map((s, i) => (
             <button key={s} onClick={() => setCurrentSection(i)} title={s}
-              className={`flex-1 min-w-[100px] py-1.5 px-2 rounded-lg text-xs font-semibold truncate transition-colors ${currentSection === i ? 'text-white' : i < currentSection ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${currentSection === i ? 'text-white' : i < currentSection ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
               style={currentSection === i ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
               {i < currentSection ? '✓ ' : ''}{s}
             </button>
@@ -226,9 +252,14 @@ export default function TracerSurveyAlumni() {
               {qi + 1}. {q.question} {q.required && <span className="text-red-500">*</span>}
             </p>
             {(q.type === 'radio' || q.type === 'multiple_choice') && q.options && (
-              <div className="space-y-2">
+              // flex-1 lets each option grow to fill the row (2 options
+              // split it 50/50, 3 split it into thirds, ...) instead of
+              // hugging the left edge and leaving a big blank gap when
+              // option text is short. min-w keeps a pill from being
+              // squeezed to nothing once there are enough of them to wrap.
+              <div className="flex flex-wrap gap-2">
                 {q.options.map(opt => (
-                  <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${answer === opt ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <label key={opt} className={`flex flex-1 min-w-[160px] items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${answer === opt ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${answer === opt ? 'border-blue-600' : 'border-gray-300'}`}>
                       {answer === opt && <div className="w-2 h-2 rounded-full bg-blue-600" />}
                     </div>
@@ -239,11 +270,11 @@ export default function TracerSurveyAlumni() {
               </div>
             )}
             {q.type === 'checkboxes' && q.options && (
-              <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 {q.options.map(opt => {
                   const checked = Array.isArray(answer) && answer.includes(opt);
                   return (
-                    <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <label key={opt} className={`flex flex-1 min-w-[160px] items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${checked ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
                         {checked && <div className="w-2 h-2 bg-white rounded-sm" />}
                       </div>

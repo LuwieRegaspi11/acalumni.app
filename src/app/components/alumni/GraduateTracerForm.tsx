@@ -283,7 +283,7 @@ export default function GraduateTracerForm() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <button onClick={() => setSectionIdx(i => Math.max(0, i - 1))} disabled={sectionIdx === 0}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
             <ChevronLeft className="w-4 h-4" /> Previous
@@ -304,7 +304,6 @@ export default function GraduateTracerForm() {
                 style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
                 Next <ChevronRight className="w-4 h-4" />
               </button>
-              {!canGoNext && <p className="text-xs text-amber-600 mt-1">Complete the highlighted fields to continue.</p>}
             </div>
           ) : readOnly ? (
             <div className="flex items-center gap-2 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
@@ -318,7 +317,6 @@ export default function GraduateTracerForm() {
                 style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}>
                 <Send className="w-4 h-4" /> {submitting ? 'Submitting…' : 'Submit Survey'}
               </button>
-              {!canGoNext && <p className="text-xs text-amber-600 mt-1">Complete the highlighted fields to continue.</p>}
             </div>
           )}
         </div>
