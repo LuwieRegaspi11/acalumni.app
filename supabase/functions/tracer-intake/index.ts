@@ -19,18 +19,22 @@
 //     credentials already exist right away; nothing about logging in is
 //     ever blocked, only dashboard access. The roster match
 //     (matched_roster_id) is kept either way as an audit trail.
-//     If the submitted email already belongs to an existing account and
-//     the submitted Name + Department + Program match what's on file
-//     for it, that account is treated as already verified — its
-//     password is reset automatically and handed back the same way a
-//     brand-new account's would be (most commonly because the record
-//     came from an admin import and the alumnus never received their
-//     original credentials). Its registration_status is left exactly as
-//     it was (an already-approved account stays approved; a still-
-//     pending one stays pending) — this only ever resets a password, it
-//     never grants dashboard access an admin hasn't. If the identity
-//     DOESN'T match, nothing is touched — see the "possible duplicate"
-//     queue below; only an admin can confirm and reset it from there.
+//     If the submitted email already belongs to an existing account,
+//     that account's password is reset automatically and handed back the
+//     same way a brand-new account's would be — no admin review gate
+//     (most commonly because the record came from an admin import and
+//     the alumnus never received their original credentials). Its
+//     registration_status is left exactly as it was (an already-approved
+//     account stays approved; a still-pending one stays pending) — this
+//     only ever resets a password, it never grants dashboard access an
+//     admin hasn't. Whether the submitted Name/Department/Program
+//     matched what was on file is recorded on the intake row purely as
+//     an audit note, not as a gate. A rejected account is the one
+//     exception — that was a deliberate admin decision, so it's never
+//     auto-reset; the submitter is told to contact the Alumni Office.
+//     The "possible duplicate" queue below only still exists for the
+//     rare case where the automatic password reset itself technically
+//     fails; only an admin can confirm and retry it from there.
 //
 //   { action: "approve" | "reject", intakeId, reason? }
 //     Admin-only (the caller's JWT is checked against profiles.role).
@@ -44,10 +48,9 @@
 //     relay: if account creation itself failed back at submission time
 //     (rare — see handleSubmit's catch block), this creates the account
 //     for the first time here instead; if this intake was queued as a
-//     "possible duplicate" (an existing account's email, but identity
-//     that couldn't be auto-verified — see handleSubmit), approving
-//     means the admin vouches it's really that person, resetting their
-//     password.
+//     "possible duplicate" (an existing account's email, but the
+//     automatic password reset itself technically failed — see
+//     handleSubmit), approving retries that password reset.
 //
 //   { action: "bulk_import", rows }
 //     Admin-only. See handleBulkImport's own header comment.
@@ -343,73 +346,60 @@ async function handleSubmit(payload: Record<string, unknown>): Promise<Response>
       return json({ error: "This email already has an account. Please sign in instead — if your name, department, or program don't match what's on file, contact the Alumni Office." }, 409);
     }
 
-    // The closest this flow gets to proving the submitter really owns
-    // this account without a human in the loop. Reset automatically when
-    // it matches — this account's own registration_status is left
-    // exactly as it was (approved stays approved, pending stays
-    // pending), so this only ever hands back a working password, never
-    // dashboard access an admin hasn't already granted. When it DOESN'T
-    // match, fall through to the manual-review queue below instead —
-    // never touch an existing account's password on an unverified claim.
+    // Per product decision, submitting the survey under an email that's
+    // already on file is treated as sufficient on its own to reissue
+    // credentials — no admin review gate. This account's own
+    // registration_status is left exactly as it was (approved stays
+    // approved, pending stays pending), so this only ever hands back a
+    // working password, never dashboard access an admin hasn't already
+    // granted. `identityLooksRight` is no longer a gate, only an audit
+    // note on the intake row for whether the submitted Name/Department/
+    // Program matched what was already on file.
     const identityLooksRight =
       nameMatches(existingProfile.name, firstName.toLowerCase(), lastName.toLowerCase()) &&
       !!existingProfile.department && existingProfile.department.toLowerCase() === department.toLowerCase() &&
       !!existingProfile.program && existingProfile.program.toLowerCase() === program.toLowerCase();
 
-    if (identityLooksRight) {
-      const newPassword = generatePassword();
-      const { error: pwErr } = await admin.auth.admin.updateUserById(existingProfile.id, { password: newPassword });
-      if (pwErr) {
-        // Fall back to the manual-review queue rather than silently
-        // failing — the submission still isn't lost.
-        await admin.from("alumni_tracer_intake").insert({
-          status: "pending",
-          possible_duplicate_profile_id: existingProfile.id,
-          notes: `Identity matched on resubmission, but the automatic password reset failed (${pwErr.message}) — needs manual admin confirmation.`,
-          ...pickAnswerColumns(payload),
-        });
-        return json({ review: true, message: "We found an account under this email already. Your submission has been sent to the Alumni Office for manual review — you'll be able to sign in with a new password once they verify it." });
-      }
-      const { error: profErr } = await admin.from("profiles").update({ must_change_password: true }).eq("id", existingProfile.id);
-      if (profErr) console.error("[tracer-intake] identity-matched auto-reset: profile update failed", existingProfile.id, profErr);
-
-      const refreshed = await updateExistingRecord(existingProfile.id, payload);
-      if (!refreshed.ok) console.error("[tracer-intake] identity-matched auto-reset: survey refresh failed", existingProfile.id, refreshed.error);
-      const fallbackName = [firstName, lastName].filter(Boolean).join(" ") || email;
-
+    const newPassword = generatePassword();
+    const { error: pwErr } = await admin.auth.admin.updateUserById(existingProfile.id, { password: newPassword });
+    if (pwErr) {
+      // Genuine technical failure (not an identity check) — fall back to
+      // the manual-review queue rather than silently failing, so the
+      // submission still isn't lost.
       await admin.from("alumni_tracer_intake").insert({
-        status: "approved",
+        status: "pending",
         possible_duplicate_profile_id: existingProfile.id,
-        linked_profile_id: existingProfile.id,
-        linked_response_id: refreshed.ok ? refreshed.responseId : null,
-        reviewed_at: new Date().toISOString(),
-        notes: "Auto-reset: submitted Name/Department/Program matched what was already on file, so the account's password was reset automatically without admin review.",
+        notes: `Automatic password reset failed (${pwErr.message}) — needs manual admin confirmation.`,
         ...pickAnswerColumns(payload),
       });
-
-      return json({
-        matched: existingProfile.registration_status === "approved",
-        reset: true,
-        email: refreshed.ok ? refreshed.email : email,
-        password: newPassword,
-        name: refreshed.ok ? refreshed.name : fallbackName,
-      });
+      return json({ review: true, message: "We found an account under this email, but ran into a technical issue resetting its password. Your submission has been sent to the Alumni Office to resolve — you'll be able to sign in with a new password once they do." });
     }
+    const { error: profErr } = await admin.from("profiles").update({ must_change_password: true }).eq("id", existingProfile.id);
+    if (profErr) console.error("[tracer-intake] auto-reset: profile update failed", existingProfile.id, profErr);
 
-    // Identity doesn't match what's on file — never reset an existing
-    // account's password from an unverified claim (name/department/
-    // program alone are guessable/often public: yearbooks, LinkedIn, a
-    // leaked roster CSV). Queue it for a human to confirm instead — only
-    // an admin manually vouching for it ever resets a password from here
-    // (see handleReview's "possible duplicate" branch, the only other
-    // place that happens).
+    const refreshed = await updateExistingRecord(existingProfile.id, payload);
+    if (!refreshed.ok) console.error("[tracer-intake] auto-reset: survey refresh failed", existingProfile.id, refreshed.error);
+    const fallbackName = [firstName, lastName].filter(Boolean).join(" ") || email;
+
     await admin.from("alumni_tracer_intake").insert({
-      status: "pending",
+      status: "approved",
       possible_duplicate_profile_id: existingProfile.id,
-      notes: "This email already has an account, but the submitted Name/Department/Program didn't fully match what's on file — needs manual admin confirmation before any password reset.",
+      linked_profile_id: existingProfile.id,
+      linked_response_id: refreshed.ok ? refreshed.responseId : null,
+      reviewed_at: new Date().toISOString(),
+      notes: identityLooksRight
+        ? "Auto-reset: submitted Name/Department/Program matched what was already on file, so the account's password was reset automatically without admin review."
+        : "Auto-reset: submitted Name/Department/Program didn't fully match what was on file, but the account's password was still reset automatically without admin review per product decision.",
       ...pickAnswerColumns(payload),
     });
-    return json({ review: true, message: "We found an account under this email already. Your submission has been sent to the Alumni Office for manual review — you'll be able to sign in with a new password once they verify it." });
+
+    return json({
+      matched: existingProfile.registration_status === "approved",
+      reset: true,
+      email: refreshed.ok ? refreshed.email : email,
+      password: newPassword,
+      name: refreshed.ok ? refreshed.name : fallbackName,
+    });
   }
 
   // Roster match: exact (case-insensitive) First Name + Last Name +
@@ -535,14 +525,12 @@ async function handleReview(req: Request, body: any, kind: "approve" | "reject")
     return json({ ok: true, hadExistingAccount: true });
   }
 
-  // "Possible duplicate": handleSubmit couldn't automatically confirm
-  // this submission belongs to the existing account under its email
-  // (Name/Department/Program didn't fully match), so it
-  // queued here instead of resetting anything on its own. The admin
-  // looking at the full submitted survey just vouched for it by
-  // approving — reset that account's password now, and refresh its
-  // survey answers with what was just submitted, exactly like the
-  // auto-verified reset in handleSubmit would have.
+  // "Possible duplicate": handleSubmit tried to auto-reset this existing
+  // account's password but the reset call itself technically failed, so
+  // it queued here instead of leaving the submission lost. Approving
+  // retries the password reset now, and refreshes the survey answers
+  // with what was submitted, exactly like the auto-reset in handleSubmit
+  // would have.
   if (intake.possible_duplicate_profile_id) {
     const targetId = intake.possible_duplicate_profile_id;
     const newPassword = generatePassword();

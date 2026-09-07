@@ -14,19 +14,20 @@ import BulkImportResponses from './BulkImportResponses';
 // A brand-new submission whose Name + Department + Program match a row
 // in the Alumni Roster auto-approves immediately (matched_roster_id
 // records which row) and never lands here needing a decision — it shows
-// up already resolved, for the audit trail only. Only a submission that
-// couldn't be matched/verified automatically actually needs an admin:
-// either a brand-new account with no roster match (lands here
-// 'pending'), or a submitted email that already had an account whose
-// Name/Department/Program didn't fully match what was on file (a
-// "possible duplicate" — see below; a *matching* identity on an
-// existing account is reset automatically by tracer-intake and never
-// reaches this screen either). ('matched' below is a legacy status
-// value from an earlier design; no longer produced by new submissions,
-// kept only so historical rows still display sensibly.) An admin looks
-// at the full submitted survey (the same fields the alumnus answered —
-// see the read-only render below) to identify the person, then Approves
-// or Rejects.
+// up already resolved, for the audit trail only. A submitted email that
+// already had an account is likewise resolved automatically (its
+// password is reset immediately, no admin involved — whether the
+// submitted Name/Department/Program matched what was on file is only
+// ever recorded as an audit note, not a gate). Only a submission that
+// genuinely couldn't be resolved automatically needs an admin: either a
+// brand-new account with no roster match (lands here 'pending'), or the
+// rare "possible duplicate" case where an existing account's automatic
+// password reset itself technically failed (see below). ('matched'
+// below is a legacy status value from an earlier design; no longer
+// produced by new submissions, kept only so historical rows still
+// display sensibly.) An admin looks at the full submitted survey (the
+// same fields the alumnus answered — see the read-only render below) to
+// identify the person, then Approves or Rejects.
 //
 // Important: a "Pending" submission here USUALLY already has a real
 // account that can sign in — every ordinary submission gets one
@@ -40,13 +41,11 @@ import BulkImportResponses from './BulkImportResponses';
 // the rare fallback where account creation itself failed back at
 // submission time (this is the first time it's created); and a
 // "possible duplicate" — the submitted email already matched an
-// existing account, but the rest of the identity couldn't be
-// auto-verified (see tracer-intake's handleSubmit), so NO account was
-// touched at submission time. Approving here means the admin is
-// manually vouching that this really is the same alumnus — that
-// resets the existing account's password and shows new sign-in details
-// to relay. See the Edge Function's "approve" action for all three
-// branches.
+// existing account, but the automatic password reset call itself
+// technically failed (see tracer-intake's handleSubmit), so NO password
+// was actually reset at submission time. Approving here just retries
+// that password reset and shows new sign-in details to relay. See the
+// Edge Function's "approve" action for all three branches.
 // =====================================================================
 
 interface Submission {

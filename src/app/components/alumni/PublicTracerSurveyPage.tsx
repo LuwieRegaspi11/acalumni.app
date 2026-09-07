@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { supabase } from '../../../lib/supabaseClient';
 import {
-  CheckCircle, ChevronRight, ChevronLeft, Send, ClipboardList, Clock, AlertTriangle, ArrowLeft,
+  ChevronRight, ChevronLeft, Send, ClipboardList, Clock, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
 import asianCollegeLogo from '../../../imports/asiancollege_logo.jpeg';
 import { PANEL_GRADIENT } from '../AuthPage';
 import {
-  type Answers, buildRequirements, sectionMissing, getAllMissing, computeProgress, SECTION_ICONS,
+  type Answers, buildRequirements, sectionMissing, getAllMissing, SECTION_ICONS,
   defaultAnswers, answersToRow, ALL_SECTIONS,
   renderConsentSection, renderProfileSection, renderEmploymentStatusSection,
   renderEmploymentInfoSection, renderCurriculumSection, renderLicensureSection, renderFeedbackSection,
@@ -35,25 +35,25 @@ import TracerCredentialsReveal from './TracerCredentialsReveal';
 // hard error, either — most commonly because that record came from an
 // admin import (scripts/import-alumni.mjs or
 // admin/BulkImportResponses.tsx), which creates a real account+password
-// immediately but the alumnus never received it. If the submitted Name +
-// Department + Program match what's on file for that account, the Edge
-// Function resets its password automatically and this component shows
-// the same one-time credentials screen (the 'created' Outcome kind,
-// `reset: true`) — no admin involved. Only when the identity DOESN'T
-// match does it get queued into Pending Registrations instead (the
-// 'review' Outcome kind below) for an admin to manually confirm before
-// any password is touched. Only a rejected account, or a genuine server
-// error, surfaces as a hard error.
+// immediately but the alumnus never received it. The Edge Function
+// resets that account's password automatically — no admin involved —
+// and this component shows the same one-time credentials screen (the
+// 'created' Outcome kind, `reset: true`), regardless of whether the
+// submitted Name/Department/Program match what's on file. The 'review'
+// Outcome kind below only ever fires for a genuine technical failure
+// (the password reset call itself erroring), not an identity mismatch.
+// Only a rejected account, or a genuine server error, surfaces as a
+// hard error.
 // =====================================================================
 
 const REQUIREMENTS = buildRequirements('public');
 
 type Outcome =
   | { kind: 'created'; email: string; password: string; name: string; pending: boolean; reset: boolean }
-  // The submitted email already has an existing account — queued into
-  // Pending Registrations for a human to confirm before any password
-  // ever gets reset (see tracer-intake's handleSubmit). No credentials
-  // to show yet, unlike 'created'.
+  // Rare: the submitted email already has an existing account and the
+  // automatic password reset itself technically failed, so it's queued
+  // into Pending Registrations for an admin to retry (see tracer-intake's
+  // handleSubmit). No credentials to show yet, unlike 'created'.
   | { kind: 'review'; message: string }
   | { kind: 'error'; message: string };
 
@@ -129,8 +129,8 @@ export default function PublicTracerSurveyPage() {
           </p>
           <p className="text-xs text-gray-400 leading-relaxed">
             Already in our records but never got your sign-in details (e.g. your info was added by the
-            Alumni Office directly)? Submitting this survey with matching info resets your password and
-            shows it to you here — no need to contact anyone first.
+            Alumni Office directly)? Submitting this survey resets your password and shows it to you
+            here — no need to contact anyone first.
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
             <Clock className="w-4 h-4" /> About 5–10 minutes
@@ -154,7 +154,6 @@ export default function PublicTracerSurveyPage() {
     const missingBlocking = sectionMissing(REQUIREMENTS, currentKey, answers, true);
     const canGoNext = missingBlocking.length === 0;
     const isLast = sectionIdx === sections.length - 1;
-    const attemptedMissing = submitAttempted ? (getAllMissing(REQUIREMENTS, answers).find(s => s.sectionKey === currentKey)?.labels || []) : [];
     const SectionIcon = SECTION_ICONS[currentKey] ?? ClipboardList;
 
     return (
@@ -168,10 +167,22 @@ export default function PublicTracerSurveyPage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             {sections.map((s, i) => (
-              <button key={s.key} onClick={() => setSectionIdx(i)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : i < sectionIdx ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+              <button key={s.key} onClick={() => {
+                  // Going back is always fine; jumping ahead must first clear
+                  // every required section in between, same as the Next button.
+                  if (i <= sectionIdx) { setSectionIdx(i); return; }
+                  for (let j = sectionIdx; j < i; j++) {
+                    if (sectionMissing(REQUIREMENTS, sections[j].key, answers, true).length > 0) {
+                      setSubmitAttempted(true);
+                      scrollToFormTop();
+                      return;
+                    }
+                  }
+                  setSectionIdx(i);
+                }}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : i < sectionIdx && sectionMissing(REQUIREMENTS, s.key, answers, true).length === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
                 style={i === sectionIdx ? { background: PANEL_GRADIENT } : {}}>
-                {i < sectionIdx ? '✓ ' : ''}{s.title}
+                {i < sectionIdx && sectionMissing(REQUIREMENTS, s.key, answers, true).length === 0 ? '✓ ' : ''}{s.title}
               </button>
             ))}
           </div>
@@ -181,15 +192,6 @@ export default function PublicTracerSurveyPage() {
           <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{outcome.message}</span>
-          </div>
-        )}
-
-        {attemptedMissing.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
-            <p className="font-semibold mb-1">Please complete the following before submitting:</p>
-            <ul className="list-disc list-inside space-y-0.5">
-              {attemptedMissing.map((m, i) => <li key={i}>{m}</li>)}
-            </ul>
           </div>
         )}
 
@@ -209,7 +211,7 @@ export default function PublicTracerSurveyPage() {
           {currentKey === 'feedback' && renderFeedbackSection(answers, setField, false)}
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           <button onClick={() => setSectionIdx(i => Math.max(0, i - 1))} disabled={sectionIdx === 0}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
             <ChevronLeft className="w-4 h-4" /> Previous
@@ -226,7 +228,6 @@ export default function PublicTracerSurveyPage() {
                 style={{ background: PANEL_GRADIENT }}>
                 Next <ChevronRight className="w-4 h-4" />
               </button>
-              {!canGoNext && <p className="text-xs text-amber-600 mt-1">Complete the highlighted fields to continue.</p>}
             </div>
           ) : (
             <div className="text-right">
@@ -235,7 +236,6 @@ export default function PublicTracerSurveyPage() {
                 style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}>
                 <Send className="w-4 h-4" /> {submitting ? 'Submitting…' : 'Submit Survey'}
               </button>
-              {!canGoNext && <p className="text-xs text-amber-600 mt-1">Complete the highlighted fields to continue.</p>}
             </div>
           )}
         </div>
