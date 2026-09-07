@@ -37,6 +37,11 @@ import {
 // COMPANY_CHANGE_REASON_OPTIONS) that appears right under it and blocks
 // Save until answered, same as this card's other conditional-required
 // fields (e.g. "Other" free-text boxes).
+//
+// Beyond those (see JOB_REQUIREMENTS below for the exact list), saving
+// never requires completing the whole section — an alumnus can change
+// just one field and save that alone, same as shared/ProfilePage.tsx's
+// own Personal Information card.
 // =====================================================================
 
 interface JobAnswers {
@@ -110,29 +115,27 @@ function jobAnswersToPatch(a: JobAnswers) {
   };
 }
 
-// Same required-if-employed rules GraduateTracerForm.tsx enforces at
-// first-submit time for these same two sections — kept in sync by hand
-// since that file's REQUIREMENTS object isn't exported (it also covers
-// sections this card never touches).
+// Unlike GraduateTracerForm.tsx's first-submit REQUIREMENTS (every one of
+// these fields has to be answered before the survey can be submitted at
+// all), a follow-up edit here never has to complete the whole Employment
+// section just to save one correction — e.g. fixing a typo'd Job Title
+// shouldn't be blocked by Monthly Salary Range having been left blank on
+// a historical, bulk-imported record (see admin/BulkImportResponses.tsx,
+// which happily writes those fields as null). So the only things that
+// still block Save are tied directly to what the alumnus is actively
+// choosing in THIS edit, never to a pre-existing gap elsewhere:
+//   - picking "Other" on any single-select/checkbox field requires the
+//     matching free-text detail (the alumnus typed a dropdown value OR
+//     "Other" + specifics — either way, that value is what gets saved
+//     and appears on the Alumni Tracer automatically)
+//   - changing Company/Organization to a genuinely different value (see
+//     isChangingCompany below) requires picking why — handled separately
+//     by extraMissing, not this list.
 const JOB_REQUIREMENTS: { check: (a: JobAnswers) => boolean; label: string }[] = [
-  { check: a => !!a.employment_status, label: 'Current Employment Status is required.' },
-  { check: a => !!a.employment_classification, label: 'Employment Classification is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.company_organization.trim(), label: 'Company/Organization is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.job_title.trim(), label: 'Job Title is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.job_classification, label: 'Job Classification is required.' },
   { check: a => a.job_classification !== 'Other' || !!a.job_classification_other.trim(), label: 'Please specify your job classification.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.industry_sector, label: 'Industry/Sector is required.' },
   { check: a => a.industry_sector !== 'Other' || !!a.industry_sector_other.trim(), label: 'Please specify your industry/sector.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.job_related_to_degree, label: 'Please indicate if your job is related to your degree.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.time_to_first_job, label: 'Time to first job is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.number_of_employers, label: 'Number of companies worked for since graduation is required.' },
-  { check: a => !hasChangedEmployers(a) || a.reasons_for_leaving_job.length > 0, label: 'Select at least one reason for leaving your previous job.' },
   { check: a => !a.reasons_for_leaving_job.includes('Other') || !!a.reasons_for_leaving_job_other.trim(), label: 'Please specify the other reason for leaving your previous job.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.monthly_salary_range, label: 'Monthly Salary Range is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.first_job_source, label: 'How you obtained your first job is required.' },
   { check: a => a.first_job_source !== 'Other' || !!a.first_job_source_other.trim(), label: 'Please specify how you obtained your first job.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.current_work_location, label: 'Current Work Location is required.' },
-  { check: a => !isEmployed(a.employment_status) || !!a.job_satisfaction_rating, label: 'Job Satisfaction rating is required.' },
   { check: a => !a.job_securing_factors.includes('Other') || !!a.job_securing_factors_other.trim(), label: 'Please specify the other factor that helped you secure your job.' },
 ];
 
