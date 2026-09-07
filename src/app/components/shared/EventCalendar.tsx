@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Card, CardContent, Button, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField
+  TextField, Alert
 } from '@mui/material';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Users, Plus, X, Upload } from 'lucide-react';
 import { useEvents, AppEvent } from './EventsContext';
@@ -37,6 +37,9 @@ export default function EventCalendar({ department, canCreate = false, createdBy
   const [createOpen, setCreateOpen]       = useState(false);
   const [form, setForm]                   = useState(BLANK_FORM);
   const [imagePreview, setImagePreview]   = useState<string | null>(null);
+  const [imageError, setImageError]       = useState<string | null>(null);
+  const [createError, setCreateError]     = useState<string | null>(null);
+  const [creating, setCreating]           = useState(false);
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -58,32 +61,74 @@ export default function EventCalendar({ department, canCreate = false, createdBy
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const totalCells     = Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7;
 
+  // A phone photo or full-screen screenshot easily runs several MB — once
+  // base64-encoded into the JSON row payload that comfortably trips the
+  // API gateway's request-size limit, and the POST gets dropped in transit
+  // before it ever reaches the database (silently, with nothing in the
+  // server logs — see the "Sleeping contest" event that never saved: the
+  // notifications fired but the row never landed). Downscaling to a
+  // banner-sized image before it's ever turned into a data URL keeps the
+  // payload well under that limit regardless of what was uploaded.
+  const MAX_BANNER_DIMENSION = 1280;
+  const MAX_SOURCE_FILE_BYTES = 20 * 1024 * 1024; // sanity cap on the original file, not the compressed output
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file after an error
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => { setImagePreview(reader.result as string); setForm(f => ({ ...f, imageUrl: reader.result as string })); };
-    reader.readAsDataURL(file);
+    setImageError(null);
+    if (file.size > MAX_SOURCE_FILE_BYTES) {
+      setImageError('That image is too large. Please choose one under 20MB.');
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_BANNER_DIMENSION / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      URL.revokeObjectURL(objectUrl);
+      if (!ctx) { setImageError('Could not read that image. Please try a different file.'); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      setImagePreview(dataUrl);
+      setForm(f => ({ ...f, imageUrl: dataUrl }));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); setImageError('Could not read that image. Please try a different file.'); };
+    img.src = objectUrl;
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.title || !form.date || !form.time || !form.location) return;
     const targetDept = department || form.department || 'All';
-    addEvent({
-      title: form.title,
-      description: form.description,
-      date: form.date,
-      time: form.time,
-      location: form.location,
-      department: targetDept,
-      createdBy,
-      maxCapacity: form.maxCapacity ? parseInt(form.maxCapacity) : undefined,
-      imageUrl: form.imageUrl || undefined,
-    });
+    setCreateError(null);
+    setCreating(true);
+    try {
+      await addEvent({
+        title: form.title,
+        description: form.description,
+        date: form.date,
+        time: form.time,
+        location: form.location,
+        department: targetDept,
+        createdBy,
+        maxCapacity: form.maxCapacity ? parseInt(form.maxCapacity) : undefined,
+        imageUrl: form.imageUrl || undefined,
+      });
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Could not create the event. Please try again.');
+      setCreating(false);
+      return;
+    }
+    setCreating(false);
 
     // Only the people this event is actually for get notified — the
     // event's own department (alumni + their faculty/reps), or everyone
-    // when the event is tagged "All".
+    // when the event is tagged "All". Fired only once the event has
+    // actually saved, so a failed create never sends a notification for
+    // an event nobody will ever see.
     const notifyMsg = `"${form.title}" has been scheduled for ${form.date}${targetDept !== 'All' ? ` (${targetDept} Department)` : ''}.`;
     const roles: Array<'alumni' | 'faculty' | 'representative'> = ['alumni', 'faculty', 'representative'];
     roles.forEach(role => {
@@ -98,6 +143,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
 
     setForm(BLANK_FORM);
     setImagePreview(null);
+    setImageError(null);
     setCreateOpen(false);
   };
 
@@ -234,13 +280,13 @@ export default function EventCalendar({ department, canCreate = false, createdBy
       </Dialog>
 
       {/* Create event dialog (faculty / admin) */}
-      <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setForm(BLANK_FORM); setImagePreview(null); }} maxWidth="sm" fullWidth>
+      <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setForm(BLANK_FORM); setImagePreview(null); setImageError(null); setCreateError(null); }} maxWidth="sm" fullWidth>
         <DialogTitle>
           Add New Event
           {department && <span className="ml-2 text-sm font-normal text-gray-500">— {department} Department</span>}
         </DialogTitle>
         <DialogContent>
-          <div className="space-y-4 pt-3">
+          <div className="flex flex-col gap-4 pt-3">
             <TextField fullWidth label="Event Title" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} required />
             <TextField fullWidth label="Description" multiline rows={3} value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
 
@@ -262,6 +308,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                 </label>
               )}
+              {imageError && <p className="text-xs text-red-600 mt-2">{imageError}</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -296,13 +343,14 @@ export default function EventCalendar({ department, canCreate = false, createdBy
               </TextField>
             )}
             <TextField fullWidth label="Max Capacity (optional)" type="number" value={form.maxCapacity} onChange={e => setForm(f => ({...f, maxCapacity: e.target.value}))} />
+            {createError && <Alert severity="error" onClose={() => setCreateError(null)}>{createError}</Alert>}
           </div>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setCreateOpen(false); setForm(BLANK_FORM); setImagePreview(null); }}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!form.title || !form.date || !form.time || !form.location}
+          <Button onClick={() => { setCreateOpen(false); setForm(BLANK_FORM); setImagePreview(null); setImageError(null); setCreateError(null); }}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreate} disabled={creating || !form.title || !form.date || !form.time || !form.location}
             style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
-            Create Event
+            {creating ? 'Creating…' : 'Create Event'}
           </Button>
         </DialogActions>
       </Dialog>

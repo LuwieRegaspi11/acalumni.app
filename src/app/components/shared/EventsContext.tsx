@@ -96,9 +96,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   };
 
   const addEvent = async (e: Omit<AppEvent, 'id' | 'registeredCount' | 'status'>) => {
-    if (!user) return;
+    if (!user) throw new Error('You must be signed in to create an event.');
     const eventDateTime = new Date(`${e.date}T${e.time || '00:00'}`);
-    await supabase.from('events').insert({
+    const { error } = await supabase.from('events').insert({
       title: e.title,
       description: e.description,
       event_date: eventDateTime.toISOString(),
@@ -108,6 +108,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       image_url: e.imageUrl ?? null,
       created_by: user.id,
     });
+    // Insert failures (RLS denial, an oversized banner image tripping the
+    // API gateway's request-size limit, a dropped connection, ...) used to
+    // be swallowed here — the dialog closed and the "New Event Published"
+    // notifications still fired via handleCreate, even though nothing was
+    // ever saved. Throwing lets the caller show the real error and keep
+    // the dialog open instead of silently losing the event.
+    if (error) throw error;
     await loadEvents();
   };
 
