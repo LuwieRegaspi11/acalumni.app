@@ -26,7 +26,6 @@ import { getBatchYearOptions } from '../../lib/batchYears';
 import { Eye, EyeOff, ArrowLeft, Mail, Check, ClipboardList } from 'lucide-react';
 
 // -- Local image assets --------------------------------------------------
-import asianCollegeLogo from '../../imports/asiancollege_logo.jpeg';
 import aaaLogo from '../../imports/AAA logo.png';
 
 // AUTH PAGE COLORS — edit these to change the sign-in branding panel
@@ -363,7 +362,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 /* ======================================
    SIGN IN FORM
 ====================================== */
-function SignInForm({ onToast, autoCheckEmail, onAutoChecked }: { onToast: (m: string) => void; autoCheckEmail?: string | null; onAutoChecked?: () => void }) {
+function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string | null; onAutoChecked?: () => void }) {
   const { login, user } = useAuth();
   const navigate        = useNavigate();
   const [email, setEmail]       = useState('');
@@ -601,7 +600,7 @@ function SignInForm({ onToast, autoCheckEmail, onAutoChecked }: { onToast: (m: s
 
   return (
     <div className="flex flex-col items-center justify-start h-full px-5 sm:px-8 pt-10 pb-6 overflow-y-auto">
-      <img src={aaaLogo} alt="Asian College" className="w-24 h-24 object-contain" style={{ marginBottom: '-12px' }} />
+      <img src={aaaLogo} alt="Asian College" className="w-32 h-32 object-contain" style={{ marginBottom: '-12px' }} />
       <h2 className="text-2xl mb-1" style={{ color: NAVY }}>Sign In</h2>
       <p className="text-xs text-gray-400 mb-6">Use the email and password from your Alumni Tracer Survey confirmation</p>
 
@@ -702,13 +701,13 @@ export default function AuthPage() {
       >
         {/* -- Sign In form -- */}
         <div className="w-full md:w-1/2">
-          <SignInForm onToast={showToast} autoCheckEmail={autoCheckEmail} onAutoChecked={() => setAutoCheckEmail(null)} />
+          <SignInForm autoCheckEmail={autoCheckEmail} onAutoChecked={() => setAutoCheckEmail(null)} />
         </div>
 
         {/* -- Branding / survey CTA panel -- */}
         <div
           style={{ background: PANEL_GRADIENT }}
-          className="hidden md:flex relative w-1/2 flex-col items-center justify-center p-10 text-center"
+          className="hidden md:flex relative w-1/2 flex-col items-center justify-start p-10 text-center"
         >
           {/* Decorative circles */}
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
@@ -717,13 +716,7 @@ export default function AuthPage() {
             <div style={{ position: 'absolute', width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', top: '40%', right: '15%' }} />
           </div>
 
-          <img
-            src={asianCollegeLogo}
-            alt="Asian College"
-            style={{ width: 56, height: 56, objectFit: 'contain', marginBottom: 16, borderRadius: 12, background: 'rgba(255,255,255,0.12)', padding: 4 }}
-          />
-
-          <h2 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '0.75rem' }}>New Here?</h2>
+          <h2 style={{ color: 'white', fontSize: '1.5rem', marginTop: 160, marginBottom: '0.75rem' }}>New Here?</h2>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '2rem', maxWidth: 240 }}>
             There's no separate sign-up — take the Alumni Tracer Survey and we'll set up your account for you.
           </p>
