@@ -104,10 +104,11 @@ export default function AdminDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileDropOpen, setProfileDropOpen] = useState(false);
-  // Closed by default on entering the dashboard — an admin opens a group
-  // by clicking it (toggleGroup below), nothing pre-expands on its own.
+  // Overview and Alumni are open as soon as the admin logs in; Programs
+  // and Administration stay collapsed until the admin clicks to open them
+  // (toggleGroup below).
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    Overview: false, Alumni: false, Programs: false, Administration: false
+    Overview: true, Alumni: true, Programs: false, Administration: false
   });
 
   const [pendingCount, setPendingCount] = useState(0);
