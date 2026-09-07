@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Filter, Download, ChevronDown, Users, BarChart3, Pencil, ListChecks } from 'lucide-react';
+import { Search, Filter, Download, ChevronDown, Users, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -9,7 +9,6 @@ import {
 } from 'recharts';
 import {
   Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
 } from '@mui/material';
 import { supabase } from '../../../lib/supabaseClient';
 import { getBatchYearOptions } from '../../../lib/batchYears';
@@ -23,7 +22,7 @@ import {
 import {
   JOB_RELATED_OPTIONS, TIME_TO_FIRST_JOB_OPTIONS,
 } from '../../../lib/graduateTracerSurveyOptions';
-import AlumniRoster from '../admin/AlumniRoster';
+import { useDarkMode } from './DarkModeContext';
 
 // ================= [SHARED: ALUMNIMANAGEMENTVIEW] =================
 // The full Alumni Tracer screen (labeled "Alumni Tracer" in both the admin
@@ -35,16 +34,10 @@ import AlumniRoster from '../admin/AlumniRoster';
 // added here reaches both roles instead of two copies silently drifting
 // apart. Mirrors the split already used for Donation Management — see
 // shared/DonationManagementView.tsx's header comment for the same
-// rationale. Mostly read-only — no verifying, no donation modal — with
-// one deliberate exception: an "Edit" action per row that corrects an
-// alumnus's contact details (email, mobile number, addresses, social
-// network ID), since those are otherwise permanently locked once a
-// Graduate Tracer Survey response is submitted, and a historical
-// bulk-imported record can genuinely have the wrong email/phone with no
-// other way to fix it. Goes through the tracer-intake Edge Function's
-// admin-only "admin_update_contact" action (service_role — bypasses the
-// edit-lock trigger, and can update the Auth sign-in email itself if
-// that's what's changing) rather than any direct table write from here.
+// rationale. Read-only from here — no verifying, no donation modal, no
+// per-row edit action — since an alumnus's own record (including the
+// Graduate Profile columns below) is only ever editable by that alumnus,
+// from their own Profile page.
 //
 
 // `department` is the ONLY behavioral difference between the two:
@@ -119,6 +112,27 @@ const EMPLOYMENT_BUCKETS: EmploymentBucket[] = ['Employed', 'Further Studies', '
 const EMPLOYMENT_BUCKET_COLORS: Record<EmploymentBucket, string> = {
   Employed: '#10b981', 'Further Studies': '#3b82f6', Unemployed: '#ef4444', 'Not Seeking': '#f59e0b', 'No Response': '#9ca3af',
 };
+
+// Per-department color coding — Analytics Report only (the Alumni Records
+// table's own "College Department" column stays plain text). Fixed per
+// department rather than assigned by array index/order, so a department's
+// color stays the same regardless of sort order or which departments are
+// currently present in the filtered data. Keyed by the DEPARTMENTS codes
+// in lib/academicPrograms.ts ('BAA'/'CSE'/'CTHM' — CTHM is "THM").
+const DEPARTMENT_COLORS: Record<string, string> = {
+  BAA: '#eab308', // yellow
+  CSE: '#a855f7', // purple
+  CTHM: '#ef4444', // red
+};
+// Readable text color to pair with each DEPARTMENT_COLORS fill above, e.g.
+// for the Chip in the Employment Rate by Program table — yellow needs a
+// dark label for contrast, purple/red read fine with white.
+const DEPARTMENT_TEXT_COLORS: Record<string, string> = {
+  BAA: '#422006',
+  CSE: '#ffffff',
+  CTHM: '#ffffff',
+};
+const DEFAULT_DEPARTMENT_COLOR = '#9ca3af'; // any department not in the map above (shouldn't happen, but keeps charts from breaking on stale/legacy data)
 
 // Kept in sync by hand with EMPLOYMENT_STATUS_OPTIONS in
 // lib/graduateTracerSurveyOptions.ts (copied from the official Graduate
@@ -210,6 +224,13 @@ function formatDisplayName(fullName: string): string {
   return `${capitalizeNamePart(last)}, ${firstAndMiddle}`;
 }
 
+// Same last-name convention as formatDisplayName above (last whitespace
+// token) — used to sort the roster by surname instead of by given name.
+function lastNameOf(fullName: string): string {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
+
 function mapRow(p: any): AlumniRow {
   return {
     id: p.id,
@@ -231,6 +252,7 @@ interface Props {
 }
 
 export default function AlumniManagementView({ department }: Props) {
+  const { dark } = useDarkMode();
   const [alumni, setAlumni] = useState<AlumniRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -240,44 +262,17 @@ export default function AlumniManagementView({ department }: Props) {
   const [showFilters, setShowFilters] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<'records' | 'analytics' | 'roster'>('records');
+  const [view, setView] = useState<'records' | 'analytics'>('records');
 
-  // Edit Contact Info dialog — see header comment above.
-  const [editTarget, setEditTarget] = useState<AlumniRow | null>(null);
-  const [editForm, setEditForm] = useState({ email: '', mobile_number: '', social_network_id: '', current_address: '', permanent_address: '' });
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState('');
-
-  const openEdit = (a: AlumniRow) => {
-    setEditTarget(a);
-    setEditForm({
-      email: a.email || '',
-      mobile_number: a.graduateProfile?.mobile_number || '',
-      social_network_id: a.graduateProfile?.social_network_id || '',
-      current_address: a.graduateProfile?.current_address || '',
-      permanent_address: a.graduateProfile?.permanent_address || '',
-    });
-    setEditError('');
-  };
-  const closeEdit = () => { if (!editSaving) setEditTarget(null); };
-  const saveEdit = async () => {
-    if (!editTarget) return;
-    if (!editForm.email.trim() || !editForm.email.includes('@')) { setEditError('Please enter a valid email address.'); return; }
-    setEditSaving(true);
-    setEditError('');
-    const { data, error } = await supabase.functions.invoke('tracer-intake', {
-      body: { action: 'admin_update_contact', profileId: editTarget.id, ...editForm },
-    });
-    setEditSaving(false);
-    if (error || !data?.ok) {
-      let message = 'Could not save these changes. Please try again.';
-      try { const body = await error?.context?.json?.(); if (body?.error) message = body.error; } catch { /* keep generic */ }
-      setEditError(message);
-      return;
-    }
-    setEditTarget(null);
-    loadAlumni();
-  };
+  // Analytics Report's own Department filter — kept entirely separate from
+  // the Alumni Records filter above (filterDept etc.) so narrowing the
+  // report down doesn't also narrow the roster table, or vice versa. Just
+  // Department (unlike the Records filter's Department/Program/Batch Year)
+  // since that's the one breakdown the report's charts need to scope by.
+  // See `analyticsFiltered` below for where this is applied.
+  const [analyticsFilterDept, setAnalyticsFilterDept] = useState('All');
+  const [showAnalyticsFilters, setShowAnalyticsFilters] = useState(false);
+  const analyticsFilterMenuRef = useRef<HTMLDivElement>(null);
 
   const loadAlumni = async () => {
     // Only admin-approved accounts belong here — Pending Registrations
@@ -320,6 +315,15 @@ export default function AlumniManagementView({ department }: Props) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [exportOpen]);
 
+  useEffect(() => {
+    if (!showAnalyticsFilters) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (analyticsFilterMenuRef.current && !analyticsFilterMenuRef.current.contains(e.target as Node)) setShowAnalyticsFilters(false);
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showAnalyticsFilters]);
+
   // Which department's program list the Program filter/editor should
   // offer — faculty always see just their own department's programs;
   // admin sees whatever department is currently picked in the filter
@@ -333,14 +337,28 @@ export default function AlumniManagementView({ department }: Props) {
     const matchProgram = filterProgram === 'All' || normalizeProgram(a.program) === filterProgram;
     const matchYear = filterYear === 'All' || a.batchYear.toString() === filterYear;
     return matchSearch && matchDept && matchProgram && matchYear;
+  }).sort((a, b) => lastNameOf(a.name).localeCompare(lastNameOf(b.name)) || a.name.localeCompare(b.name));
+
+  // Analytics Report's own filter — just Department (see analyticsFilterDept
+  // above), independent of the Alumni Records tab's filter.
+  const analyticsFiltered = alumni.filter(a => {
+    return department ? true : (analyticsFilterDept === 'All' || a.department === analyticsFilterDept);
   });
 
-  // Analytics Report data — all derived from `filtered`, the exact same
-  // rows (and search/filters) as the "Alumni Records" tab, then narrowed
-  // to `submitted` for anything that needs actual survey answers (an
-  // alumnus with no Graduate Tracer Survey response has nothing to chart).
-  const submitted = useMemo(() => filtered.filter(a => a.graduateProfile !== null), [filtered]);
-  const responseCoveragePct = filtered.length ? (submitted.length / filtered.length) * 100 : 0;
+  // Whenever the report ends up scoped to exactly one department — either
+  // the whole screen is department-locked (faculty) or an admin picked one
+  // in the Analytics Report's own Department filter — the "College
+  // Department" pie chart below would just be a single 100% slice, so it's
+  // hidden instead of shown as a redundant chart (see analyticsSingleDept
+  // usage further down).
+  const analyticsSingleDept = department || (analyticsFilterDept !== 'All' ? analyticsFilterDept : null);
+
+  // Analytics Report data — all derived from `analyticsFiltered` (its own
+  // filter, independent of the "Alumni Records" tab's), then narrowed to
+  // `submitted` for anything that needs actual survey answers (an alumnus
+  // with no Graduate Tracer Survey response has nothing to chart).
+  const submitted = useMemo(() => analyticsFiltered.filter(a => a.graduateProfile !== null), [analyticsFiltered]);
+  const responseCoveragePct = analyticsFiltered.length ? (submitted.length / analyticsFiltered.length) * 100 : 0;
 
   const yearGraduatedDistribution = useMemo(() => {
     const counts = aggregateBucket(submitted, 'year_graduated');
@@ -350,10 +368,10 @@ export default function AlumniManagementView({ department }: Props) {
   const collegeDeptDistribution = useMemo(() => {
     const counts = aggregateBucket(submitted, 'college_department');
     const total = submitted.length;
-    return (department ? [department] : ACADEMIC_DEPARTMENTS)
+    return (analyticsSingleDept ? [analyticsSingleDept] : ACADEMIC_DEPARTMENTS)
       .map(dept => ({ name: dept, value: counts[dept] || 0, pct: total ? ((counts[dept] || 0) / total) * 100 : 0 }))
       .filter(d => d.value > 0);
-  }, [submitted, department]);
+  }, [submitted, analyticsSingleDept]);
 
   const programGraduatedDistribution = useMemo(() => {
     const counts = aggregateBucket(submitted, 'program_graduated');
@@ -372,7 +390,7 @@ export default function AlumniManagementView({ department }: Props) {
       .filter(b => b.value > 0);
   }, [submitted]);
 
-  const employmentByDept = useMemo(() => (department ? [department] : ACADEMIC_DEPARTMENTS).map(dept => {
+  const employmentByDept = useMemo(() => (analyticsSingleDept ? [analyticsSingleDept] : ACADEMIC_DEPARTMENTS).map(dept => {
     const deptRows = submitted.filter(a => a.department === dept);
     const total = deptRows.length;
     const counts: Record<EmploymentBucket, number> = { Employed: 0, 'Further Studies': 0, Unemployed: 0, 'Not Seeking': 0, 'No Response': 0 };
@@ -383,7 +401,7 @@ export default function AlumniManagementView({ department }: Props) {
       Employed: pct('Employed'), 'Further Studies': pct('Further Studies'),
       Unemployed: pct('Unemployed'), 'Not Seeking': pct('Not Seeking'), 'No Response': pct('No Response'),
     };
-  }).filter(d => d.total > 0), [submitted, department]);
+  }).filter(d => d.total > 0), [submitted, analyticsSingleDept]);
 
   const employmentByProgram = useMemo(() => {
     const programs = Array.from(new Set(submitted.map(a => normalizeProgram(a.program)).filter(Boolean)));
@@ -422,13 +440,18 @@ export default function AlumniManagementView({ department }: Props) {
     return TIME_TO_FIRST_JOB_OPTIONS.map(opt => ({ name: opt, value: counts[opt] || 0, pct: total ? ((counts[opt] || 0) / total) * 100 : 0 }));
   }, [submitted]);
 
-  // Light-theme-only chart colors — this page doesn't participate in dark
-  // mode today (unlike TracerResponsesView, which this report moved out
-  // of), so there's no `dark` flag to key these off of.
-  const chartAxisColor = '#4b5563';
-  const chartLineColor = '#d1d5db';
-  const chartGridColor = '#e5e7eb';
-  const chartTooltipStyle = { background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, color: '#111827' };
+  // Chart colors — same dark/light pairing PopulationAnalytics.tsx and
+  // Reports.tsx use, so these charts match the rest of the dashboard
+  // instead of staying a bright light-mode box when dark mode is on.
+  const chartAxisColor = dark ? '#b8d4f0' : '#4b5563';
+  const chartLineColor = dark ? '#334155' : '#d1d5db';
+  const chartGridColor = dark ? '#334155' : '#e5e7eb';
+  const chartTooltipStyle = {
+    background: dark ? '#1a2332' : '#ffffff',
+    border: `1px solid ${dark ? '#334155' : '#e5e7eb'}`,
+    borderRadius: 8,
+    color: dark ? '#e8f2ff' : '#111827',
+  };
 
   const exportAlumni = (format: ExportFormat) => {
     setExportOpen(false);
@@ -552,12 +575,11 @@ export default function AlumniManagementView({ department }: Props) {
 
       {/* Tab switcher — Alumni Records (the roster table) vs. Analytics
           Report (charts, moved here from Tracer Responses so they run off
-          this same roster/filters instead of a separate fetch) vs., admin
-          only, Alumni Roster (the registrar match-source importer — see
-          admin/AlumniRoster.tsx's header comment). Faculty (department
-          set) never see that last tab: it's an admin-only match source,
-          not scoped per department, and RLS on `alumni_roster` already
-          restricts writes to admins regardless. */}
+          this same roster/filters instead of a separate fetch). There used
+          to be a third, admin-only "Alumni Roster" tab for the registrar
+          match-source importer (admin/AlumniRoster.tsx) — that component
+          and its `alumni_roster` matching logic are untouched, it's just
+          not surfaced here anymore. */}
       <div className="flex gap-2">
         <button onClick={() => setView('records')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'records' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
@@ -569,13 +591,6 @@ export default function AlumniManagementView({ department }: Props) {
           style={view === 'analytics' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
           <BarChart3 className="w-4 h-4" /> Analytics Report
         </button>
-        {!department && (
-          <button onClick={() => setView('roster')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'roster' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
-            style={view === 'roster' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
-            <ListChecks className="w-4 h-4" /> Alumni Roster
-          </button>
-        )}
       </div>
 
       {view === 'records' && (
@@ -637,12 +652,11 @@ export default function AlumniManagementView({ department }: Props) {
                 {JOB_INFO_FIELDS.map(f => (
                   <th key={f.key} className="sticky top-0 z-20 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-blue-50/60 border-b border-gray-100">{f.label}</th>
                 ))}
-                <th className="sticky top-0 z-20 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-gray-50 border-b border-gray-100">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={2 + GRADUATE_PROFILE_FIELDS.length + JOB_INFO_FIELDS.length} className="px-4 py-8 text-center text-sm text-gray-400">
+                <tr><td colSpan={1 + GRADUATE_PROFILE_FIELDS.length + JOB_INFO_FIELDS.length} className="px-4 py-8 text-center text-sm text-gray-400">
                   No alumni registered yet.
                 </td></tr>
               )}
@@ -679,12 +693,6 @@ export default function AlumniManagementView({ department }: Props) {
                       {a.graduateProfile ? fmtTracerValue(a.graduateProfile[f.key]) : '—'}
                     </td>
                   ))}
-                  <td className="px-4 py-3">
-                    <button onClick={() => openEdit(a)} title="Edit contact info"
-                      className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap">
-                      <Pencil className="w-3.5 h-3.5" /> Edit
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -696,25 +704,50 @@ export default function AlumniManagementView({ department }: Props) {
 
       {view === 'analytics' && (
         <div className="space-y-4">
-          {filtered.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
-              No alumni match these filters.
-            </div>
-          ) : (
-            <>
-              {/* Ties the report back to the full Alumni Records roster —
-                  not just whoever happened to submit a response. */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-                <span className="text-sm text-gray-600">Graduate Tracer Survey Response Rate</span>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{responseCoveragePct.toFixed(1)}%</p>
-                <p className="text-xs text-gray-400 mt-1">{submitted.length} of {filtered.length} alumni have submitted a response</p>
-              </div>
-
-              {submitted.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
-                  None of these alumni have submitted a Graduate Tracer Survey response yet.
-                </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Ties the report back to the full Alumni Records roster —
+                not just whoever happened to submit a response. */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex-1">
+              {analyticsFiltered.length === 0 ? (
+                <p className="text-sm text-gray-400 py-1">No alumni match this filter.</p>
               ) : (
+                <>
+                  <span className="text-sm text-gray-600">Graduate Tracer Survey Response Rate</span>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">{responseCoveragePct.toFixed(1)}%</p>
+                  <p className="text-xs text-gray-400 mt-1">{submitted.length} of {analyticsFiltered.length} alumni have submitted a response</p>
+                </>
+              )}
+            </div>
+
+            {/* This report's own Department filter, positioned right beside
+                the Response Rate card — separate from the Alumni Records
+                tab's filter above, so narrowing one doesn't narrow the
+                other. Just Department (see analyticsFilterDept above). */}
+            {!department && (
+              <div className="relative shrink-0" ref={analyticsFilterMenuRef}>
+                <button onClick={() => setShowAnalyticsFilters(f => !f)}
+                  className="flex items-center gap-2 px-4 py-2 h-full rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 bg-white">
+                  <Filter className="w-4 h-4" /> Filters <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAnalyticsFilters ? 'rotate-180' : ''}`} />
+                </button>
+                {showAnalyticsFilters && (
+                  <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-xl border border-gray-100 shadow-lg p-3 z-20">
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
+                    <select value={analyticsFilterDept} onChange={e => setAnalyticsFilterDept(e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400">
+                      {DEPARTMENTS.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {analyticsFiltered.length > 0 && (
+            submitted.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center text-sm text-gray-400">
+                None of these alumni have submitted a Graduate Tracer Survey response yet.
+              </div>
+            ) : (
                 <>
                   {/* ---- Graduate Profile ---- */}
                   <h3 className="text-lg font-bold text-gray-800">Graduate Profile</h3>
@@ -731,24 +764,11 @@ export default function AlumniManagementView({ department }: Props) {
                     </ResponsiveContainer>
                   </CardContent></Card>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <Card><CardContent>
-                      <h3 className="font-bold text-gray-800 mb-3">College Department</h3>
-                      <ResponsiveContainer width="100%" height={240}>
-                        <PieChart>
-                          <Pie
-                            data={collegeDeptDistribution} cx="50%" cy="50%" labelLine={false} outerRadius={85} dataKey="value"
-                            label={(entry: any) => `${entry.name}: ${entry.pct.toFixed(0)}%`}
-                          >
-                            {collegeDeptDistribution.map((_entry, i) => <Cell key={i} fill={['#1B3A6B', '#2B5BA8', '#5B9BD5', '#8b5cf6', '#f59e0b'][i % 5]} />)}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={chartTooltipStyle}
-                            formatter={(value: any, name: any, props: any) => [`${value} (${props.payload.pct.toFixed(1)}%)`, name]}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </CardContent></Card>
+                  {analyticsSingleDept ? (
+                    // Already scoped to one department (faculty lock, or the
+                    // Department filter above) — a "College Department" pie
+                    // chart would just be a single 100% slice, so skip it
+                    // and let Program Graduated take the full width instead.
                     <Card><CardContent>
                       <h3 className="font-bold text-gray-800 mb-3">Program Graduated</h3>
                       <ResponsiveContainer width="100%" height={Math.max(240, programGraduatedDistribution.length * 28)}>
@@ -761,7 +781,39 @@ export default function AlumniManagementView({ department }: Props) {
                         </BarChart>
                       </ResponsiveContainer>
                     </CardContent></Card>
-                  </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <Card><CardContent>
+                        <h3 className="font-bold text-gray-800 mb-3">College Department</h3>
+                        <ResponsiveContainer width="100%" height={240}>
+                          <PieChart>
+                            <Pie
+                              data={collegeDeptDistribution} cx="50%" cy="50%" labelLine={false} outerRadius={85} dataKey="value"
+                              label={(entry: any) => `${entry.name}: ${entry.pct.toFixed(0)}%`}
+                            >
+                              {collegeDeptDistribution.map((entry, i) => <Cell key={i} fill={DEPARTMENT_COLORS[entry.name] || DEFAULT_DEPARTMENT_COLOR} />)}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={chartTooltipStyle}
+                              formatter={(value: any, name: any, props: any) => [`${value} (${props.payload.pct.toFixed(1)}%)`, name]}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </CardContent></Card>
+                      <Card><CardContent>
+                        <h3 className="font-bold text-gray-800 mb-3">Program Graduated</h3>
+                        <ResponsiveContainer width="100%" height={Math.max(240, programGraduatedDistribution.length * 28)}>
+                          <BarChart data={programGraduatedDistribution} layout="vertical" margin={{ left: 24 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                            <XAxis type="number" tick={{ fill: chartAxisColor }} axisLine={{ stroke: chartLineColor }} allowDecimals={false} />
+                            <YAxis type="category" dataKey="name" width={90} tick={{ fill: chartAxisColor, fontSize: 11 }} axisLine={{ stroke: chartLineColor }} />
+                            <Tooltip contentStyle={chartTooltipStyle} formatter={(v: any, _n: any, p: any) => [`${v} (${p.payload.pct.toFixed(0)}%)`, 'Alumni']} />
+                            <Bar dataKey="value" fill="#3b82f6" name="Alumni" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </CardContent></Card>
+                    </div>
+                  )}
 
                   {/* ---- Employment Outcomes (moved here from Tracer
                       Responses' old "Analytics Report" view, verbatim) ---- */}
@@ -799,7 +851,7 @@ export default function AlumniManagementView({ department }: Props) {
                     </CardContent></Card>
 
                     <Card><CardContent>
-                      <h3 className="font-bold text-gray-800 mb-3">{department ? 'Employment Outcomes' : 'Employment Rate by Department'}</h3>
+                      <h3 className="font-bold text-gray-800 mb-3">{analyticsSingleDept ? 'Employment Outcomes' : 'Employment Rate by Department'}</h3>
                       <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={employmentByDept}>
                           <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
@@ -879,7 +931,17 @@ export default function AlumniManagementView({ department }: Props) {
                           {employmentByProgram.map(p => (
                             <TableRow key={p.program}>
                               <TableCell>{p.program}</TableCell>
-                              <TableCell><Chip size="small" label={p.department} /></TableCell>
+                              <TableCell>
+                                <Chip
+                                  size="small"
+                                  label={p.department}
+                                  sx={{
+                                    backgroundColor: DEPARTMENT_COLORS[p.department] || DEFAULT_DEPARTMENT_COLOR,
+                                    color: DEPARTMENT_TEXT_COLORS[p.department] || '#ffffff',
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              </TableCell>
                               <TableCell align="right">{p.total}</TableCell>
                               <TableCell align="right">{p.employedPct.toFixed(1)}%</TableCell>
                             </TableRow>
@@ -889,44 +951,11 @@ export default function AlumniManagementView({ department }: Props) {
                     </TableContainer>
                   </CardContent></Card>
                 </>
-              )}
-            </>
+              )
           )}
         </div>
       )}
 
-      {view === 'roster' && !department && <AlumniRoster />}
-
-      {/* Edit Contact Info — corrects an alumnus's email/mobile/addresses
-          directly (see header comment above). Fields not on the survey
-          yet (graduateProfile === null) start blank, same as the table
-          columns do. */}
-      <Dialog open={!!editTarget} onClose={closeEdit} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Contact Info{editTarget ? ` — ${formatDisplayName(editTarget.name)}` : ''}</DialogTitle>
-        <DialogContent className="space-y-4 !pt-2">
-          <p className="text-sm text-gray-500 mb-2">
-            These fields are normally locked once an alumnus submits their Graduate Tracer Survey — use this only to fix
-            outdated or incorrect contact info. Changing Email also changes their sign-in email.
-          </p>
-          {editError && <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-600 mb-2">{editError}</div>}
-          <div className="space-y-3">
-            <TextField fullWidth size="small" label="Email" type="email" value={editForm.email}
-              onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
-            <TextField fullWidth size="small" label="Mobile Number" value={editForm.mobile_number}
-              onChange={e => setEditForm(f => ({ ...f, mobile_number: e.target.value }))} />
-            <TextField fullWidth size="small" label="Social Network ID" value={editForm.social_network_id}
-              onChange={e => setEditForm(f => ({ ...f, social_network_id: e.target.value }))} />
-            <TextField fullWidth size="small" label="Current Address" value={editForm.current_address}
-              onChange={e => setEditForm(f => ({ ...f, current_address: e.target.value }))} />
-            <TextField fullWidth size="small" label="Permanent Address" value={editForm.permanent_address}
-              onChange={e => setEditForm(f => ({ ...f, permanent_address: e.target.value }))} />
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeEdit} disabled={editSaving}>Cancel</Button>
-          <Button variant="contained" onClick={saveEdit} disabled={editSaving}>{editSaving ? 'Saving…' : 'Save Changes'}</Button>
-        </DialogActions>
-      </Dialog>
     </div>
   );
 }

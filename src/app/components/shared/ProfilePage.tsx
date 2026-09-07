@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { useDarkMode } from './DarkModeContext';
@@ -6,7 +6,7 @@ import { useDonations } from './DonationContext';
 import { supabase } from '../../../lib/supabaseClient';
 import PhoneNumberField from './PhoneNumberField';
 import JobInfoCard from './JobInfoCard';
-import { Sun, Moon, Camera, Mail, Phone, MapPin, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Briefcase, Heart, DollarSign } from 'lucide-react';
+import { Sun, Moon, Camera, Mail, Phone, MapPin, Home, Link as LinkIcon, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Briefcase, Heart, DollarSign } from 'lucide-react';
 
 const DONATION_STATUS_LABELS: Record<string, string> = { Pending: 'Pending', Verified: 'Confirmed', Rejected: 'Rejected' };
 const DONATION_STATUS_COLOR: Record<string, string> = {
@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'job' | 'donations'>('profile');
   const [form, setForm] = useState({
     phone: user?.phone || '',
@@ -29,7 +30,37 @@ export default function ProfilePage() {
     currentCompany: user?.currentCompany || '',
     username: user?.username || '',
     position: user?.position || '',
+    permanentAddress: '',
+    socialNetworkId: '',
   });
+
+  // Graduate Profile contact fields — Permanent Address and Social Network
+  // ID live only on the alumnus/rep's Graduate Tracer Survey response
+  // (graduate_tracer_responses), not on `profiles`, so they're fetched
+  // separately here. `hasTracerRecord` gates both showing these two fields
+  // and, on Save below, pushing Phone/Address into that same row's
+  // mobile_number/current_address columns — see
+  // supabase/graduate_tracer_contact_info_edit.sql for the database-level
+  // lock that permits this after submission (same idea as
+  // shared/JobInfoCard.tsx for Employment fields). A legacy account that
+  // predates the Graduate Tracer Survey gate (no row at all) just doesn't
+  // get this sync — nothing there to keep current.
+  const showTracerSync = user?.role === 'alumni' || user?.role === 'representative';
+  const [hasTracerRecord, setHasTracerRecord] = useState(false);
+  const [tracerOriginal, setTracerOriginal] = useState({ permanentAddress: '', socialNetworkId: '' });
+
+  useEffect(() => {
+    if (!user || !showTracerSync) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase.from('graduate_tracer_responses')
+        .select('status, permanent_address, social_network_id').eq('respondent_id', user.id).maybeSingle();
+      if (!active || !data || data.status !== 'submitted') return;
+      setHasTracerRecord(true);
+      setTracerOriginal({ permanentAddress: data.permanent_address || '', socialNetworkId: data.social_network_id || '' });
+    })();
+    return () => { active = false; };
+  }, [user?.id, showTracerSync]);
 
   const profileImage = user?.profileImage ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=1B3A6B&color=fff&bold=true`;
@@ -55,18 +86,46 @@ export default function ProfilePage() {
       phone: user?.phone || '', address: user?.address || '',
       currentPosition: user?.currentPosition || '', currentCompany: user?.currentCompany || '',
       username: user?.username || '', position: user?.position || '',
+      permanentAddress: tracerOriginal.permanentAddress, socialNetworkId: tracerOriginal.socialNetworkId,
     });
+    setSaveError(null);
     setEditing(true);
   };
 
+  // Saving never requires touching every field — each input above is
+  // independently optional here, so an alumnus can change just their
+  // phone number (say) and leave everything else exactly as it was.
   const handleSave = async () => {
     setSaving(true);
-    await updateProfile({
+    setSaveError(null);
+    const ok = await updateProfile({
       phone: form.phone, address: form.address,
       currentPosition: form.currentPosition, currentCompany: form.currentCompany,
       ...(user?.role === 'admin' ? { username: form.username } : {}),
       ...(user?.role === 'faculty' ? { position: form.position } : {}),
     });
+    if (!ok) {
+      setSaving(false);
+      setSaveError('Could not save your changes. Please try again.');
+      return;
+    }
+    // Mirror Phone/Address plus the two tracer-only fields into the same
+    // Graduate Tracer Survey response admin/faculty's Alumni Tracer screen
+    // reads from — so this one Save is all it takes for the correction to
+    // show up there too, instead of a second edit somewhere else.
+    if (showTracerSync && hasTracerRecord && user) {
+      const { error } = await supabase.from('graduate_tracer_responses').update({
+        mobile_number: form.phone || null, current_address: form.address || null,
+        permanent_address: form.permanentAddress || null, social_network_id: form.socialNetworkId || null,
+      }).eq('respondent_id', user.id);
+      if (error) {
+        console.error('[profile] tracer contact sync failed', error);
+        setSaving(false);
+        setSaveError('Your profile was saved, but the Alumni Tracer record could not be updated. Please try again.');
+        return;
+      }
+      setTracerOriginal({ permanentAddress: form.permanentAddress, socialNetworkId: form.socialNetworkId });
+    }
     setSaving(false);
     setEditing(false);
   };
@@ -269,6 +328,14 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+        {showTracerSync && hasTracerRecord && (
+          <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+            Saving here also updates your contact details on the school's Alumni Tracer records — no need to change anything else.
+          </p>
+        )}
+        {saveError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 mb-4">{saveError}</div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-gray-400" /><span className={label}>Email Address</span></div>
@@ -307,13 +374,38 @@ export default function ProfilePage() {
           </div>
 
           <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-gray-400" /><span className={label}>Address</span></div>
+            <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-gray-400" /><span className={label}>{showTracerSync && hasTracerRecord ? 'Current Address' : 'Address'}</span></div>
             {editing ? (
               <input className={inputCls} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street, City" />
             ) : (
               <p className={value}>{user?.address || '—'}</p>
             )}
           </div>
+
+          {/* Permanent Address / Social Network ID — Graduate Profile
+              columns that live only on the tracer response (see
+              showTracerSync/hasTracerRecord above), not on `profiles`. */}
+          {showTracerSync && hasTracerRecord && (
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Home className="w-4 h-4 text-gray-400" /><span className={label}>Permanent Address</span></div>
+              {editing ? (
+                <input className={inputCls} value={form.permanentAddress} onChange={e => setForm(f => ({ ...f, permanentAddress: e.target.value }))} placeholder="Street, City" />
+              ) : (
+                <p className={value}>{tracerOriginal.permanentAddress || '—'}</p>
+              )}
+            </div>
+          )}
+
+          {showTracerSync && hasTracerRecord && (
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><LinkIcon className="w-4 h-4 text-gray-400" /><span className={label}>Social Network ID</span></div>
+              {editing ? (
+                <input className={inputCls} value={form.socialNetworkId} onChange={e => setForm(f => ({ ...f, socialNetworkId: e.target.value }))} placeholder="Facebook/Twitter name or link" />
+              ) : (
+                <p className={value}>{tracerOriginal.socialNetworkId || '—'}</p>
+              )}
+            </div>
+          )}
 
           <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-2 mb-1"><GraduationCap className="w-4 h-4 text-gray-400" /><span className={label}>Department</span></div>
