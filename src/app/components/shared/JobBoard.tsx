@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Briefcase, Plus, MapPin, Clock, X, Edit } from 'lucide-react';
 import { useJobBoard, Job } from './JobBoardContext';
 
@@ -35,6 +35,7 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Job | null>(null);
   const [form, setForm] = useState({ ...BLANK_FORM, department: department || 'All' });
+  const formId = useId(); // ties each field's <label> to its input — see per-field ids below
   const [filterDept, setFilterDept] = useState('All');
   const [filterType, setFilterType] = useState('All');
 
@@ -177,7 +178,7 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8 sm:my-4 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
               <h3 className="font-bold text-gray-800">{editTarget ? 'Edit Job' : 'Post a Job'}</h3>
-              <button onClick={() => { setShowForm(false); setEditTarget(null); }}><X className="w-5 h-5 text-gray-500" /></button>
+              <button onClick={() => { setShowForm(false); setEditTarget(null); }} aria-label="Close"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {[
@@ -186,26 +187,26 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
                 { label: 'Location', key: 'location', placeholder: 'e.g. Dumaguete City / Remote' },
               ].map(f => (
                 <div key={f.key}>
-                  <label className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
-                  <input value={(form as any)[f.key]} onChange={e => setForm(p => ({...p, [f.key]: e.target.value}))}
+                  <label htmlFor={`${formId}-${f.key}`} className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
+                  <input id={`${formId}-${f.key}`} value={(form as any)[f.key]} onChange={e => setForm(p => ({...p, [f.key]: e.target.value}))}
                     placeholder={f.placeholder} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
                 </div>
               ))}
               <div className={`grid grid-cols-1 gap-3 ${role === 'faculty' && department ? '' : 'sm:grid-cols-2'}`}>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 mb-1 block">Job Type</label>
-                  <select value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value as Job['type']}))}
+                  <label htmlFor={`${formId}-type`} className="text-xs font-semibold text-gray-500 mb-1 block">Job Type</label>
+                  <select id={`${formId}-type`} value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value as Job['type']}))}
                     className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                     {['Full-time','Part-time','Remote','Contract','Internship'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 {!(role === 'faculty' && department) && (
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
+                    <label htmlFor={`${formId}-dept`} className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
                     {department ? (
-                      <input value={department} readOnly className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 text-gray-500" />
+                      <input id={`${formId}-dept`} value={department} readOnly className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 text-gray-500" />
                     ) : (
-                      <select value={form.department} onChange={e => setForm(p => ({...p, department: e.target.value}))}
+                      <select id={`${formId}-dept`} value={form.department} onChange={e => setForm(p => ({...p, department: e.target.value}))}
                         className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                         {['All','CSE','CTHM','BAA'].map(d => <option key={d}>{d}</option>)}
                       </select>
@@ -214,20 +215,20 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
                 )}
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Description</label>
-                <textarea value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))} rows={3}
+                <label htmlFor={`${formId}-description`} className="text-xs font-semibold text-gray-500 mb-1 block">Description</label>
+                <textarea id={`${formId}-description`} value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))} rows={3}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Requirements</label>
-                <textarea value={form.requirements} onChange={e => setForm(p => ({...p, requirements: e.target.value}))} rows={2}
+                <label htmlFor={`${formId}-requirements`} className="text-xs font-semibold text-gray-500 mb-1 block">Requirements</label>
+                <textarea id={`${formId}-requirements`} value={form.requirements} onChange={e => setForm(p => ({...p, requirements: e.target.value}))} rows={2}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none" placeholder="Degree required, years of experience, skills..." />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Company / Application Link <span className="font-normal text-gray-400">(optional)</span></label>
-                <input type="url" value={form.applyLink} onChange={e => setForm(p => ({...p, applyLink: e.target.value}))}
+                <label htmlFor={`${formId}-applyLink`} className="text-xs font-semibold text-gray-500 mb-1 block">Company / Application Link <span className="font-normal text-gray-400">(optional)</span></label>
+                <input id={`${formId}-applyLink`} type="url" value={form.applyLink} onChange={e => setForm(p => ({...p, applyLink: e.target.value}))}
                   placeholder="https://company.com/careers/apply" className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
-                <p className="text-xs text-gray-400 mt-1">If provided, "Apply Now" will send applicants straight to this link instead of email.</p>
+                <p className="text-xs text-gray-500 mt-1">If provided, "Apply Now" will send applicants straight to this link instead of email.</p>
               </div>
             </div>
             <div className="flex gap-3 px-6 pb-6 pt-4 border-t flex-shrink-0">

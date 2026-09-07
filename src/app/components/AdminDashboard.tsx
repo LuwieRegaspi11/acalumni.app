@@ -17,7 +17,7 @@ import { useEvents } from './shared/EventsContext';
 import { supabase } from '../../lib/supabaseClient';
 
 // -- 3. Icons (lucide-react) — used throughout the sidebar/nav & UI ---
-import { Users, TrendingUp, DollarSign, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Building2, Settings, BookOpen, Sun, Moon, User, ClipboardList } from 'lucide-react';
+import { Users, TrendingUp, DollarSign, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Building2, Settings, BookOpen, Sun, Moon, User, ClipboardList, IdCard } from 'lucide-react';
 
 // -- 5. Shared components (reused across admin/alumni/faculty/rep) ----
 import NotificationPanel from './shared/NotificationPanel';
@@ -86,6 +86,7 @@ const NAV_GROUPS = [
     label: 'Administration',
     items: [
       { label: 'Department Management', icon: <Building2 className="w-4 h-4" />, path: 'departments' },
+      { label: 'User Accounts',         icon: <IdCard className="w-4 h-4" />,    path: 'users' },
       { label: 'Reports & Analytics',   icon: <BarChart3 className="w-4 h-4" />, path: 'reports' },
       { label: 'Audit Logs',            icon: <Shield className="w-4 h-4" />,    path: 'audit' },
       { label: 'System Settings',       icon: <Settings className="w-4 h-4" />,  path: 'settings' },
@@ -402,6 +403,8 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s, i) => (
           <div key={i} onClick={() => onNavigate(s.path)}
+            role="button" tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(s.path); } }}
             className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
             style={{ borderLeftWidth: 3, borderLeftColor: s.color }}>
             <div className="flex items-center justify-between mb-2">

@@ -3,7 +3,7 @@ import { UserCheck, Search, Eye, CheckCircle, XCircle, ShieldCheck, UploadCloud 
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, Avatar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { supabase } from '../../../lib/supabaseClient';
 import { useNotifications } from '../shared/NotificationContext';
-import { rowToAnswers, renderProfileSection, renderEmploymentStatusSection, renderEmploymentInfoSection, renderCurriculumSection, renderLicensureSection, renderFeedbackSection } from '../alumni/tracerSurveySections';
+import { rowToAnswers, renderProfileSummary, renderEmploymentStatusSummary, renderEmploymentInfoSummary, renderCurriculumSummary, renderLicensureSummary, renderFeedbackSummary } from '../alumni/tracerSurveySections';
 import TracerCredentialsReveal from '../alumni/TracerCredentialsReveal';
 import BulkImportResponses from './BulkImportResponses';
 
@@ -410,25 +410,25 @@ export default function PendingRegistrations() {
                 <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-600">{actionError}</div>
               )}
 
-              {/* Full submitted survey, read-only — the same fields/markup
-                  the alumnus answered, reused from tracerSurveySections.tsx
-                  so this is exactly what they submitted, not a re-summary. */}
+              {/* Full submitted survey, read-only — a compact label/value
+                  summary of the same answers, not the interactive form
+                  controls themselves (those are sized for tapping while
+                  filling the survey out, not for scanning it afterward). */}
               {(() => {
                 const answers = rowToAnswers(selected.raw);
-                const noop = () => {};
                 const sections: [string, () => React.ReactNode][] = [
-                  ['Graduate Profile', () => renderProfileSection(answers, noop, true, 'account')],
-                  ['Employment Status', () => renderEmploymentStatusSection(answers, noop, true)],
-                  ['Employment Information', () => renderEmploymentInfoSection(answers, noop, true)],
-                  ['Curriculum & Outcomes', () => renderCurriculumSection(answers, noop, true)],
-                  ['Licensure & Development', () => renderLicensureSection(answers, noop, true)],
-                  ['Feedback', () => renderFeedbackSection(answers, noop, true)],
+                  ['Graduate Profile', () => renderProfileSummary(answers)],
+                  ['Employment Status', () => renderEmploymentStatusSummary(answers)],
+                  ['Employment Information', () => renderEmploymentInfoSummary(answers)],
+                  ['Curriculum & Outcomes', () => renderCurriculumSummary(answers)],
+                  ['Licensure & Development', () => renderLicensureSummary(answers)],
+                  ['Feedback', () => renderFeedbackSummary(answers)],
                 ];
                 return (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {sections.map(([title, render]) => (
-                      <div key={title}>
-                        <h4 className="text-sm font-bold text-gray-700 mb-3">{title}</h4>
+                      <div key={title} className="border border-gray-200 rounded-xl p-4">
+                        <h4 className="text-sm font-bold text-gray-700 mb-1">{title}</h4>
                         {render()}
                       </div>
                     ))}

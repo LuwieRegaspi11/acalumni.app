@@ -7,46 +7,81 @@
 // imports these too — this file has no logic of its own, purely markup.
 // =====================================================================
 
+import { useId } from 'react';
 import { Check } from 'lucide-react';
 
 export const inputCls = 'w-full text-sm border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-400';
 
-export function Field({ label, required, children, hint }: { label: string; required?: boolean; children: React.ReactNode; hint?: string }) {
+// `error` — set once the user has tried to move past this field's section
+// while it's unanswered (see fieldErrors() in tracerSurveySections.tsx).
+// Wrapping children in the red ring rather than styling them directly
+// means this works uniformly for every control type below (a plain
+// input/select, RadioGroup, CheckboxGroup, RatingInput, CompetencyGrid)
+// without each one needing its own error-aware border logic.
+//
+// <fieldset>/<legend> rather than a plain <div>/<p>: `children` here is
+// sometimes a single input, sometimes a whole RadioGroup or
+// CheckboxGroup (multiple native controls). A <label> can only ever
+// caption one control, and a <p> captions nothing at all as far as
+// assistive tech is concerned — <legend> is the one HTML label that
+// correctly announces itself for either case, so this is the one place
+// that needs to change for every question on the Tracer Survey to
+// actually announce its label. The border/margin/padding/min-width
+// resets undo the browser's default fieldset chrome (a border box plus
+// a min-width that can overflow a grid cell) so this still looks exactly
+// like the plain div it replaces.
+export function Field({ label, required, children, hint, error }: { label: string; required?: boolean; children: React.ReactNode; hint?: string; error?: string }) {
   return (
-    <div className="space-y-1.5">
-      <p className="text-sm font-semibold text-gray-700">{label}{required && <span className="text-red-500"> *</span>}</p>
-      {children}
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
-    </div>
+    <fieldset className="space-y-1.5 border-0 m-0 p-0 min-w-0">
+      <legend className="text-sm font-semibold text-gray-700 p-0">{label}{required && <span className="text-red-500"> *</span>}</legend>
+      <div className={error ? 'rounded-xl ring-2 ring-red-400' : ''}>{children}</div>
+      {error ? <p className="text-xs font-semibold text-red-600">{error}</p> : hint && <p className="text-xs text-gray-500">{hint}</p>}
+    </fieldset>
   );
 }
 
-export function RadioGroup({ options, value, onChange, hasOther, otherValue, onOtherChange, disabled }: {
+export function RadioGroup({ options, value, onChange, hasOther, otherValue, onOtherChange, otherError, disabled }: {
   options: string[]; value: string; onChange: (v: string) => void;
-  hasOther?: boolean; otherValue?: string; onOtherChange?: (v: string) => void; disabled?: boolean;
+  hasOther?: boolean; otherValue?: string; onOtherChange?: (v: string) => void; otherError?: string; disabled?: boolean;
 }) {
+  // Shared `name` groups the native radios so screen readers announce
+  // "N of M" and arrow keys move between options, same as any native
+  // radio group — one id per RadioGroup instance so separate questions
+  // on the same page never collide.
+  const groupName = useId();
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="radiogroup">
       {options.map(opt => (
         <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${value === opt ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${disabled ? '' : 'hover:border-gray-300'}`}`}>
-          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${value === opt ? 'border-blue-600' : 'border-gray-300'}`}>
+          {/* sr-only (not `hidden`/display:none) keeps the native input
+              focusable and in the tab order — a display:none input can
+              never receive keyboard focus, which would make this option
+              unreachable and unselectable without a mouse. The
+              peer-focus-visible ring on the drawn circle stands in for
+              the native focus ring browsers won't paint on a hidden input. */}
+          <input type="radio" name={groupName} checked={value === opt} onChange={() => onChange(opt)} disabled={disabled} className="sr-only peer" />
+          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 ${value === opt ? 'border-blue-600' : 'border-gray-300'}`}>
             {value === opt && <div className="w-2 h-2 rounded-full bg-blue-600" />}
           </div>
-          <input type="radio" checked={value === opt} onChange={() => onChange(opt)} disabled={disabled} className="hidden" />
           <span className="text-sm text-gray-700">{opt}</span>
         </label>
       ))}
       {hasOther && value === 'Other' && (
-        <input value={otherValue || ''} onChange={e => onOtherChange?.(e.target.value)} placeholder="Please specify…"
-          disabled={disabled} className={`${inputCls} mt-1`} />
+        <div className="mt-1">
+          <div className={otherError ? 'rounded-xl ring-2 ring-red-400' : ''}>
+            <input value={otherValue || ''} onChange={e => onOtherChange?.(e.target.value)} placeholder="Please specify…"
+              disabled={disabled} className={inputCls} />
+          </div>
+          {otherError && <p className="text-xs font-semibold text-red-600 mt-1">{otherError}</p>}
+        </div>
       )}
     </div>
   );
 }
 
-export function CheckboxGroup({ options, value, onChange, minSelect, maxSelect, hasOther, otherValue, onOtherChange, disabled }: {
+export function CheckboxGroup({ options, value, onChange, minSelect, maxSelect, hasOther, otherValue, onOtherChange, otherError, disabled }: {
   options: string[]; value: string[]; onChange: (v: string[]) => void; minSelect?: number; maxSelect?: number;
-  hasOther?: boolean; otherValue?: string; onOtherChange?: (v: string) => void; disabled?: boolean;
+  hasOther?: boolean; otherValue?: string; onOtherChange?: (v: string) => void; otherError?: string; disabled?: boolean;
 }) {
   const toggle = (opt: string) => onChange(value.includes(opt) ? value.filter(v => v !== opt) : [...value, opt]);
   const atMax = typeof maxSelect === 'number' && value.length >= maxSelect;
@@ -59,17 +94,24 @@ export function CheckboxGroup({ options, value, onChange, minSelect, maxSelect, 
         const optionDisabled = disabled || (atMax && !checked);
         return (
           <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${optionDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${checked ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${optionDisabled ? '' : 'hover:border-gray-300'}`}`}>
-            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${checked ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
+            {/* sr-only, not `hidden` — see RadioGroup above for why a
+                display:none checkbox would be unreachable by keyboard. */}
+            <input type="checkbox" checked={checked} onChange={() => toggle(opt)} disabled={optionDisabled} className="sr-only peer" />
+            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 ${checked ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
               {checked && <Check className="w-3 h-3 text-white" />}
             </div>
-            <input type="checkbox" checked={checked} onChange={() => toggle(opt)} disabled={optionDisabled} className="hidden" />
             <span className="text-sm text-gray-700">{opt}</span>
           </label>
         );
       })}
       {hasOther && value.includes('Other') && (
-        <input value={otherValue || ''} onChange={e => onOtherChange?.(e.target.value)} placeholder="Please specify…"
-          disabled={disabled} className={`${inputCls} mt-1`} />
+        <div className="mt-1">
+          <div className={otherError ? 'rounded-xl ring-2 ring-red-400' : ''}>
+            <input value={otherValue || ''} onChange={e => onOtherChange?.(e.target.value)} placeholder="Please specify…"
+              disabled={disabled} className={inputCls} />
+          </div>
+          {otherError && <p className="text-xs font-semibold text-red-600 mt-1">{otherError}</p>}
+        </div>
       )}
       {typeof minSelect === 'number' && (
         <p className={`text-xs font-semibold ${value.length >= minSelect ? 'text-green-600' : 'text-amber-600'}`}>
@@ -77,7 +119,7 @@ export function CheckboxGroup({ options, value, onChange, minSelect, maxSelect, 
         </p>
       )}
       {typeof maxSelect === 'number' && (
-        <p className={`text-xs font-semibold ${atMax ? 'text-amber-600' : 'text-gray-400'}`}>
+        <p className={`text-xs font-semibold ${atMax ? 'text-amber-600' : 'text-gray-500'}`}>
           Selected {value.length} / up to {maxSelect}
         </p>
       )}
@@ -97,7 +139,7 @@ export function RatingInput({ value, onChange, lowLabel, highLabel, disabled }: 
           </button>
         ))}
       </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-1 max-w-[13.5rem]">
+      <div className="flex justify-between text-xs text-gray-500 mt-1 max-w-[13.5rem]">
         <span>{lowLabel}</span><span>{highLabel}</span>
       </div>
     </div>

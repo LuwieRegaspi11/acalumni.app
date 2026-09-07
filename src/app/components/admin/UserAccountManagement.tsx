@@ -125,8 +125,9 @@ export default function UserAccountManagement() {
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
+            aria-label="Search by name or email"
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
         </div>
         {[
@@ -193,7 +194,7 @@ export default function UserAccountManagement() {
                           <CheckCircle className="w-4 h-4" />
                         </button>
                       )}
-                      <button disabled title="Reset Password (coming soon)" className="p-1.5 rounded-lg text-blue-600 opacity-40 cursor-not-allowed">
+                      <button disabled title="Reset Password (coming soon)" aria-label="Reset Password (coming soon)" className="p-1.5 rounded-lg text-blue-600 opacity-40 cursor-not-allowed">
                         <RefreshCw className="w-4 h-4" />
                       </button>
                       {u.role !== 'admin' && (

@@ -16,23 +16,37 @@ export interface AppEvent {
   location: string;
   department: string; // 'All' | 'CSE' | 'CTHM' | 'BAA' | ...
   createdBy: string;  // role: 'admin' | 'faculty'
+  createdByName: string; // display name of the admin/faculty account that created it
   registeredCount: number;
   maxCapacity?: number;
   status: 'Upcoming' | 'Ongoing' | 'Completed';
   imageUrl?: string;
 }
 
+export interface EventRegistrant {
+  id: string;           // profile id
+  name: string;
+  email: string;
+  role: string;         // 'alumni' | 'representative'
+  department: string | null;
+  batchYear: number | null;
+  program: string | null;
+  registeredAt: string;
+}
+
 interface EventsCtx {
   events: AppEvent[];
   myRegisteredEventIds: Set<string>;
-  addEvent: (e: Omit<AppEvent, 'id' | 'registeredCount' | 'status'>) => Promise<void>;
+  addEvent: (e: Omit<AppEvent, 'id' | 'registeredCount' | 'status' | 'createdByName'>) => Promise<void>;
   registerForEvent: (eventId: string) => Promise<void>;
   cancelRegistration: (eventId: string) => Promise<void>;
+  getEventRegistrants: (eventId: string) => Promise<EventRegistrant[]>;
 }
 
 const Ctx = createContext<EventsCtx>({
   events: [], myRegisteredEventIds: new Set(),
   addEvent: async () => {}, registerForEvent: async () => {}, cancelRegistration: async () => {},
+  getEventRegistrants: async () => [],
 });
 
 function computeStatus(dateStr: string): AppEvent['status'] {
@@ -58,7 +72,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const loadEvents = async () => {
     const { data } = await supabase
       .from('events')
-      .select('*, registrations:event_registrations(count)')
+      .select('*, creator:profiles!events_created_by_fkey(name, role), registrations:event_registrations(count)')
       .order('event_date', { ascending: true });
     if (!data) return;
     setEvents(data.map((e: any) => {
@@ -71,7 +85,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         location: e.location || '',
         department: e.department || 'All',
-        createdBy: '',
+        createdBy: e.creator?.role || '',
+        createdByName: e.creator?.name || 'Unknown',
         registeredCount: e.registrations?.[0]?.count || 0,
         maxCapacity: e.max_capacity ?? undefined,
         status: computeStatus(e.event_date),
@@ -118,7 +133,34 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     await loadEvents();
   };
 
-  return <Ctx.Provider value={{ events, myRegisteredEventIds, addEvent, registerForEvent, cancelRegistration }}>{children}</Ctx.Provider>;
+  // Admin/faculty-only: who actually registered for a given event, with
+  // enough profile detail (name, role, department, batch, contact) to show
+  // in a registrants table. RLS scopes what comes back per-caller — admins
+  // see everyone, faculty see any profile that has an event_registrations
+  // row (see event_registrant_visibility.sql) — so this never needs a
+  // client-side role check of its own.
+  const getEventRegistrants = async (eventId: string): Promise<EventRegistrant[]> => {
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select('registered_at, profile:profiles(id, name, email, role, department, batch_year, program)')
+      .eq('event_id', eventId)
+      .order('registered_at', { ascending: true });
+    if (error || !data) return [];
+    return data
+      .filter((r: any) => r.profile) // RLS may hide a profile the caller isn't allowed to see
+      .map((r: any) => ({
+        id: r.profile.id,
+        name: r.profile.name || 'Unknown',
+        email: r.profile.email || '',
+        role: r.profile.role || '',
+        department: r.profile.department ?? null,
+        batchYear: r.profile.batch_year ?? null,
+        program: r.profile.program ?? null,
+        registeredAt: r.registered_at,
+      }));
+  };
+
+  return <Ctx.Provider value={{ events, myRegisteredEventIds, addEvent, registerForEvent, cancelRegistration, getEventRegistrants }}>{children}</Ctx.Provider>;
 }
 
 export const useEvents = () => useContext(Ctx);

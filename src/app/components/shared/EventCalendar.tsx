@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
-  Card, CardContent, Button, Chip,
+  Card, CardContent, Button, Chip, IconButton, Popover, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Alert
 } from '@mui/material';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Clock, Users, Plus, X, Upload } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Calendar, MapPin, Clock, Users, Plus, X, Upload } from 'lucide-react';
 import { useEvents, AppEvent } from './EventsContext';
 import { useNotifications } from './NotificationContext';
+import EventRegistrantsDialog from './EventRegistrantsDialog';
 
 const DEPT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'All':   { bg: 'bg-blue-100',   text: 'text-blue-800',   border: 'border-blue-400' },
@@ -21,18 +22,31 @@ interface Props {
   department?: string; // faculty's locked department; undefined = admin sees all
   canCreate?: boolean;
   createdBy?: string;
+  canViewRegistrants?: boolean; // admin/faculty only: clicking an event in "Upcoming Events" opens the registrants table
 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
+// The month/year picker menus scroll (year list especially), but a visible
+// scrollbar on a small popover menu looks out of place — the list is still
+// fully scrollable with a wheel/trackpad/drag, just without the bar drawn.
+const HIDDEN_SCROLLBAR_SX = {
+  maxHeight: 280,
+  scrollbarWidth: 'none' as const,   // Firefox
+  msOverflowStyle: 'none' as const,  // old Edge/IE
+  '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari/new Edge
+};
+
 const BLANK_FORM = { title: '', description: '', date: '', time: '', location: '', maxCapacity: '', imageUrl: '', department: 'All' };
 
-export default function EventCalendar({ department, canCreate = false, createdBy = 'faculty' }: Props) {
+export default function EventCalendar({ department, canCreate = false, createdBy = 'faculty', canViewRegistrants = false }: Props) {
   const { events, addEvent } = useEvents();
   const { trigger } = useNotifications();
   const [currentDate, setCurrentDate]     = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<AppEvent | null>(null);
+  const [registrantsEvent, setRegistrantsEvent] = useState<AppEvent | null>(null);
+  const [registrantsOpen, setRegistrantsOpen]   = useState(false);
   const [detailOpen, setDetailOpen]       = useState(false);
   const [createOpen, setCreateOpen]       = useState(false);
   const [form, setForm]                   = useState(BLANK_FORM);
@@ -40,9 +54,24 @@ export default function EventCalendar({ department, canCreate = false, createdBy
   const [imageError, setImageError]       = useState<string | null>(null);
   const [createError, setCreateError]     = useState<string | null>(null);
   const [creating, setCreating]           = useState(false);
+  const [monthYearAnchor, setMonthYearAnchor] = useState<HTMLElement | null>(null);
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth();
+
+  const goToPrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const goToNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => setCurrentDate(new Date(year, Number(e.target.value), 1));
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => setCurrentDate(new Date(Number(e.target.value), month, 1));
+
+  // Year dropdown always spans "today" ± 5 years, widened to cover any
+  // event that happens to fall outside that window so nothing scheduled
+  // becomes unreachable from the picker.
+  const thisYear = new Date().getFullYear();
+  const eventYears = events.map(e => new Date(e.date).getFullYear()).filter(y => !isNaN(y));
+  const minYear = Math.min(thisYear - 5, ...eventYears);
+  const maxYear = Math.max(thisYear + 5, ...eventYears);
+  const yearOptions = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
 
   // All roles see ALL events — shared calendar for date/time coordination
   const visibleEvents = events;
@@ -154,15 +183,25 @@ export default function EventCalendar({ department, canCreate = false, createdBy
         <CardContent>
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 mb-4">
-            <h3 className="text-xl flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              {MONTHS[month]} {year}
-              {department && <span className="ml-2 text-sm font-normal px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{department} Dept.</span>}
-            </h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outlined" size="small" onClick={() => setCurrentDate(new Date(year, month - 1, 1))} startIcon={<ChevronLeft className="w-4 h-4" />}>Prev</Button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={e => setMonthYearAnchor(e.currentTarget)}
+                className="flex items-center gap-2 text-xl hover:bg-gray-100 rounded-lg px-2 py-1 -ml-2 transition-colors"
+              >
+                <Calendar className="w-5 h-5" />
+                <span>{MONTHS[month]} {year}</span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+              {department && <span className="text-sm font-normal px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{department} Dept.</span>}
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+              <IconButton size="small" onClick={goToPrevMonth} aria-label="Previous month">
+                <ChevronLeft className="w-4 h-4" />
+              </IconButton>
+              <IconButton size="small" onClick={goToNextMonth} aria-label="Next month">
+                <ChevronRight className="w-4 h-4" />
+              </IconButton>
               <Button variant="outlined" size="small" onClick={() => setCurrentDate(new Date())}>Today</Button>
-              <Button variant="outlined" size="small" onClick={() => setCurrentDate(new Date(year, month + 1, 1))} endIcon={<ChevronRight className="w-4 h-4" />}>Next</Button>
               {canCreate && (
                 <Button variant="contained" size="small" startIcon={<Plus className="w-4 h-4" />}
                   style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}
@@ -173,6 +212,25 @@ export default function EventCalendar({ department, canCreate = false, createdBy
               )}
             </div>
           </div>
+
+          {/* Month / year picker — opened by clicking the "September 2026" title */}
+          <Popover
+            open={Boolean(monthYearAnchor)}
+            anchorEl={monthYearAnchor}
+            onClose={() => setMonthYearAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          >
+            <div className="flex items-center gap-2 p-3">
+              <TextField select size="small" label="Month" value={month} onChange={handleMonthChange}
+                sx={{ minWidth: 130 }} SelectProps={{ MenuProps: { PaperProps: { sx: HIDDEN_SCROLLBAR_SX } } }}>
+                {MONTHS.map((m, i) => <MenuItem key={m} value={i}>{m}</MenuItem>)}
+              </TextField>
+              <TextField select size="small" label="Year" value={year} onChange={handleYearChange}
+                sx={{ minWidth: 100 }} SelectProps={{ MenuProps: { PaperProps: { sx: HIDDEN_SCROLLBAR_SX } } }}>
+                {yearOptions.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+              </TextField>
+            </div>
+          </Popover>
 
           {/* Grid */}
           <div className="grid grid-cols-7 gap-0">
@@ -192,8 +250,12 @@ export default function EventCalendar({ department, canCreate = false, createdBy
                       <div className="space-y-0.5">
                         {dayEvents.map((ev, idx) => {
                           const c = getColor(ev.department);
+                          const openDayEvent = () => { setSelectedEvent(ev); setDetailOpen(true); };
                           return (
-                            <div key={idx} onClick={() => { setSelectedEvent(ev); setDetailOpen(true); }}
+                            <div key={idx} onClick={openDayEvent}
+                              role="button" tabIndex={0}
+                              aria-label={`${ev.title}, ${ev.time.substring(0,5)}`}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayEvent(); } }}
                               className={`text-[11px] ${c.bg} ${c.text} px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 truncate border-l-2 ${c.border}`}>
                               {ev.time.substring(0,5)} {ev.title}
                             </div>
@@ -228,8 +290,15 @@ export default function EventCalendar({ department, canCreate = false, createdBy
             <div className="space-y-2">
               {monthEvents.map(ev => {
                 const c = getColor(ev.department);
+                const openEvent = () => {
+                  if (canViewRegistrants) { setRegistrantsEvent(ev); setRegistrantsOpen(true); }
+                  else { setSelectedEvent(ev); setDetailOpen(true); }
+                };
                 return (
-                  <div key={ev.id} onClick={() => { setSelectedEvent(ev); setDetailOpen(true); }}
+                  <div key={ev.id} onClick={openEvent}
+                    role="button" tabIndex={0}
+                    aria-label={`${ev.title}, ${canViewRegistrants ? 'view registrants' : 'view details'}`}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEvent(); } }}
                     className={`border-l-4 ${c.border} rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors border border-gray-200`}>
                     <div className="flex items-start justify-between">
                       <div>
@@ -269,7 +338,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
               </div>
               <div className="flex items-center gap-2">
                 <Chip label={selectedEvent.department === 'All' ? 'All Alumni' : `${selectedEvent.department} Dept.`} size="small" />
-                <Chip label={`Created by ${selectedEvent.createdBy}`} size="small" variant="outlined" />
+                <Chip label={`Created by ${selectedEvent.createdByName}`} size="small" variant="outlined" />
               </div>
             </div>
           )}
@@ -297,6 +366,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
                 <div className="relative">
                   <img src={imagePreview} alt="preview" className="w-full h-36 object-cover rounded-lg" />
                   <button onClick={() => { setImagePreview(null); setForm(f => ({...f, imageUrl: ''})); }}
+                    aria-label="Remove uploaded image"
                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600">
                     <X className="w-3 h-3" />
                   </button>
@@ -354,6 +424,15 @@ export default function EventCalendar({ department, canCreate = false, createdBy
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Registrants table — admin/faculty only, opened from "Upcoming Events This Month" */}
+      {canViewRegistrants && (
+        <EventRegistrantsDialog
+          event={registrantsEvent}
+          open={registrantsOpen}
+          onClose={() => setRegistrantsOpen(false)}
+        />
+      )}
     </div>
   );
 }

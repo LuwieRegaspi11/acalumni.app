@@ -491,7 +491,7 @@ export default function LandingPage() {
                     </button>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Offered Programs</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Offered Programs</h4>
                     <div className="space-y-3">
                       {p.courses.map((c, ci) => (
                         <div key={ci} className="flex items-center gap-3 bg-white rounded-lg p-4 shadow-sm">
@@ -539,7 +539,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="p-6">
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                     <Calendar className="w-3 h-3" /> {n.date}
                   </div>
                   <h3 className="text-gray-900 mb-3 leading-snug group-hover:transition-colors" style={{}}
@@ -604,14 +604,17 @@ export default function LandingPage() {
                   { icon: <Award className="w-6 h-6" />, label: 'Analytics', desc: 'Alumni engagement statistics' },
                 ].map((item, i) => (
                   <div key={i} onClick={() => navigate('/login')}
+                    role="button" tabIndex={0}
+                    aria-label={`${item.label}: ${item.desc}`}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/login'); } }}
                     className="rounded-xl p-4 cursor-pointer transition-all duration-200"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                    onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.18)'}
-                    onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'}
+                    style={{ background: 'rgba(13,27,46,0.55)', border: '1px solid rgba(255,255,255,0.15)' }}
+                    onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'rgba(13,27,46,0.7)'}
+                    onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'rgba(13,27,46,0.55)'}
                   >
                     <div style={{ color: '#a8c8f0' }}>{item.icon}</div>
                     <div className="text-white text-sm font-bold mt-2 mb-1">{item.label}</div>
-                    <div className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.desc}</div>
+                    <div className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.desc}</div>
                   </div>
                 ))}
               </div>
@@ -644,7 +647,7 @@ export default function LandingPage() {
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-md mb-5">
                   <div style={{ color: c.iconColor }}>{c.icon}</div>
                 </div>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{c.label}</h4>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{c.label}</h4>
                 <p className="font-semibold text-gray-900 mb-1">{c.value}</p>
                 <p className="text-sm text-gray-500">{c.sub}</p>
               </div>

@@ -8,7 +8,7 @@
 // of whatever else happens to be loaded, and refetching per campaign
 // click is what gives us a real loading state to show.
 // =====================================================================
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react';
 import { X, DollarSign, ArrowUp, ArrowDown, Eye, Plus, Upload, Image, Trash2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -67,6 +67,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
 
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ description: '', amount: '' });
+  const expenseTitleId = useId(); // ties the "Title" <label> to its <input> below
   const [expenseReceiptFile, setExpenseReceiptFile] = useState<File | null>(null);
   const [expenseReceiptFileName, setExpenseReceiptFileName] = useState('');
   const [loggingExpense, setLoggingExpense] = useState(false);
@@ -207,6 +208,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
               <button
                 onClick={() => setShowExpenseForm(v => !v)}
                 title="Log an expense"
+                aria-label={showExpenseForm ? 'Cancel logging an expense' : 'Log an expense'}
                 className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${showExpenseForm ? 'bg-gray-200 text-gray-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
               >
                 <Plus className={`w-3.5 h-3.5 transition-transform ${showExpenseForm ? 'rotate-45' : ''}`} />
@@ -233,8 +235,9 @@ export default function DonorListModal({ campaign, onClose }: Props) {
           {canManageExpenses && showExpenseForm && (
             <div className="mb-3 p-3 bg-gray-50 rounded-xl space-y-2">
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Title <span className="text-red-500">*</span></label>
+                <label htmlFor={expenseTitleId} className="text-xs font-semibold text-gray-500 mb-1 block">Title <span className="text-red-500">*</span></label>
                 <input
+                  id={expenseTitleId}
                   value={expenseForm.description}
                   onChange={e => setExpenseForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="What was it spent on?"
@@ -247,6 +250,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
                   value={expenseForm.amount}
                   onChange={handleExpenseAmountChange}
                   placeholder="Amount (₱)"
+                  aria-label="Amount"
                   className={`flex-1 text-xs border rounded-lg px-2.5 py-2 focus:outline-none ${expenseError ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-blue-400'}`}
                 />
                 <label className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 cursor-pointer hover:border-blue-400 hover:bg-blue-50 flex-shrink-0">
@@ -310,7 +314,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
                       <td className="px-3 py-2 text-right font-semibold text-gray-700 whitespace-nowrap">{money(e.amount)}</td>
                       {canManageExpenses && (
                         <td className="px-3 py-2 text-right w-8">
-                          <button onClick={() => deleteExpense(e.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => deleteExpense(e.id)} aria-label="Delete expense" className="text-gray-500 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                         </td>
                       )}
                     </tr>
@@ -388,7 +392,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
       {viewReceipt && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={() => setViewReceipt(null)}>
           <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setViewReceipt(null)} className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
+            <button onClick={() => setViewReceipt(null)} aria-label="Close receipt viewer" className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
             <img src={viewReceipt} alt="Receipt" className="max-w-full max-h-[80vh] w-auto h-auto mx-auto block rounded-2xl shadow-2xl object-contain" />
           </div>
         </div>

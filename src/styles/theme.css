@@ -277,6 +277,14 @@ html.dark {
   --accent-foreground: #e8f2ff;
 }
 
+/* ── `scrollbar-none` utility ──
+   Used across the app (survey section tabs, sidebar nav) to hide an
+   overflow container's scrollbar while staying scrollable — but it was
+   never actually defined anywhere, so it was a no-op and the browser's
+   native scrollbar showed through. */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
 /* ── Scrollbar (dark mode only) ── */
 html.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
 html.dark ::-webkit-scrollbar-track { background: #0d1117; }

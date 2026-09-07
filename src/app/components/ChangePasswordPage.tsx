@@ -75,7 +75,7 @@ export default function ChangePasswordPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-400 text-sm">Loading…</div>
+        <div className="text-gray-500 text-sm">Loading…</div>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default function ChangePasswordPage() {
             <KeyRound className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-xl font-bold" style={{ color: NAVY }}>Set Your Password</h2>
-          <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
             Welcome, {user.name.split(' ')[0]}! For security, please choose your own password before continuing.
           </p>
         </div>
@@ -108,7 +108,7 @@ export default function ChangePasswordPage() {
           </button>
         </form>
 
-        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 mt-4">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 hover:text-gray-600 mt-4">
           <LogOut className="w-3.5 h-3.5" /> Sign out
         </button>
       </div>

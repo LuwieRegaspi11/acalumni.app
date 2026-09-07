@@ -77,7 +77,7 @@ function FacultyCalendar() {
         <h2 className="text-2xl font-bold text-gray-800">Events / Calendar</h2>
         <p className="text-sm text-gray-500">Manage events for <strong>{user?.department}</strong> department. All events are visible on the shared calendar.</p>
       </div>
-      <EventCalendar department={user?.department} canCreate={true} createdBy="faculty" />
+      <EventCalendar department={user?.department} canCreate={true} createdBy="faculty" canViewRegistrants={true} />
     </div>
   );
 }

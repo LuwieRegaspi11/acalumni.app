@@ -199,8 +199,9 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
+          aria-label="Search by name or email"
           className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
       </div>
 

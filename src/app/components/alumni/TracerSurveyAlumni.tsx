@@ -126,7 +126,7 @@ export default function TracerSurveyAlumni() {
           {/* Wide-content rule: the table scrolls inside its own container
               on a narrow screen instead of the whole page scrolling
               sideways. */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto scrollbar-none">
             <table className="w-full text-sm">
               <thead>
                 <tr>
@@ -225,12 +225,12 @@ export default function TracerSurveyAlumni() {
         <div className="w-full bg-gray-100 rounded-full h-2 mb-3">
           <div className="h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#1B3A6B,#2B5BA8)' }} />
         </div>
-        {/* Pills size to their own text (flex-shrink-0) and the row
-            scrolls horizontally instead of stretching — with just one or
-            two sections, flex-1 used to blow each pill up to fill the
-            whole row width, looking like a giant misplaced button. Same
+        {/* Pills size to their own text (flex-shrink-0) and wrap onto a
+            new line instead of stretching — with just one or two
+            sections, flex-1 used to blow each pill up to fill the whole
+            row width, looking like a giant misplaced button. Same
             pattern as GraduateTracerForm.tsx / PublicTracerSurveyPage.tsx. */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        <div className="flex items-center flex-wrap gap-1.5">
           {sections.map((s, i) => (
             <button key={s} onClick={() => setCurrentSection(i)} title={s}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${currentSection === i ? 'text-white' : i < currentSection ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { X, Zap, CalendarClock } from 'lucide-react';
 import type { Campaign } from './DonationContext';
 import CurrencyAmountField from './CurrencyAmountField';
@@ -61,6 +61,7 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
     releaseDate: isCurrentlyScheduled && initialReleaseDate ? initialReleaseDate.toISOString().slice(0, 10) : '',
     releaseTime: isCurrentlyScheduled && initialReleaseDate ? `${pad2(initialReleaseDate.getHours())}:${pad2(initialReleaseDate.getMinutes())}` : '',
   });
+  const formId = useId(); // ties each field's <label> to its input — see per-field ids below
   const scheduledReleaseAt = () => {
     if (form.releaseMode !== 'schedule' || !form.releaseDate) return undefined;
     return new Date(`${form.releaseDate}T${form.releaseTime || '00:00'}`).toISOString();
@@ -93,7 +94,7 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
           <h3 className="font-bold text-gray-800">{isEdit ? 'Edit Campaign' : 'New Campaign'}</h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+          <button onClick={onClose} aria-label="Close campaign form"><X className="w-5 h-5 text-gray-500" /></button>
         </div>
         <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {isEdit && (
@@ -109,8 +110,8 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
             { label: 'Description', key: 'description', placeholder: 'Brief description' },
           ] as { label: string; key: string; placeholder: string }[]).map(f => (
             <div key={f.key}>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
-              <input value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+              <label htmlFor={`${formId}-${f.key}`} className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
+              <input id={`${formId}-${f.key}`} value={(form as any)[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
                 type="text" placeholder={f.placeholder}
                 className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
             </div>
@@ -127,20 +128,21 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
               regardless), and for admin it's always "All". Nothing for
               either role to pick, so nothing to show. */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">Event Start Date</label>
-            <input type="date" value={form.eventStartDate} onChange={e => setForm(p => ({ ...p, eventStartDate: e.target.value }))}
+            <label htmlFor={`${formId}-eventStartDate`} className="text-xs font-semibold text-gray-500 mb-1 block">Event Start Date</label>
+            <input id={`${formId}-eventStartDate`} type="date" value={form.eventStartDate} onChange={e => setForm(p => ({ ...p, eventStartDate: e.target.value }))}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
           </div>
 
           {showReleaseToggle ? (
             <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Release</label>
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-3">
+              <span className="text-xs font-semibold text-gray-500 mb-1 block">Release</span>
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-3" role="radiogroup" aria-label="Release">
                 {([
                   { key: 'now', label: 'Publish Now', icon: <Zap className="w-3.5 h-3.5" /> },
                   { key: 'schedule', label: 'Schedule', icon: <CalendarClock className="w-3.5 h-3.5" /> },
                 ] as const).map(o => (
                   <button key={o.key} onClick={() => setForm(p => ({ ...p, releaseMode: o.key }))}
+                    role="radio" aria-checked={form.releaseMode === o.key}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${form.releaseMode === o.key ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
                     {o.icon} {o.label}
                   </button>
@@ -149,14 +151,14 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
               {form.releaseMode === 'schedule' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Posting Date</label>
-                    <input type="date" value={form.releaseDate} min={new Date().toISOString().slice(0, 10)}
+                    <label htmlFor={`${formId}-releaseDate`} className="text-xs font-semibold text-gray-500 mb-1 block">Posting Date</label>
+                    <input id={`${formId}-releaseDate`} type="date" value={form.releaseDate} min={new Date().toISOString().slice(0, 10)}
                       onChange={e => setForm(p => ({ ...p, releaseDate: e.target.value }))}
                       className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Posting Time</label>
-                    <input type="time" value={form.releaseTime}
+                    <label htmlFor={`${formId}-releaseTime`} className="text-xs font-semibold text-gray-500 mb-1 block">Posting Time</label>
+                    <input id={`${formId}-releaseTime`} type="time" value={form.releaseTime}
                       onChange={e => setForm(p => ({ ...p, releaseTime: e.target.value }))}
                       className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
                   </div>

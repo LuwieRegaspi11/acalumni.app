@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useId, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { DollarSign, CheckCircle, Clock, AlertCircle, Building2, Upload, Heart, TrendingUp, X, Image, ChevronRight, Copy, Check, Wallet, CreditCard } from 'lucide-react';
@@ -32,6 +32,7 @@ export default function DonationPortal() {
   const { trigger } = useNotifications();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ campaign: '', amount: '', description: '' });
+  const campaignFieldId = useId(); // ties the "Campaign" <label> to its <select> above
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFileName, setProofFileName] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -41,6 +42,7 @@ export default function DonationPortal() {
   const [copiedDestId, setCopiedDestId] = useState<string | null>(null);
   const [historyTab, setHistoryTab] = useState<'pending' | 'confirmed' | 'all'>('all');
   const [donorListCampaign, setDonorListCampaign] = useState<Campaign | null>(null);
+  const [acknowledgedNoRefund, setAcknowledgedNoRefund] = useState(false);
 
   const activeDestinations = paymentDestinations.filter(d => d.isActive);
   const destTypeIcon = (type: string) => type === 'Bank' ? <Building2 className="w-4 h-4 text-gray-500" /> : type === 'E-Wallet' ? <Wallet className="w-4 h-4 text-gray-500" /> : <CreditCard className="w-4 h-4 text-gray-500" />;
@@ -80,7 +82,7 @@ export default function DonationPortal() {
   };
 
   const handleSubmit = async () => {
-    if (!form.campaign || !form.amount || !proofFile) return;
+    if (!form.campaign || !form.amount || !proofFile || !acknowledgedNoRefund) return;
     setSubmitting(true);
     await submitDonation({
       alumniName: user?.name || 'Alumni',
@@ -111,6 +113,7 @@ export default function DonationPortal() {
     setForm({ campaign: '', amount: '', description: '' });
     setProofFile(null); setProofFileName('');
     setSelectedDestId(null);
+    setAcknowledgedNoRefund(false);
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 4000);
   };
@@ -327,12 +330,12 @@ export default function DonationPortal() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
               <h3 className="font-bold text-gray-800">Make a Donation</h3>
-              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); }}><X className="w-5 h-5 text-gray-500" /></button>
+              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); setAcknowledgedNoRefund(false); }} aria-label="Close"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Campaign</label>
-                <select value={form.campaign} onChange={e => setForm(f => ({...f, campaign: e.target.value}))}
+                <label htmlFor={campaignFieldId} className="text-xs font-semibold text-gray-500 mb-1 block">Campaign</label>
+                <select id={campaignFieldId} value={form.campaign} onChange={e => setForm(f => ({...f, campaign: e.target.value}))}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                   <option value="">Select a campaign</option>
                   {campaigns.filter(isCampaignLive).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -401,11 +404,20 @@ export default function DonationPortal() {
                   <input type="file" accept="image/*" className="hidden" onChange={handleProof} />
                 </label>
               </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                <p className="text-xs text-red-700 font-semibold mb-2">⚠️ All donations are final. Once submitted and verified, donations cannot be refunded, reversed, or exchanged for any reason.</p>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={acknowledgedNoRefund} onChange={e => setAcknowledgedNoRefund(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-700">I understand and agree that this donation is <span className="font-semibold">non-refundable</span>.</span>
+                </label>
+              </div>
             </div>
             <div className="flex gap-3 px-6 py-4 border-t flex-shrink-0">
-              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); setAcknowledgedNoRefund(false); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
               <button onClick={handleSubmit}
-                disabled={submitting || !form.campaign || !form.amount || !proofFile}
+                disabled={submitting || !form.campaign || !form.amount || !proofFile || !acknowledgedNoRefund}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
                 {submitting ? 'Submitting…' : 'Submit Donation'}

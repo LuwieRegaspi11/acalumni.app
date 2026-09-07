@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Megaphone, Pin, Plus, Edit, Trash2, X } from 'lucide-react';
 import { useAnnouncements, Announcement } from './AnnouncementContext';
 
@@ -27,6 +27,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Announcement | null>(null);
   const [form, setForm] = useState({ title: '', content: '', category: 'General', targetDept: department || 'All Alumni' });
+  const formId = useId(); // ties each field's <label> to its input — see per-field ids below
   const [filterDept, setFilterDept] = useState('All Alumni');
 
   const canPost = role === 'admin' || role === 'faculty';
@@ -138,31 +139,31 @@ export default function AnnouncementBoard({ role, department }: Props) {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h3 className="font-bold text-gray-800">{editTarget ? 'Edit Announcement' : 'Post Announcement'}</h3>
-              <button onClick={() => { setShowForm(false); setEditTarget(null); }}><X className="w-5 h-5 text-gray-500" /></button>
+              <button onClick={() => { setShowForm(false); setEditTarget(null); }} aria-label="Close"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Title</label>
-                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))}
+                <label htmlFor={`${formId}-title`} className="text-xs font-semibold text-gray-500 mb-1 block">Title</label>
+                <input id={`${formId}-title`} value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" placeholder="Announcement title" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Content</label>
-                <textarea value={form.content} onChange={e => setForm(f => ({...f, content: e.target.value}))} rows={4}
+                <label htmlFor={`${formId}-content`} className="text-xs font-semibold text-gray-500 mb-1 block">Content</label>
+                <textarea id={`${formId}-content`} value={form.content} onChange={e => setForm(f => ({...f, content: e.target.value}))} rows={4}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none" placeholder="Write your announcement..." />
               </div>
               <div className={`grid grid-cols-1 gap-3 ${role === 'faculty' && department ? '' : 'sm:grid-cols-2'}`}>
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 mb-1 block">Category</label>
-                  <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}
+                  <label htmlFor={`${formId}-category`} className="text-xs font-semibold text-gray-500 mb-1 block">Category</label>
+                  <select id={`${formId}-category`} value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}
                     className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 {!(role === 'faculty' && department) && (
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Target Department</label>
-                    <select value={form.targetDept} onChange={e => setForm(f => ({...f, targetDept: e.target.value}))}
+                    <label htmlFor={`${formId}-dept`} className="text-xs font-semibold text-gray-500 mb-1 block">Target Department</label>
+                    <select id={`${formId}-dept`} value={form.targetDept} onChange={e => setForm(f => ({...f, targetDept: e.target.value}))}
                       className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                       {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
                     </select>

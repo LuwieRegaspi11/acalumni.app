@@ -47,7 +47,7 @@ export default function NotificationPanel({ role, department, open, onClose }: P
                 <CheckCheck className="w-3.5 h-3.5" /> Mark all read
               </button>
             )}
-            <button onClick={onClose} className="text-white/70 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} aria-label="Close notifications" className="text-white/70 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
@@ -65,8 +65,12 @@ export default function NotificationPanel({ role, department, open, onClose }: P
             <div className="divide-y divide-gray-50">
               {items.map(n => (
                 <div key={n.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${n.title}. ${n.read ? 'Read' : 'Unread'} notification.`}
                   className={`px-5 py-4 border-l-4 ${typeBg[n.type]} ${n.read ? 'bg-white' : 'bg-blue-50/40'} hover:bg-gray-50 transition-colors cursor-pointer`}
-                  onClick={() => markRead(n.id)}>
+                  onClick={() => markRead(n.id)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markRead(n.id); } }}>
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">{typeIcon[n.type]}</div>
                     <div className="flex-1 min-w-0">

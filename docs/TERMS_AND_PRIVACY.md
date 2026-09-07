@@ -49,7 +49,7 @@ Violation of this section may result in immediate suspension or termination of y
 
 - Donations made through the Platform are processed via the payment methods and channels designated by the College at the time of transaction.
 - All donations are recorded and associated with the donating alumnus/alumna's account for transparency and reporting purposes, unless made anonymously where such an option is offered.
-- **Refunds and disputes:** Requests to reverse, refund, or dispute a donation must be submitted to the College's finance/alumni relations office within a reasonable period from the transaction date. Refunds are granted only in cases of verified processing error, duplicate transaction, or unauthorized use, and are subject to the College's discretion and applicable payment processor policies.
+- **No refunds:** All donations made through the Platform are final and non-refundable once submitted and verified. By submitting a donation, you acknowledge and agree that you will not be entitled to a refund, reversal, or exchange for any reason, including a change of mind. Concerns about an erroneous or unauthorized transaction may still be reported to the College's finance/alumni relations office, which will review the matter at its sole discretion.
 - **Transparency reporting:** Aggregate donation data (e.g., total funds raised per campaign, batch, or purpose) may be published or shared with the alumni community for accountability. Individual donation amounts will not be publicly disclosed without the donor's consent, except where legally required or where the donor has opted into public recognition (e.g., a donor wall or acknowledgment list).
 
 ### 6. Content & Conduct

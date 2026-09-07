@@ -74,16 +74,26 @@ export function InputField({
   const [focused, setFocused] = useState(false);
   const isPw    = type === 'password';
   const floated = focused || value.length > 0;
+  // Ties the floating <label> to its <input> via htmlFor/id so screen
+  // readers announce "Email Address" (etc.) on focus — without this the
+  // label is only a sighted-user visual cue, since it doesn't wrap the
+  // input and the input's own placeholder is intentionally blank.
+  const inputId = React.useId();
 
   return (
-    <div className="w-full relative" style={{ paddingTop: '10px' }}>
-      {/* Floating label */}
+    <div className="w-full relative" style={{ paddingTop: '14px' }}>
+      {/* Floating label — a touch of extra top padding above (14px, up from
+          10px) plus a slightly bigger upward translateY when floated gives
+          the label a little more breathing room above the box; the unfloated
+          (placeholder) position is nudged down by half that extra padding so
+          it stays centered in the box rather than drifting upward. */}
       <label
+        htmlFor={inputId}
         className="absolute left-3 pointer-events-none transition-all duration-200 origin-left"
         style={{
-          top: floated ? 0 : '50%',
-          transform: floated ? 'translateY(-2px) scale(0.78)' : 'translateY(-50%) scale(1)',
-          color: floated ? NAVY : '#9ca3af',
+          top: floated ? 0 : 'calc(50% + 2px)',
+          transform: floated ? 'translateY(-5px) scale(0.78)' : 'translateY(-50%) scale(1)',
+          color: floated ? NAVY : '#6b7280',
           fontWeight: floated ? 600 : 400,
           fontSize: '0.875rem',
           background: floated ? 'white' : 'transparent',
@@ -102,6 +112,7 @@ export function InputField({
         style={{ borderColor: focused ? NAVY : '#d1d5db' }}
       >
         <input
+          id={inputId}
           type={isPw && show ? 'text' : type}
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -114,7 +125,9 @@ export function InputField({
         />
         {isPw && (
           <button type="button" onClick={() => setShow(s => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            aria-label={show ? 'Hide password' : 'Show password'}
+            aria-pressed={show}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         )}
@@ -140,18 +153,20 @@ export function EmailInputField({
   const [focused, setFocused] = useState(false);
   const isValid = EMAIL_RE.test(value.trim());
   const floated = focused || value.length > 0;
-  const accent  = isValid ? '#16a34a' : focused ? NAVY : '#9ca3af';
+  const accent  = isValid ? '#16a34a' : focused ? NAVY : '#6b7280';
+  const inputId = React.useId();
 
   return (
     <div className="w-full relative" style={{ paddingTop: '10px' }}>
       {/* Floating label */}
       <label
+        htmlFor={inputId}
         className="absolute pointer-events-none transition-all duration-200 origin-left"
         style={{
           left: '2.75rem',
           top: floated ? '7px' : '50%',
           transform: floated ? 'translateY(0) scale(0.78)' : 'translateY(-50%) scale(1)',
-          color: floated ? accent : '#9ca3af',
+          color: floated ? accent : '#6b7280',
           fontWeight: floated ? 600 : 400,
           fontSize: '0.875rem',
           lineHeight: 1,
@@ -168,8 +183,9 @@ export function EmailInputField({
           background: isValid ? '#f0fdf4' : 'white',
         }}
       >
-        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: accent }} />
+        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: accent }} aria-hidden="true" />
         <input
+          id={inputId}
           type="email"
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -227,6 +243,7 @@ export function PasswordStrengthField({
   const [show, setShow]       = useState(false);
   const [focused, setFocused] = useState(false);
   const floated = focused || value.length > 0;
+  const inputId = React.useId();
 
   const checks      = PASSWORD_CHECKS.map(c => ({ ...c, met: c.test(value) }));
   const passedCount = checks.filter(c => c.met).length;
@@ -242,11 +259,12 @@ export function PasswordStrengthField({
       <div className="w-full relative" style={{ paddingTop: '10px' }}>
         {/* Floating label */}
         <label
+          htmlFor={inputId}
           className="absolute left-3 pointer-events-none transition-all duration-200 origin-left"
           style={{
             top: floated ? 0 : '50%',
             transform: floated ? 'translateY(-2px) scale(0.78)' : 'translateY(-50%) scale(1)',
-            color: floated ? borderColor : '#9ca3af',
+            color: floated ? borderColor : '#6b7280',
             fontWeight: floated ? 600 : 400,
             fontSize: '0.875rem',
             background: floated ? 'white' : 'transparent',
@@ -265,6 +283,7 @@ export function PasswordStrengthField({
           style={{ borderColor }}
         >
           <input
+            id={inputId}
             type={show ? 'text' : 'password'}
             value={value}
             onChange={e => onChange(e.target.value)}
@@ -276,7 +295,9 @@ export function PasswordStrengthField({
             style={{ paddingTop: '10px', paddingBottom: '10px', paddingRight: '2.5rem' }}
           />
           <button type="button" onClick={() => setShow(s => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            aria-label={show ? 'Hide password' : 'Show password'}
+            aria-pressed={show}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
@@ -286,7 +307,7 @@ export function PasswordStrengthField({
       {value.length > 0 && (
         <div className="mt-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-gray-400">Password Strength</span>
+            <span className="text-xs text-gray-500">Password Strength</span>
             <span className="text-xs font-bold" style={{ color: strength!.color }}>{strength!.label}</span>
           </div>
           <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
@@ -302,7 +323,7 @@ export function PasswordStrengthField({
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors duration-200"
                 style={{
                   background: c.met ? '#f0fdf4' : '#f9fafb',
-                  color: c.met ? '#16a34a' : '#9ca3af',
+                  color: c.met ? '#16a34a' : '#6b7280',
                   border: `1px solid ${c.met ? '#bbf7d0' : '#e5e7eb'}`,
                 }}
               >
@@ -333,6 +354,7 @@ export function SelectField({
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       disabled={disabled}
+      aria-label={placeholder}
       className="w-full px-3 py-2.5 text-sm text-gray-800 bg-white rounded-md border outline-none transition-all duration-200 disabled:bg-gray-50 disabled:text-gray-400"
       style={{ borderColor: focused ? NAVY : '#d1d5db' }}
     >
@@ -353,8 +375,8 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
       className="fixed top-5 left-1/2 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-medium text-white flex items-center gap-2 animate-fade-in"
       style={{ transform: 'translateX(-50%)', background: NAVY, minWidth: 260 }}
     >
-      <span>🔗</span> {message}
-      <button onClick={onClose} className="ml-auto text-white/60 hover:text-white text-xs">✕</button>
+      <span aria-hidden="true">🔗</span> {message}
+      <button onClick={onClose} aria-label="Dismiss notification" className="ml-auto text-white/60 hover:text-white text-xs">✕</button>
     </div>
   );
 }
@@ -494,7 +516,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
         {statusLoading && (
           <>
             <div className="w-10 h-10 rounded-full border-2 border-gray-200 mb-4 animate-spin" style={{ borderTopColor: BLUE }} />
-            <p className="text-sm text-gray-400">Checking your registration status…</p>
+            <p className="text-sm text-gray-500">Checking your registration status…</p>
           </>
         )}
 
@@ -515,7 +537,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
               </svg>
             </div>
             <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>Registration Pending</h2>
-            <p className="text-xs text-gray-400 mb-4">{statusResult.name || statusEmail}</p>
+            <p className="text-xs text-gray-500 mb-4">{statusResult.name || statusEmail}</p>
             <p className="text-sm text-gray-500 max-w-xs mb-6">
               Your Alumni Tracer Survey submission is still being reviewed by the alumni office. You'll receive your sign-in details once it's verified — check back soon.
             </p>
@@ -530,7 +552,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
               </svg>
             </div>
             <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>Registration Not Approved</h2>
-            <p className="text-xs text-gray-400 mb-4">{statusResult.name || statusEmail}</p>
+            <p className="text-xs text-gray-500 mb-4">{statusResult.name || statusEmail}</p>
             {statusResult.rejection_reason ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 max-w-xs mb-6 text-left">
                 <p className="font-semibold mb-1">Reason given by the Alumni Office:</p>
@@ -558,7 +580,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
     return (
       <div className="flex flex-col items-center justify-start h-full px-5 sm:px-8 pt-16 pb-6 md:pt-6 overflow-y-auto">
         <h2 className="text-2xl mb-3 mt-2" style={{ color: NAVY }}>Reset Password</h2>
-        <p className="text-xs text-gray-400 mb-4 text-center max-w-xs">
+        <p className="text-xs text-gray-500 mb-4 text-center max-w-xs">
           Enter your account email and we'll send you a link to reset your password.
         </p>
 
@@ -588,7 +610,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
               </button>
             </div>
             <div className="text-center pt-1">
-              <button type="button" onClick={() => setForgotMode(false)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              <button type="button" onClick={() => setForgotMode(false)} className="text-xs text-gray-500 hover:text-gray-600 transition-colors">
                 Back to Sign In
               </button>
             </div>
@@ -600,9 +622,9 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
 
   return (
     <div className="flex flex-col items-center justify-start h-full px-5 sm:px-8 pt-10 pb-6 overflow-y-auto">
-      <img src={aaaLogo} alt="Asian College" className="w-32 h-32 object-contain" style={{ marginBottom: '-12px' }} />
+      <img src={aaaLogo} alt="Asian College" className="w-28 h-28 object-contain" style={{ marginBottom: '-12px' }} />
       <h2 className="text-2xl mb-1" style={{ color: NAVY }}>Sign In</h2>
-      <p className="text-xs text-gray-400 mb-6">Use the email and password from your Alumni Tracer Survey confirmation</p>
+      <p className="text-xs text-gray-500 mb-6">Use the email and password from your Alumni Tracer Survey confirmation</p>
 
       {error && (
         <div className="w-full mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">
@@ -617,7 +639,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
           onChange={setPassword} required />
 
         <div className="text-center">
-          <button type="button" onClick={() => setForgotMode(true)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+          <button type="button" onClick={() => setForgotMode(true)} className="text-xs text-gray-500 hover:text-gray-600 transition-colors">
             Forgot your password?
           </button>
         </div>
@@ -750,7 +772,7 @@ export default function AuthPage() {
       </button>
 
       {/* Footer note */}
-      <p className="mt-5 text-xs text-gray-400 text-center">
+      <p className="mt-5 text-xs text-gray-500 text-center">
         Asian College Alumni Tracer & Donation System · RA 10173 Compliant
       </p>
     </div>

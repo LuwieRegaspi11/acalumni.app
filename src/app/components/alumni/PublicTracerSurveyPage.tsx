@@ -5,9 +5,9 @@ import {
   ChevronRight, ChevronLeft, Send, ClipboardList, Clock, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
 import asianCollegeLogo from '../../../imports/asiancollege_logo.jpeg';
-import { PANEL_GRADIENT } from '../AuthPage';
+import { PANEL_GRADIENT, NAVY } from '../AuthPage';
 import {
-  type Answers, buildRequirements, sectionMissing, getAllMissing, SECTION_ICONS,
+  type Answers, buildRequirements, sectionMissing, getAllMissing, fieldErrors, SECTION_ICONS,
   defaultAnswers, answersToRow, ALL_SECTIONS,
   renderConsentSection, renderProfileSection, renderEmploymentStatusSection,
   renderEmploymentInfoSection, renderCurriculumSection, renderLicensureSection, renderFeedbackSection,
@@ -127,12 +127,12 @@ export default function PublicTracerSurveyPage() {
             access immediately; otherwise you can still sign in, but you'll see a status page until the
             Alumni Office verifies you.
           </p>
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-gray-500 leading-relaxed">
             Already in our records but never got your sign-in details (e.g. your info was added by the
             Alumni Office directly)? Submitting this survey resets your password and shows it to you
             here — no need to contact anyone first.
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <Clock className="w-4 h-4" /> About 5–10 minutes
           </div>
           <button onClick={() => setScreen('form')}
@@ -141,7 +141,7 @@ export default function PublicTracerSurveyPage() {
             Start Survey
           </button>
           <div>
-            <button onClick={() => navigate('/login')} className="text-xs text-gray-400 hover:text-gray-600">
+            <button onClick={() => navigate('/login')} className="text-xs text-gray-500 hover:text-gray-600">
               Already have an account? Sign in
             </button>
           </div>
@@ -151,9 +151,28 @@ export default function PublicTracerSurveyPage() {
   }
 
   function renderForm() {
-    const missingBlocking = sectionMissing(REQUIREMENTS, currentKey, answers, true);
-    const canGoNext = missingBlocking.length === 0;
+    // blockingOnly=false so every required field in the current section —
+    // not just the "Other, please specify" ones — must be answered before
+    // advancing past it (see GraduateTracerForm.tsx).
+    const missingRequired = sectionMissing(REQUIREMENTS, currentKey, answers, false);
+    const canGoNext = missingRequired.length === 0;
     const isLast = sectionIdx === sections.length - 1;
+    // Per-field errors (red ring + inline message on each unanswered
+    // control) for whichever section is on screen — only once the user
+    // has actually tried to move past an incomplete one.
+    const sectionErrors = submitAttempted ? fieldErrors(REQUIREMENTS, currentKey, answers) : {};
+    // A later tab is only reachable once every section between here and
+    // it validates — mirrors the Next button's own gate, so the tab bar
+    // can't be used to route around it (i <= sectionIdx, i.e. going back
+    // or re-clicking the current tab, is always reachable).
+    const isReachable = (i: number) => {
+      if (i <= sectionIdx) return true;
+      for (let j = sectionIdx; j < i; j++) {
+        if (sectionMissing(REQUIREMENTS, sections[j].key, answers, false).length > 0) return false;
+      }
+      return true;
+    };
+    const isComplete = (i: number) => sectionMissing(REQUIREMENTS, sections[i].key, answers, false).length === 0;
     const SectionIcon = SECTION_ICONS[currentKey] ?? ClipboardList;
 
     return (
@@ -165,26 +184,27 @@ export default function PublicTracerSurveyPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {sections.map((s, i) => (
-              <button key={s.key} onClick={() => {
-                  // Going back is always fine; jumping ahead must first clear
-                  // every required section in between, same as the Next button.
-                  if (i <= sectionIdx) { setSectionIdx(i); return; }
-                  for (let j = sectionIdx; j < i; j++) {
-                    if (sectionMissing(REQUIREMENTS, sections[j].key, answers, true).length > 0) {
-                      setSubmitAttempted(true);
-                      scrollToFormTop();
-                      return;
-                    }
-                  }
-                  setSectionIdx(i);
-                }}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : i < sectionIdx && sectionMissing(REQUIREMENTS, s.key, answers, true).length === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
-                style={i === sectionIdx ? { background: PANEL_GRADIENT } : {}}>
-                {i < sectionIdx && sectionMissing(REQUIREMENTS, s.key, answers, true).length === 0 ? '✓ ' : ''}{s.title}
-              </button>
-            ))}
+          <div className="flex items-center flex-wrap gap-1.5">
+            {sections.map((s, i) => {
+              const reachable = isReachable(i);
+              const complete = i < sectionIdx && isComplete(i);
+              return (
+                <button key={s.key} onClick={() => {
+                    // Going back is always fine; jumping ahead must first
+                    // clear every required section in between, same as the
+                    // Next button.
+                    if (i <= sectionIdx) { setSectionIdx(i); return; }
+                    if (!reachable) { setSubmitAttempted(true); scrollToFormTop(); return; }
+                    setSectionIdx(i);
+                  }}
+                  aria-disabled={!reachable}
+                  title={!reachable ? 'Complete the sections before this one first' : undefined}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : complete ? 'bg-green-100 text-green-700' : reachable ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
+                  style={i === sectionIdx ? { background: PANEL_GRADIENT } : {}}>
+                  {complete ? '✓ ' : ''}{s.title}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -202,13 +222,13 @@ export default function PublicTracerSurveyPage() {
             </div>
             <h3 className="font-bold text-gray-800 text-lg">{sections[sectionIdx].title}</h3>
           </div>
-          {currentKey === 'consent' && renderConsentSection(answers, setField)}
-          {currentKey === 'profile' && renderProfileSection(answers, setField, false, 'public')}
-          {currentKey === 'employment_status' && renderEmploymentStatusSection(answers, setField, false)}
-          {currentKey === 'employment_info' && renderEmploymentInfoSection(answers, setField, false)}
-          {currentKey === 'curriculum' && renderCurriculumSection(answers, setField, false)}
-          {currentKey === 'licensure' && renderLicensureSection(answers, setField, false)}
-          {currentKey === 'feedback' && renderFeedbackSection(answers, setField, false)}
+          {currentKey === 'consent' && renderConsentSection(answers, setField, sectionErrors.consent)}
+          {currentKey === 'profile' && renderProfileSection(answers, setField, false, 'public', sectionErrors)}
+          {currentKey === 'employment_status' && renderEmploymentStatusSection(answers, setField, false, sectionErrors)}
+          {currentKey === 'employment_info' && renderEmploymentInfoSection(answers, setField, false, sectionErrors)}
+          {currentKey === 'curriculum' && renderCurriculumSection(answers, setField, false, sectionErrors)}
+          {currentKey === 'licensure' && renderLicensureSection(answers, setField, false, sectionErrors)}
+          {currentKey === 'feedback' && renderFeedbackSection(answers, setField, false, sectionErrors)}
         </div>
 
         <div className="flex items-start justify-between gap-3">
@@ -292,7 +312,8 @@ export default function PublicTracerSurveyPage() {
           </div>
         </div>
         <button onClick={() => navigate('/login')}
-          className="flex-shrink-0 text-xs text-blue-100 hover:text-white font-medium flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">
+          className="flex-shrink-0 text-xs font-bold flex items-center gap-1.5 bg-white hover:bg-blue-50 border border-white shadow-sm px-3 py-1.5 rounded-lg transition-colors"
+          style={{ color: NAVY }}>
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
         </button>
       </div>

@@ -10,7 +10,7 @@ export default function EventManagement() {
         <p className="text-gray-600">Schedule and manage alumni events</p>
       </div>
 
-      <EventCalendar canCreate={true} createdBy="admin" />
+      <EventCalendar canCreate={true} createdBy="admin" canViewRegistrants={true} />
     </div>
   );
 }

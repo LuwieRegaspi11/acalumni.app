@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Filter, Download, ChevronDown, Users, BarChart3 } from 'lucide-react';
+import { useId, useState, useEffect, useMemo, useRef } from 'react';
+import { Search, Filter, Download, ChevronDown, Users, BarChart3, ListChecks } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -23,6 +23,7 @@ import {
   JOB_RELATED_OPTIONS, TIME_TO_FIRST_JOB_OPTIONS,
 } from '../../../lib/graduateTracerSurveyOptions';
 import { useDarkMode } from './DarkModeContext';
+import AlumniRoster from '../admin/AlumniRoster';
 
 // ================= [SHARED: ALUMNIMANAGEMENTVIEW] =================
 // The full Alumni Tracer screen (labeled "Alumni Tracer" in both the admin
@@ -253,6 +254,7 @@ interface Props {
 
 export default function AlumniManagementView({ department }: Props) {
   const { dark } = useDarkMode();
+  const filterId = useId(); // ties each filter <label> to its <select> — see per-field ids below
   const [alumni, setAlumni] = useState<AlumniRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -262,7 +264,7 @@ export default function AlumniManagementView({ department }: Props) {
   const [showFilters, setShowFilters] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<'records' | 'analytics'>('records');
+  const [view, setView] = useState<'records' | 'analytics' | 'roster'>('records');
 
   // Analytics Report's own Department filter — kept entirely separate from
   // the Alumni Records filter above (filterDept etc.) so narrowing the
@@ -575,11 +577,12 @@ export default function AlumniManagementView({ department }: Props) {
 
       {/* Tab switcher — Alumni Records (the roster table) vs. Analytics
           Report (charts, moved here from Tracer Responses so they run off
-          this same roster/filters instead of a separate fetch). There used
-          to be a third, admin-only "Alumni Roster" tab for the registrar
-          match-source importer (admin/AlumniRoster.tsx) — that component
-          and its `alumni_roster` matching logic are untouched, it's just
-          not surfaced here anymore. */}
+          this same roster/filters instead of a separate fetch), plus a
+          third, admin-only "Alumni Roster" tab for the registrar
+          match-source importer (admin/AlumniRoster.tsx) — hidden for
+          faculty (department set) since that CSV import is a global,
+          cross-department operation and its `alumni_roster` table has no
+          department column to scope by. */}
       <div className="flex gap-2">
         <button onClick={() => setView('records')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'records' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
@@ -591,6 +594,13 @@ export default function AlumniManagementView({ department }: Props) {
           style={view === 'analytics' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
           <BarChart3 className="w-4 h-4" /> Analytics Report
         </button>
+        {!department && (
+          <button onClick={() => setView('roster')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'roster' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+            style={view === 'roster' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
+            <ListChecks className="w-4 h-4" /> Alumni Roster
+          </button>
+        )}
       </div>
 
       {view === 'records' && (
@@ -598,8 +608,9 @@ export default function AlumniManagementView({ department }: Props) {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
         <div className="flex gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
+              aria-label="Search by name or email"
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
           </div>
           <button onClick={() => setShowFilters(f => !f)}
@@ -611,8 +622,8 @@ export default function AlumniManagementView({ department }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {filterFields.map(f => (
               <div key={f.label}>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
-                <select value={f.value} onChange={e => f.onChange(e.target.value)}
+                <label htmlFor={`${filterId}-${f.label}`} className="text-xs font-semibold text-gray-500 mb-1 block">{f.label}</label>
+                <select id={`${filterId}-${f.label}`} value={f.value} onChange={e => f.onChange(e.target.value)}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400">
                   {f.opts.map(o => <option key={o}>{o}</option>)}
                 </select>
@@ -731,8 +742,8 @@ export default function AlumniManagementView({ department }: Props) {
                 </button>
                 {showAnalyticsFilters && (
                   <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-xl border border-gray-100 shadow-lg p-3 z-20">
-                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
-                    <select value={analyticsFilterDept} onChange={e => setAnalyticsFilterDept(e.target.value)}
+                    <label htmlFor={`${filterId}-analyticsDept`} className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
+                    <select id={`${filterId}-analyticsDept`} value={analyticsFilterDept} onChange={e => setAnalyticsFilterDept(e.target.value)}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400">
                       {DEPARTMENTS.map(o => <option key={o}>{o}</option>)}
                     </select>
@@ -955,6 +966,8 @@ export default function AlumniManagementView({ department }: Props) {
           )}
         </div>
       )}
+
+      {view === 'roster' && !department && <AlumniRoster />}
 
     </div>
   );

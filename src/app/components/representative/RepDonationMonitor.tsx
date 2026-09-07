@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useId, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { DollarSign, CheckCircle, Clock, AlertCircle, TrendingUp, Heart, Building2, Upload, Image, Copy, Check, Wallet, CreditCard, X, ChevronRight } from 'lucide-react';
@@ -27,6 +27,7 @@ export default function RepDonationMonitor() {
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ campaign: '', amount: '', description: '' });
+  const campaignFieldId = useId(); // ties the "Campaign" <label> to its <select> below
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofFileName, setProofFileName] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -330,12 +331,12 @@ export default function RepDonationMonitor() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
               <h3 className="font-bold text-gray-800">Make a Donation</h3>
-              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); }}><X className="w-5 h-5 text-gray-500" /></button>
+              <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); }} aria-label="Close"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Campaign</label>
-                <select value={form.campaign} onChange={e => setForm(f => ({...f, campaign: e.target.value}))}
+                <label htmlFor={campaignFieldId} className="text-xs font-semibold text-gray-500 mb-1 block">Campaign</label>
+                <select id={campaignFieldId} value={form.campaign} onChange={e => setForm(f => ({...f, campaign: e.target.value}))}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400">
                   <option value="">Select a campaign</option>
                   {campaigns.filter(isCampaignLive).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}

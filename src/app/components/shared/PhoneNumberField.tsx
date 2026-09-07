@@ -7,6 +7,7 @@
 // as a single E.164 string, e.g. "+639123456789".
 // =====================================================================
 
+import { useId } from 'react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import './phone-input.css';
@@ -33,6 +34,11 @@ interface PhoneNumberFieldProps {
 export default function PhoneNumberField({
   label, value, onChange, onFocus, onBlur, placeholder, required, hint, variant = 'card',
 }: PhoneNumberFieldProps) {
+  // Ties the visible <label> to the actual number <input> PhoneInput
+  // renders (numberInputProps passes `id` straight through to it) — a
+  // <label> that's merely a sibling of PhoneInput's markup, as this was,
+  // doesn't announce on focus.
+  const inputId = useId();
   const field = (
     <PhoneInput
       international
@@ -44,7 +50,7 @@ export default function PhoneNumberField({
       onBlur={onBlur}
       placeholder={placeholder || 'Phone number'}
       className={`aci-phone-input aci-phone-input--${variant}`}
-      numberInputProps={{ required }}
+      numberInputProps={{ required, id: inputId, 'aria-label': !label ? (placeholder || 'Phone number') : undefined }}
     />
   );
 
@@ -52,27 +58,27 @@ export default function PhoneNumberField({
     return (
       <div className="aci-phone-field-auth">
         {label && (
-          <label className="aci-phone-field-auth-label">
+          <label htmlFor={inputId} className="aci-phone-field-auth-label">
             {label}{required && <span className="aci-phone-field-auth-required">*</span>}
           </label>
         )}
         {field}
-        {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+        {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
       </div>
     );
   }
 
   if (!label) {
-    return hint ? (<div>{field}<p className="text-xs text-gray-400 mt-1">{hint}</p></div>) : field;
+    return hint ? (<div>{field}<p className="text-xs text-gray-500 mt-1">{hint}</p></div>) : field;
   }
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+      <label htmlFor={inputId} className="block text-sm font-semibold text-gray-700 mb-1.5">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {field}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-gray-500 mt-1">{hint}</p>}
     </div>
   );
 }

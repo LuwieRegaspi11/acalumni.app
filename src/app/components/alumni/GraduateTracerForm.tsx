@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import asianCollegeLogo from '../../../imports/asiancollege_logo.jpeg';
 import {
-  type Answers, buildRequirements, sectionMissing, getAllMissing, computeProgress, SECTION_ICONS,
+  type Answers, buildRequirements, sectionMissing, getAllMissing, computeProgress, fieldErrors, SECTION_ICONS,
   defaultAnswers, rowToAnswers, answersToRow, ALL_SECTIONS,
   renderConsentSection, renderProfileSection, renderEmploymentStatusSection,
   renderEmploymentInfoSection, renderCurriculumSection, renderLicensureSection, renderFeedbackSection,
@@ -108,7 +108,7 @@ export default function GraduateTracerForm() {
   }, [user?.id]);
 
   if (loadingInit || !user) {
-    return <div className="max-w-2xl py-16 text-center text-sm text-gray-400">Loading survey…</div>;
+    return <div className="max-w-2xl py-16 text-center text-sm text-gray-500">Loading survey…</div>;
   }
 
   const gateMode = existingStatus !== 'submitted';
@@ -183,7 +183,7 @@ export default function GraduateTracerForm() {
           <p className="text-gray-500 leading-relaxed">
             Before you continue, please complete this brief alumni tracer survey — it helps your school improve programs and services.
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <Clock className="w-4 h-4" /> About 5–10 minutes
           </div>
 
@@ -212,7 +212,7 @@ export default function GraduateTracerForm() {
           </button>
 
           <div>
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-gray-600">Sign out</button>
+            <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-600">Sign out</button>
           </div>
         </div>
       </div>
@@ -221,11 +221,29 @@ export default function GraduateTracerForm() {
 
   function renderForm() {
     // Read-only responses already passed every requirement at submit time —
-    // section navigation shouldn't re-gate on them.
-    const missingBlocking = readOnly ? [] : sectionMissing(REQUIREMENTS, currentKey, answers, true);
-    const canGoNext = missingBlocking.length === 0;
+    // section navigation shouldn't re-gate on them. blockingOnly=false so
+    // every required field in the current section — not just the "Other,
+    // please specify" ones — must be answered before advancing past it.
+    const missingRequired = readOnly ? [] : sectionMissing(REQUIREMENTS, currentKey, answers, false);
+    const canGoNext = missingRequired.length === 0;
     const isLast = sectionIdx === sections.length - 1;
     const attemptedMissing = submitAttempted ? (getAllMissing(REQUIREMENTS, answers).find(s => s.sectionKey === currentKey)?.labels || []) : [];
+    // Per-field errors (red ring + inline message on each unanswered
+    // control) for whichever section is on screen — only once the user
+    // has actually tried to move past an incomplete one.
+    const sectionErrors = submitAttempted ? fieldErrors(REQUIREMENTS, currentKey, answers) : {};
+    // A later tab is only reachable once every section between here and
+    // it validates — mirrors the Next button's own gate, so the tab bar
+    // can't be used to route around it (i <= sectionIdx, i.e. going back
+    // or re-clicking the current tab, is always reachable).
+    const isReachable = (i: number) => {
+      if (readOnly || i <= sectionIdx) return true;
+      for (let j = sectionIdx; j < i; j++) {
+        if (sectionMissing(REQUIREMENTS, sections[j].key, answers, false).length > 0) return false;
+      }
+      return true;
+    };
+    const isComplete = (i: number) => sectionMissing(REQUIREMENTS, sections[i].key, answers, false).length === 0;
     const SectionIcon = SECTION_ICONS[currentKey] ?? ClipboardList;
 
     return (
@@ -237,14 +255,30 @@ export default function GraduateTracerForm() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {sections.map((s, i) => (
-              <button key={s.key} onClick={() => setSectionIdx(i)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : i < sectionIdx ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
-                style={i === sectionIdx ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
-                {i < sectionIdx ? '✓ ' : ''}{s.title}
-              </button>
-            ))}
+          <div className="flex items-center flex-wrap gap-1.5">
+            {sections.map((s, i) => {
+              const reachable = isReachable(i);
+              const complete = i < sectionIdx && isComplete(i);
+              return (
+                <button key={s.key} onClick={() => {
+                    // Going back (or re-visiting the read-only view) is
+                    // always fine; jumping ahead must first clear every
+                    // required section in between, same as the Next button
+                    // — otherwise this tab bar would let alumni skip
+                    // straight past an incomplete Graduate Profile. Same
+                    // pattern as PublicTracerSurveyPage.tsx.
+                    if (readOnly || i <= sectionIdx) { setSectionIdx(i); return; }
+                    if (!reachable) { setSubmitAttempted(true); scrollToFormTop(); return; }
+                    setSectionIdx(i);
+                  }}
+                  aria-disabled={!reachable}
+                  title={!reachable ? 'Complete the sections before this one first' : undefined}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${i === sectionIdx ? 'text-white' : complete ? 'bg-green-100 text-green-700' : reachable ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-50 text-gray-300 cursor-not-allowed'}`}
+                  style={i === sectionIdx ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
+                  {complete ? '✓ ' : ''}{s.title}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -264,18 +298,18 @@ export default function GraduateTracerForm() {
             </div>
             <h3 className="font-bold text-gray-800 text-lg">{sections[sectionIdx].title}</h3>
           </div>
-          {currentKey === 'consent' && renderConsentSection(answers, setField)}
-          {currentKey === 'profile' && renderProfileSection(answers, setField, readOnly, 'account')}
-          {currentKey === 'employment_status' && renderEmploymentStatusSection(answers, setField, readOnly)}
-          {currentKey === 'employment_info' && renderEmploymentInfoSection(answers, setField, readOnly)}
-          {currentKey === 'curriculum' && renderCurriculumSection(answers, setField, readOnly)}
-          {currentKey === 'licensure' && renderLicensureSection(answers, setField, readOnly)}
-          {currentKey === 'feedback' && renderFeedbackSection(answers, setField, readOnly)}
+          {currentKey === 'consent' && renderConsentSection(answers, setField, sectionErrors.consent)}
+          {currentKey === 'profile' && renderProfileSection(answers, setField, readOnly, 'account', sectionErrors)}
+          {currentKey === 'employment_status' && renderEmploymentStatusSection(answers, setField, readOnly, sectionErrors)}
+          {currentKey === 'employment_info' && renderEmploymentInfoSection(answers, setField, readOnly, sectionErrors)}
+          {currentKey === 'curriculum' && renderCurriculumSection(answers, setField, readOnly, sectionErrors)}
+          {currentKey === 'licensure' && renderLicensureSection(answers, setField, readOnly, sectionErrors)}
+          {currentKey === 'feedback' && renderFeedbackSection(answers, setField, readOnly, sectionErrors)}
         </div>
 
         {gateMode && (
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-gray-600">Sign out</button>
+            <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-gray-600">Sign out</button>
             <button onClick={saveDraft} disabled={saving}
               className="text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50">
               {saving ? 'Saving…' : 'Save and continue later'}

@@ -475,7 +475,7 @@ export default function DonationManagementView({ department }: Props) {
       {viewProof && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setViewProof(null)}>
           <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setViewProof(null)} className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
+            <button onClick={() => setViewProof(null)} aria-label="Close proof viewer" className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
             <img src={viewProof} alt="Proof" className="max-w-full max-h-[80vh] w-auto h-auto mx-auto block rounded-2xl shadow-2xl object-contain" />
           </div>
         </div>

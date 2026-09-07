@@ -115,21 +115,27 @@ export default function SystemSettings() {
   const Field = ({ label, value, onChange, type = 'text', icon, rows, placeholder }: {
     label: string; value: string; onChange: (v: string) => void;
     type?: string; icon?: React.ReactNode; rows?: number; placeholder?: string;
-  }) => (
-    <div>
-      <label className={labelCls}>{label}</label>
-      <div className="relative">
-        {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</span>}
-        {rows ? (
-          <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
-            className={`w-full text-sm border rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none transition-colors ${fieldBg}`} />
-        ) : (
-          <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-            className={`w-full text-sm border rounded-xl py-2.5 focus:outline-none focus:border-blue-400 transition-colors ${fieldBg} ${icon ? 'pl-9 pr-4' : 'px-3'}`} />
-        )}
+  }) => {
+    // htmlFor/id ties the visible label text to its input so screen
+    // readers announce it on focus — a <label> with no `for` and no
+    // wrapped control reads as unrelated text next to the field.
+    const fieldId = React.useId();
+    return (
+      <div>
+        <label htmlFor={fieldId} className={labelCls}>{label}</label>
+        <div className="relative">
+          {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true">{icon}</span>}
+          {rows ? (
+            <textarea id={fieldId} value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
+              className={`w-full text-sm border rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none transition-colors ${fieldBg}`} />
+          ) : (
+            <input id={fieldId} type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+              className={`w-full text-sm border rounded-xl py-2.5 focus:outline-none focus:border-blue-400 transition-colors ${fieldBg} ${icon ? 'pl-9 pr-4' : 'px-3'}`} />
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-5 w-full">

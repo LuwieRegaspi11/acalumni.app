@@ -81,7 +81,12 @@ export interface Answers {
   consent: boolean;
 }
 
-export interface Requirement { check: (a: Answers) => boolean; label: string; blocking?: boolean }
+// `field` names the single Answers key this requirement's control lives
+// under — used only to route a missed requirement's label to the right
+// Field in the UI (see fieldErrors() below). Requirements without one
+// (there are none currently) simply can't surface an inline, per-field
+// error and fall back to being caught only by the section-level gate.
+export interface Requirement { check: (a: Answers) => boolean; label: string; blocking?: boolean; field?: keyof Answers }
 
 // A small icon per section — purely decorative; keyed off ALL_SECTIONS'
 // `key`, with ClipboardList as a safe fallback if a key is ever added
@@ -113,77 +118,92 @@ export const hasChangedEmployers = (a: Answers) =>
 export function buildRequirements(mode: 'public' | 'account'): Record<string, Requirement[]> {
   return {
     consent: [
-      { check: a => a.consent === true, label: 'Please check the box to acknowledge the data privacy notice.', blocking: true },
+      { check: a => a.consent === true, label: 'Please check the box to acknowledge the data privacy notice.', blocking: true, field: 'consent' },
     ],
     profile: [
-      { check: a => !!a.first_name.trim(), label: 'First Name is required.' },
-      { check: a => !!a.last_name.trim(), label: 'Last Name is required.' },
+      { check: a => !!a.first_name.trim(), label: 'First Name is required.', field: 'first_name' },
+      { check: a => !!a.last_name.trim(), label: 'Last Name is required.', field: 'last_name' },
       ...(mode === 'public' ? [
-        { check: (a: Answers) => !!a.date_of_birth, label: 'Birthdate is required.' },
-        { check: (a: Answers) => !!a.email.trim(), label: 'Email is required.' },
+        { check: (a: Answers) => !!a.date_of_birth, label: 'Birthdate is required.', field: 'date_of_birth' as const },
+        { check: (a: Answers) => !!a.email.trim(), label: 'Email is required.', field: 'email' as const },
       ] : []),
-      { check: a => !!a.mobile_number.trim(), label: 'Mobile Number is required.' },
-      { check: a => !!a.current_address.trim(), label: 'Current Address is required.' },
-      { check: a => !!a.permanent_address.trim(), label: 'Permanent Address is required.' },
-      { check: a => !!a.sex, label: 'Sex is required.' },
-      { check: a => !!a.civil_status, label: 'Civil Status is required.' },
-      { check: a => !!a.year_graduated, label: 'Year Graduated is required.' },
-      { check: a => !!a.college_department, label: 'College Department is required.' },
-      { check: a => !!a.program_graduated, label: 'Program Graduated is required.' },
+      { check: a => !!a.mobile_number.trim(), label: 'Mobile Number is required.', field: 'mobile_number' },
+      { check: a => !!a.current_address.trim(), label: 'Current Address is required.', field: 'current_address' },
+      { check: a => !!a.permanent_address.trim(), label: 'Permanent Address is required.', field: 'permanent_address' },
+      { check: a => !!a.sex, label: 'Sex is required.', field: 'sex' },
+      { check: a => !!a.civil_status, label: 'Civil Status is required.', field: 'civil_status' },
+      { check: a => !!a.year_graduated, label: 'Year Graduated is required.', field: 'year_graduated' },
+      { check: a => !!a.college_department, label: 'College Department is required.', field: 'college_department' },
+      { check: a => !!a.program_graduated, label: 'Program Graduated is required.', field: 'program_graduated' },
     ],
     employment_status: [
-      { check: a => !!a.employment_status, label: 'Current Employment Status is required.' },
-      { check: a => !!a.employment_classification, label: 'Employment Classification is required.' },
+      { check: a => !!a.employment_status, label: 'Current Employment Status is required.', field: 'employment_status' },
+      { check: a => !!a.employment_classification, label: 'Employment Classification is required.', field: 'employment_classification' },
     ],
     employment_info: [
-      { check: a => !isEmployed(a) || !!a.company_organization.trim(), label: 'Company/Organization is required.' },
-      { check: a => !isEmployed(a) || !!a.job_title.trim(), label: 'Job Title is required.' },
-      { check: a => !isEmployed(a) || !!a.job_classification, label: 'Job Classification is required.' },
-      { check: a => a.job_classification !== 'Other' || !!a.job_classification_other.trim(), label: 'Please specify your job classification.', blocking: true },
-      { check: a => !isEmployed(a) || !!a.industry_sector, label: 'Industry/Sector is required.' },
-      { check: a => a.industry_sector !== 'Other' || !!a.industry_sector_other.trim(), label: 'Please specify your industry/sector.', blocking: true },
-      { check: a => !isEmployed(a) || !!a.job_related_to_degree, label: 'Please indicate if your job is related to your degree.' },
-      { check: a => !isEmployed(a) || !!a.time_to_first_job, label: 'Time to first job is required.' },
-      { check: a => !isEmployed(a) || !!a.number_of_employers, label: 'Number of companies worked for since graduation is required.' },
-      { check: a => !hasChangedEmployers(a) || a.reasons_for_leaving_job.length > 0, label: 'Select at least one reason for leaving your previous job.' },
-      { check: a => !a.reasons_for_leaving_job.includes('Other') || !!a.reasons_for_leaving_job_other.trim(), label: 'Please specify the other reason for leaving your previous job.', blocking: true },
-      { check: a => !isEmployed(a) || !!a.monthly_salary_range, label: 'Monthly Salary Range is required.' },
-      { check: a => !isEmployed(a) || !!a.first_job_source, label: 'How you obtained your first job is required.' },
-      { check: a => a.first_job_source !== 'Other' || !!a.first_job_source_other.trim(), label: 'Please specify how you obtained your first job.', blocking: true },
-      { check: a => !isEmployed(a) || !!a.current_work_location, label: 'Current Work Location is required.' },
-      { check: a => !isEmployed(a) || !!a.job_satisfaction_rating, label: 'Job Satisfaction rating is required.' },
-      { check: a => !isEmployed(a) || a.job_securing_factors.length > 0, label: 'Select at least one factor that helped you secure your job.' },
-      { check: a => !a.job_securing_factors.includes('Other') || !!a.job_securing_factors_other.trim(), label: 'Please specify the other factor that helped you secure your job.', blocking: true },
+      { check: a => !isEmployed(a) || !!a.company_organization.trim(), label: 'Company/Organization is required.', field: 'company_organization' },
+      { check: a => !isEmployed(a) || !!a.job_title.trim(), label: 'Job Title is required.', field: 'job_title' },
+      { check: a => !isEmployed(a) || !!a.job_classification, label: 'Job Classification is required.', field: 'job_classification' },
+      { check: a => a.job_classification !== 'Other' || !!a.job_classification_other.trim(), label: 'Please specify your job classification.', blocking: true, field: 'job_classification_other' },
+      { check: a => !isEmployed(a) || !!a.industry_sector, label: 'Industry/Sector is required.', field: 'industry_sector' },
+      { check: a => a.industry_sector !== 'Other' || !!a.industry_sector_other.trim(), label: 'Please specify your industry/sector.', blocking: true, field: 'industry_sector_other' },
+      { check: a => !isEmployed(a) || !!a.job_related_to_degree, label: 'Please indicate if your job is related to your degree.', field: 'job_related_to_degree' },
+      { check: a => !isEmployed(a) || !!a.time_to_first_job, label: 'Time to first job is required.', field: 'time_to_first_job' },
+      { check: a => !isEmployed(a) || !!a.number_of_employers, label: 'Number of companies worked for since graduation is required.', field: 'number_of_employers' },
+      { check: a => !hasChangedEmployers(a) || a.reasons_for_leaving_job.length > 0, label: 'Select at least one reason for leaving your previous job.', field: 'reasons_for_leaving_job' },
+      { check: a => !a.reasons_for_leaving_job.includes('Other') || !!a.reasons_for_leaving_job_other.trim(), label: 'Please specify the other reason for leaving your previous job.', blocking: true, field: 'reasons_for_leaving_job_other' },
+      { check: a => !isEmployed(a) || !!a.monthly_salary_range, label: 'Monthly Salary Range is required.', field: 'monthly_salary_range' },
+      { check: a => !isEmployed(a) || !!a.first_job_source, label: 'How you obtained your first job is required.', field: 'first_job_source' },
+      { check: a => a.first_job_source !== 'Other' || !!a.first_job_source_other.trim(), label: 'Please specify how you obtained your first job.', blocking: true, field: 'first_job_source_other' },
+      { check: a => !isEmployed(a) || !!a.current_work_location, label: 'Current Work Location is required.', field: 'current_work_location' },
+      { check: a => !isEmployed(a) || !!a.job_satisfaction_rating, label: 'Job Satisfaction rating is required.', field: 'job_satisfaction_rating' },
+      { check: a => !isEmployed(a) || a.job_securing_factors.length > 0, label: 'Select at least one factor that helped you secure your job.', field: 'job_securing_factors' },
+      { check: a => !a.job_securing_factors.includes('Other') || !!a.job_securing_factors_other.trim(), label: 'Please specify the other factor that helped you secure your job.', blocking: true, field: 'job_securing_factors_other' },
     ],
     curriculum: [
-      { check: a => !!a.education_quality_rating, label: 'Education Quality rating is required.' },
-      { check: a => !!a.program_relevance, label: 'Program Relevance is required.' },
-      { check: a => COMPETENCIES.every(c => !!a.competency_ratings[c]), label: 'Please rate every competency listed.' },
-      { check: a => a.employability_experiences.length >= 3, label: 'Select at least 3 learning experiences that helped your employability.', blocking: true },
-      { check: a => !a.employability_experiences.includes('Other') || !!a.employability_experiences_other.trim(), label: 'Please specify the other learning experience.', blocking: true },
-      { check: a => a.areas_to_strengthen.length >= 3, label: 'Select at least 3 areas to strengthen.', blocking: true },
-      { check: a => !a.areas_to_strengthen.includes('Other') || !!a.areas_to_strengthen_other.trim(), label: 'Please specify the other area to strengthen.', blocking: true },
-      { check: a => !!a.training_satisfaction_rating, label: 'Training Satisfaction rating is required.' },
+      { check: a => !!a.education_quality_rating, label: 'Education Quality rating is required.', field: 'education_quality_rating' },
+      { check: a => !!a.program_relevance, label: 'Program Relevance is required.', field: 'program_relevance' },
+      { check: a => COMPETENCIES.every(c => !!a.competency_ratings[c]), label: 'Please rate every competency listed.', field: 'competency_ratings' },
+      { check: a => a.employability_experiences.length >= 3, label: 'Select at least 3 learning experiences that helped your employability.', blocking: true, field: 'employability_experiences' },
+      { check: a => !a.employability_experiences.includes('Other') || !!a.employability_experiences_other.trim(), label: 'Please specify the other learning experience.', blocking: true, field: 'employability_experiences_other' },
+      { check: a => a.areas_to_strengthen.length >= 3, label: 'Select at least 3 areas to strengthen.', blocking: true, field: 'areas_to_strengthen' },
+      { check: a => !a.areas_to_strengthen.includes('Other') || !!a.areas_to_strengthen_other.trim(), label: 'Please specify the other area to strengthen.', blocking: true, field: 'areas_to_strengthen_other' },
+      { check: a => !!a.training_satisfaction_rating, label: 'Training Satisfaction rating is required.', field: 'training_satisfaction_rating' },
     ],
     licensure: [
-      { check: a => !!a.licensure_exam_status, label: 'Licensure Exam Status is required.' },
-      { check: a => !!a.has_certifications, label: 'Please indicate if you have certifications after graduation.' },
-      { check: a => a.has_certifications !== 'Yes' || !!a.certifications_detail.trim(), label: 'Please specify your certifications.', blocking: true },
-      { check: a => !!a.has_professional_training, label: 'Please indicate if you attended professional training/seminars.' },
-      { check: a => a.has_professional_training !== 'Yes' || !!a.professional_training_detail.trim(), label: 'Please specify your professional training/seminars.', blocking: true },
-      { check: a => !!a.interested_in_alumni_activities, label: 'Please indicate your interest in future alumni activities.' },
-      { check: a => a.preferred_alumni_activities.length >= 3, label: 'Select at least 3 preferred alumni activities.', blocking: true },
-      { check: a => !a.preferred_alumni_activities.includes('Other') || !!a.preferred_alumni_activities_other.trim(), label: 'Please specify the other preferred activity.', blocking: true },
+      { check: a => !!a.licensure_exam_status, label: 'Licensure Exam Status is required.', field: 'licensure_exam_status' },
+      { check: a => !!a.has_certifications, label: 'Please indicate if you have certifications after graduation.', field: 'has_certifications' },
+      { check: a => a.has_certifications !== 'Yes' || !!a.certifications_detail.trim(), label: 'Please specify your certifications.', blocking: true, field: 'certifications_detail' },
+      { check: a => !!a.has_professional_training, label: 'Please indicate if you attended professional training/seminars.', field: 'has_professional_training' },
+      { check: a => a.has_professional_training !== 'Yes' || !!a.professional_training_detail.trim(), label: 'Please specify your professional training/seminars.', blocking: true, field: 'professional_training_detail' },
+      { check: a => !!a.interested_in_alumni_activities, label: 'Please indicate your interest in future alumni activities.', field: 'interested_in_alumni_activities' },
+      { check: a => a.preferred_alumni_activities.length >= 3, label: 'Select at least 3 preferred alumni activities.', blocking: true, field: 'preferred_alumni_activities' },
+      { check: a => !a.preferred_alumni_activities.includes('Other') || !!a.preferred_alumni_activities_other.trim(), label: 'Please specify the other preferred activity.', blocking: true, field: 'preferred_alumni_activities_other' },
     ],
     feedback: [
-      { check: a => a.program_improvements.length >= 3, label: 'Select at least 3 program improvements.', blocking: true },
-      { check: a => !a.program_improvements.includes('Other') || !!a.program_improvements_other.trim(), label: 'Please specify the other program improvement.', blocking: true },
-      { check: a => a.additional_services_needed.length >= 3, label: 'Select at least 3 additional services needed.', blocking: true },
-      { check: a => !a.additional_services_needed.includes('Other') || !!a.additional_services_needed_other.trim(), label: 'Please specify the other service needed.', blocking: true },
-      { check: a => !!a.would_recommend_college, label: 'Please indicate if you would recommend the college.' },
-      { check: a => !!a.additional_comments.trim(), label: 'Additional comments is required.' },
+      { check: a => a.program_improvements.length >= 3, label: 'Select at least 3 program improvements.', blocking: true, field: 'program_improvements' },
+      { check: a => !a.program_improvements.includes('Other') || !!a.program_improvements_other.trim(), label: 'Please specify the other program improvement.', blocking: true, field: 'program_improvements_other' },
+      { check: a => a.additional_services_needed.length >= 3, label: 'Select at least 3 additional services needed.', blocking: true, field: 'additional_services_needed' },
+      { check: a => !a.additional_services_needed.includes('Other') || !!a.additional_services_needed_other.trim(), label: 'Please specify the other service needed.', blocking: true, field: 'additional_services_needed_other' },
+      { check: a => !!a.would_recommend_college, label: 'Please indicate if you would recommend the college.', field: 'would_recommend_college' },
+      { check: a => !!a.additional_comments.trim(), label: 'Additional comments is required.', field: 'additional_comments' },
     ],
   };
+}
+
+// Maps the current section's missed requirements onto their field key
+// (see Requirement.field) so the render functions below can show each
+// unanswered control its own red ring + inline message, instead of only
+// a section-level list. `blockingOnly` is deliberately not exposed here
+// (always effectively `false`) — once the user has attempted to move
+// on, every unmet requirement for the section should light up, not just
+// the "Other, please specify" ones.
+export function fieldErrors(requirements: Record<string, Requirement[]>, key: string, a: Answers): Partial<Record<keyof Answers, string>> {
+  const errs: Partial<Record<keyof Answers, string>> = {};
+  for (const r of requirements[key] || []) {
+    if (r.field && !errs[r.field] && !r.check(a)) errs[r.field] = r.label;
+  }
+  return errs;
 }
 
 export function sectionMissing(requirements: Record<string, Requirement[]>, key: string, a: Answers, blockingOnly: boolean): string[] {
@@ -361,7 +381,7 @@ export function CompetencyGrid({ competencies, value, onChange, disabled }: { co
 
 type SetField = <K extends keyof Answers>(key: K, value: Answers[K]) => void;
 
-export function renderConsentSection(answers: Answers, setField: SetField) {
+export function renderConsentSection(answers: Answers, setField: SetField, error?: string) {
   return (
     <div className="space-y-4">
       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 text-sm text-gray-600 leading-relaxed max-h-64 overflow-y-auto">
@@ -370,15 +390,16 @@ export function renderConsentSection(answers: Answers, setField: SetField) {
         </p>
         <p>{CONSENT_TEXT}</p>
       </div>
-      <label className="flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors border-gray-200 hover:border-gray-300">
+      <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors hover:border-gray-300 ${error ? 'border-red-400 ring-2 ring-red-400' : 'border-gray-200'}`}>
         <input type="checkbox" checked={answers.consent} onChange={e => setField('consent', e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
         <span className="text-sm text-gray-700">{CONSENT_CHECKBOX_LABEL}</span>
       </label>
+      {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
     </div>
   );
 }
 
-export function renderProfileSection(answers: Answers, setField: SetField, readOnly: boolean, mode: 'public' | 'account') {
+export function renderProfileSection(answers: Answers, setField: SetField, readOnly: boolean, mode: 'public' | 'account', errors: Partial<Record<keyof Answers, string>> = {}) {
   const deptOptions = Object.keys(PROGRAMS_BY_DEPT);
   const programOptions = answers.college_department
     ? (PROGRAMS_BY_DEPT[answers.college_department as DepartmentCode] || [])
@@ -388,37 +409,37 @@ export function renderProfileSection(answers: Answers, setField: SetField, readO
   const identityLocked = readOnly || mode === 'account';
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Field label="First Name" required><input disabled={readOnly} className={inputCls} value={answers.first_name} onChange={e => setField('first_name', e.target.value)} /></Field>
-      <Field label="Last Name" required><input disabled={readOnly} className={inputCls} value={answers.last_name} onChange={e => setField('last_name', e.target.value)} /></Field>
-      <Field label="Birthdate" required={mode === 'public'}>
+      <Field label="First Name" required error={errors.first_name}><input disabled={readOnly} className={inputCls} value={answers.first_name} onChange={e => setField('first_name', e.target.value)} /></Field>
+      <Field label="Last Name" required error={errors.last_name}><input disabled={readOnly} className={inputCls} value={answers.last_name} onChange={e => setField('last_name', e.target.value)} /></Field>
+      <Field label="Birthdate" required={mode === 'public'} error={errors.date_of_birth}>
         <input type="date" disabled={identityLocked} className={inputCls} value={answers.date_of_birth} onChange={e => setField('date_of_birth', e.target.value)} />
       </Field>
       <div className="sm:col-span-2">
-        <Field label="Email" required={mode === 'public'}
+        <Field label="Email" required={mode === 'public'} error={errors.email}
           hint={mode === 'public' ? "This becomes your sign-in email if your info can be matched to an alumni record." : undefined}>
           <input type="email" disabled={identityLocked} className={inputCls} value={answers.email} onChange={e => setField('email', e.target.value)} />
         </Field>
       </div>
-      <Field label="Mobile Number" required><input disabled={readOnly} className={inputCls} value={answers.mobile_number} onChange={e => setField('mobile_number', e.target.value)} placeholder="e.g. 0917 123 4567" /></Field>
+      <Field label="Mobile Number" required error={errors.mobile_number}><input disabled={readOnly} className={inputCls} value={answers.mobile_number} onChange={e => setField('mobile_number', e.target.value)} placeholder="e.g. 0917 123 4567" /></Field>
       <Field label="Social Network ID"><input disabled={readOnly} className={inputCls} value={answers.social_network_id} onChange={e => setField('social_network_id', e.target.value)} placeholder="Facebook/Twitter name or link" /></Field>
-      <div className="sm:col-span-2"><Field label="Current Address" required><input disabled={readOnly} className={inputCls} value={answers.current_address} onChange={e => setField('current_address', e.target.value)} /></Field></div>
-      <div className="sm:col-span-2"><Field label="Permanent Address" required><input disabled={readOnly} className={inputCls} value={answers.permanent_address} onChange={e => setField('permanent_address', e.target.value)} /></Field></div>
-      <Field label="Sex" required>
+      <div className="sm:col-span-2"><Field label="Current Address" required error={errors.current_address}><input disabled={readOnly} className={inputCls} value={answers.current_address} onChange={e => setField('current_address', e.target.value)} /></Field></div>
+      <div className="sm:col-span-2"><Field label="Permanent Address" required error={errors.permanent_address}><input disabled={readOnly} className={inputCls} value={answers.permanent_address} onChange={e => setField('permanent_address', e.target.value)} /></Field></div>
+      <Field label="Sex" required error={errors.sex}>
         <select disabled={readOnly} className={inputCls} value={answers.sex} onChange={e => setField('sex', e.target.value)}>
           <option value="">Select…</option>{SEX_OPTIONS.map(o => <option key={o}>{o}</option>)}
         </select>
       </Field>
-      <Field label="Civil Status" required>
+      <Field label="Civil Status" required error={errors.civil_status}>
         <select disabled={readOnly} className={inputCls} value={answers.civil_status} onChange={e => setField('civil_status', e.target.value)}>
           <option value="">Select…</option>{CIVIL_STATUS_OPTIONS.map(o => <option key={o}>{o}</option>)}
         </select>
       </Field>
-      <Field label="Year Graduated" required>
+      <Field label="Year Graduated" required error={errors.year_graduated}>
         <select disabled={readOnly} className={inputCls} value={answers.year_graduated} onChange={e => setField('year_graduated', e.target.value)}>
           <option value="">Select…</option>{getBatchYearOptions().map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </Field>
-      <Field label="College Department" required>
+      <Field label="College Department" required error={errors.college_department}>
         <select disabled={readOnly} className={inputCls} value={answers.college_department}
           onChange={e => {
             if (readOnly) return;
@@ -431,7 +452,7 @@ export function renderProfileSection(answers: Answers, setField: SetField, readO
           <option value="">Select…</option>{deptOptions.map(d => <option key={d} value={d}>{DEPARTMENT_LABELS[d] || d}</option>)}
         </select>
       </Field>
-      <Field label="Program Graduated" required>
+      <Field label="Program Graduated" required error={errors.program_graduated}>
         <select disabled={readOnly} className={inputCls} value={answers.program_graduated} onChange={e => setField('program_graduated', e.target.value)}>
           <option value="">Select…</option>{programOptions.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
         </select>
@@ -440,20 +461,20 @@ export function renderProfileSection(answers: Answers, setField: SetField, readO
   );
 }
 
-export function renderEmploymentStatusSection(answers: Answers, setField: SetField, readOnly: boolean) {
+export function renderEmploymentStatusSection(answers: Answers, setField: SetField, readOnly: boolean, errors: Partial<Record<keyof Answers, string>> = {}) {
   return (
     <div className="space-y-6">
-      <Field label="Current Employment Status" required>
+      <Field label="Current Employment Status" required error={errors.employment_status}>
         <RadioGroup options={EMPLOYMENT_STATUS_OPTIONS} value={answers.employment_status} onChange={v => setField('employment_status', v)} disabled={readOnly} />
       </Field>
-      <Field label="Employment Classification" required>
+      <Field label="Employment Classification" required error={errors.employment_classification}>
         <RadioGroup options={EMPLOYMENT_CLASSIFICATION_OPTIONS} value={answers.employment_classification} onChange={v => setField('employment_classification', v)} disabled={readOnly} />
       </Field>
     </div>
   );
 }
 
-export function renderEmploymentInfoSection(answers: Answers, setField: SetField, readOnly: boolean) {
+export function renderEmploymentInfoSection(answers: Answers, setField: SetField, readOnly: boolean, errors: Partial<Record<keyof Answers, string>> = {}) {
   const employed = isEmployed(answers);
   return (
     <div className="space-y-6">
@@ -462,115 +483,271 @@ export function renderEmploymentInfoSection(answers: Answers, setField: SetField
           Since you indicated you're currently unemployed, studying, or not seeking work, the fields below are optional — answer what applies to your most recent job, if any.
         </div>
       )}
-      <Field label="Company / Organization" required={employed}><input disabled={readOnly} className={inputCls} value={answers.company_organization} onChange={e => setField('company_organization', e.target.value)} /></Field>
-      <Field label="Job Title" required={employed}><input disabled={readOnly} className={inputCls} value={answers.job_title} onChange={e => setField('job_title', e.target.value)} placeholder="e.g. Software Engineer II" /></Field>
-      <Field label="Job Classification" required={employed}>
-        <RadioGroup options={JOB_CLASSIFICATION_OPTIONS} value={answers.job_classification} onChange={v => setField('job_classification', v)} hasOther otherValue={answers.job_classification_other} onOtherChange={v => setField('job_classification_other', v)} disabled={readOnly} />
+      <Field label="Company / Organization" required={employed} error={errors.company_organization}><input disabled={readOnly} className={inputCls} value={answers.company_organization} onChange={e => setField('company_organization', e.target.value)} /></Field>
+      <Field label="Job Title" required={employed} error={errors.job_title}><input disabled={readOnly} className={inputCls} value={answers.job_title} onChange={e => setField('job_title', e.target.value)} placeholder="e.g. Software Engineer II" /></Field>
+      <Field label="Job Classification" required={employed} error={errors.job_classification}>
+        <RadioGroup options={JOB_CLASSIFICATION_OPTIONS} value={answers.job_classification} onChange={v => setField('job_classification', v)} hasOther otherValue={answers.job_classification_other} onOtherChange={v => setField('job_classification_other', v)} otherError={errors.job_classification_other} disabled={readOnly} />
       </Field>
-      <Field label="Industry / Sector" required={employed}>
-        <RadioGroup options={INDUSTRY_SECTOR_OPTIONS} value={answers.industry_sector} onChange={v => setField('industry_sector', v)} hasOther otherValue={answers.industry_sector_other} onOtherChange={v => setField('industry_sector_other', v)} disabled={readOnly} />
+      <Field label="Industry / Sector" required={employed} error={errors.industry_sector}>
+        <RadioGroup options={INDUSTRY_SECTOR_OPTIONS} value={answers.industry_sector} onChange={v => setField('industry_sector', v)} hasOther otherValue={answers.industry_sector_other} onOtherChange={v => setField('industry_sector_other', v)} otherError={errors.industry_sector_other} disabled={readOnly} />
       </Field>
-      <Field label="Is your current job related to your degree?" required={employed} hint={JOB_RELATED_HINT}>
+      <Field label="Is your current job related to your degree?" required={employed} hint={JOB_RELATED_HINT} error={errors.job_related_to_degree}>
         <RadioGroup options={JOB_RELATED_OPTIONS} value={answers.job_related_to_degree} onChange={v => setField('job_related_to_degree', v)} disabled={readOnly} />
       </Field>
-      <Field label="How long did it take you to obtain your first job after graduation?" required={employed}>
+      <Field label="How long did it take you to obtain your first job after graduation?" required={employed} error={errors.time_to_first_job}>
         <RadioGroup options={TIME_TO_FIRST_JOB_OPTIONS} value={answers.time_to_first_job} onChange={v => setField('time_to_first_job', v)} disabled={readOnly} />
       </Field>
-      <Field label="How many companies have you worked for since graduation?" required={employed}>
+      <Field label="How many companies have you worked for since graduation?" required={employed} error={errors.number_of_employers}>
         <RadioGroup options={NUMBER_OF_EMPLOYERS_OPTIONS} value={answers.number_of_employers} onChange={v => setField('number_of_employers', v)} disabled={readOnly} />
       </Field>
       {hasChangedEmployers(answers) && (
-        <Field label="If you have changed employers, what were the primary reasons for leaving your previous job? (select up to 3)" required>
-          <CheckboxGroup options={REASON_FOR_LEAVING_JOB_OPTIONS} value={answers.reasons_for_leaving_job} onChange={v => setField('reasons_for_leaving_job', v)} maxSelect={3} hasOther otherValue={answers.reasons_for_leaving_job_other} onOtherChange={v => setField('reasons_for_leaving_job_other', v)} disabled={readOnly} />
+        <Field label="If you have changed employers, what were the primary reasons for leaving your previous job? (select up to 3)" required error={errors.reasons_for_leaving_job}>
+          <CheckboxGroup options={REASON_FOR_LEAVING_JOB_OPTIONS} value={answers.reasons_for_leaving_job} onChange={v => setField('reasons_for_leaving_job', v)} maxSelect={3} hasOther otherValue={answers.reasons_for_leaving_job_other} onOtherChange={v => setField('reasons_for_leaving_job_other', v)} otherError={errors.reasons_for_leaving_job_other} disabled={readOnly} />
         </Field>
       )}
-      <Field label="Monthly Salary Range" required={employed}>
+      <Field label="Monthly Salary Range" required={employed} error={errors.monthly_salary_range}>
         <RadioGroup options={SALARY_RANGE_OPTIONS} value={answers.monthly_salary_range} onChange={v => setField('monthly_salary_range', v)} disabled={readOnly} />
       </Field>
-      <Field label="How did you obtain your first job?" required={employed}>
-        <RadioGroup options={FIRST_JOB_SOURCE_OPTIONS} value={answers.first_job_source} onChange={v => setField('first_job_source', v)} hasOther otherValue={answers.first_job_source_other} onOtherChange={v => setField('first_job_source_other', v)} disabled={readOnly} />
+      <Field label="How did you obtain your first job?" required={employed} error={errors.first_job_source}>
+        <RadioGroup options={FIRST_JOB_SOURCE_OPTIONS} value={answers.first_job_source} onChange={v => setField('first_job_source', v)} hasOther otherValue={answers.first_job_source_other} onOtherChange={v => setField('first_job_source_other', v)} otherError={errors.first_job_source_other} disabled={readOnly} />
       </Field>
-      <Field label="Current Work Location" required={employed}>
+      <Field label="Current Work Location" required={employed} error={errors.current_work_location}>
         <RadioGroup options={WORK_LOCATION_OPTIONS} value={answers.current_work_location} onChange={v => setField('current_work_location', v)} disabled={readOnly} />
       </Field>
-      <Field label="Overall, how satisfied are you with your current job?" required={employed}>
+      <Field label="Overall, how satisfied are you with your current job?" required={employed} error={errors.job_satisfaction_rating}>
         <RatingInput value={answers.job_satisfaction_rating} onChange={v => setField('job_satisfaction_rating', v)} lowLabel="Very Dissatisfied" highLabel="Very Satisfied" disabled={readOnly} />
       </Field>
-      <Field label="Which factors helped you secure your current job?" required={employed}>
-        <CheckboxGroup options={JOB_SECURING_FACTOR_OPTIONS} value={answers.job_securing_factors} onChange={v => setField('job_securing_factors', v)} hasOther otherValue={answers.job_securing_factors_other} onOtherChange={v => setField('job_securing_factors_other', v)} disabled={readOnly} />
+      <Field label="Which factors helped you secure your current job?" required={employed} error={errors.job_securing_factors}>
+        <CheckboxGroup options={JOB_SECURING_FACTOR_OPTIONS} value={answers.job_securing_factors} onChange={v => setField('job_securing_factors', v)} hasOther otherValue={answers.job_securing_factors_other} onOtherChange={v => setField('job_securing_factors_other', v)} otherError={errors.job_securing_factors_other} disabled={readOnly} />
       </Field>
     </div>
   );
 }
 
-export function renderCurriculumSection(answers: Answers, setField: SetField, readOnly: boolean) {
+export function renderCurriculumSection(answers: Answers, setField: SetField, readOnly: boolean, errors: Partial<Record<keyof Answers, string>> = {}) {
   return (
     <div className="space-y-6">
-      <Field label="How satisfied are you with the overall quality of education you received at Asian College?" required>
+      <Field label="How satisfied are you with the overall quality of education you received at Asian College?" required error={errors.education_quality_rating}>
         <RatingInput value={answers.education_quality_rating} onChange={v => setField('education_quality_rating', v)} lowLabel="Very Dissatisfied" highLabel="Very Satisfied" disabled={readOnly} />
       </Field>
-      <Field label="How relevant is your academic program to your current job?" required>
+      <Field label="How relevant is your academic program to your current job?" required error={errors.program_relevance}>
         <RadioGroup options={PROGRAM_RELEVANCE_OPTIONS} value={answers.program_relevance} onChange={v => setField('program_relevance', v)} disabled={readOnly} />
       </Field>
-      <Field label="Please rate how well Asian College developed the following competencies during your studies." required>
+      <Field label="Please rate how well Asian College developed the following competencies during your studies." required error={errors.competency_ratings}>
         <CompetencyGrid competencies={COMPETENCIES} value={answers.competency_ratings} onChange={(c, l) => setField('competency_ratings', { ...answers.competency_ratings, [c]: l })} disabled={readOnly} />
       </Field>
-      <Field label="Which learning experiences contributed most to your employability? (select at least 3)" required>
-        <CheckboxGroup options={EMPLOYABILITY_EXPERIENCE_OPTIONS} value={answers.employability_experiences} onChange={v => setField('employability_experiences', v)} minSelect={3} hasOther otherValue={answers.employability_experiences_other} onOtherChange={v => setField('employability_experiences_other', v)} disabled={readOnly} />
+      <Field label="Which learning experiences contributed most to your employability? (select at least 3)" required error={errors.employability_experiences}>
+        <CheckboxGroup options={EMPLOYABILITY_EXPERIENCE_OPTIONS} value={answers.employability_experiences} onChange={v => setField('employability_experiences', v)} minSelect={3} hasOther otherValue={answers.employability_experiences_other} onOtherChange={v => setField('employability_experiences_other', v)} otherError={errors.employability_experiences_other} disabled={readOnly} />
       </Field>
-      <Field label="Which areas do you think Asian College should strengthen to better prepare future graduates? (select at least 3)" required>
-        <CheckboxGroup options={AREAS_TO_STRENGTHEN_OPTIONS} value={answers.areas_to_strengthen} onChange={v => setField('areas_to_strengthen', v)} minSelect={3} hasOther otherValue={answers.areas_to_strengthen_other} onOtherChange={v => setField('areas_to_strengthen_other', v)} disabled={readOnly} />
+      <Field label="Which areas do you think Asian College should strengthen to better prepare future graduates? (select at least 3)" required error={errors.areas_to_strengthen}>
+        <CheckboxGroup options={AREAS_TO_STRENGTHEN_OPTIONS} value={answers.areas_to_strengthen} onChange={v => setField('areas_to_strengthen', v)} minSelect={3} hasOther otherValue={answers.areas_to_strengthen_other} onOtherChange={v => setField('areas_to_strengthen_other', v)} otherError={errors.areas_to_strengthen_other} disabled={readOnly} />
       </Field>
-      <Field label="Overall, how satisfied are you with the education and training you received from Asian College?" required>
+      <Field label="Overall, how satisfied are you with the education and training you received from Asian College?" required error={errors.training_satisfaction_rating}>
         <RatingInput value={answers.training_satisfaction_rating} onChange={v => setField('training_satisfaction_rating', v)} lowLabel="Very Dissatisfied" highLabel="Very Satisfied" disabled={readOnly} />
       </Field>
     </div>
   );
 }
 
-export function renderLicensureSection(answers: Answers, setField: SetField, readOnly: boolean) {
+export function renderLicensureSection(answers: Answers, setField: SetField, readOnly: boolean, errors: Partial<Record<keyof Answers, string>> = {}) {
   return (
     <div className="space-y-6">
-      <Field label="Have you taken a professional licensure examination related to your program?" required>
+      <Field label="Have you taken a professional licensure examination related to your program?" required error={errors.licensure_exam_status}>
         <RadioGroup options={LICENSURE_STATUS_OPTIONS} value={answers.licensure_exam_status} onChange={v => setField('licensure_exam_status', v)} disabled={readOnly} />
       </Field>
-      <Field label="Have you earned any professional certifications after graduation?" required>
+      <Field label="Have you earned any professional certifications after graduation?" required error={errors.has_certifications}>
         <RadioGroup options={['Yes', 'No']} value={answers.has_certifications} onChange={v => setField('has_certifications', v)} disabled={readOnly} />
         {answers.has_certifications === 'Yes' && (
-          <textarea disabled={readOnly} rows={2} className={`${inputCls} mt-2`} placeholder="Please specify…" value={answers.certifications_detail} onChange={e => setField('certifications_detail', e.target.value)} />
+          <div className="mt-2">
+            <div className={errors.certifications_detail ? 'rounded-xl ring-2 ring-red-400' : ''}>
+              <textarea disabled={readOnly} rows={2} className={inputCls} placeholder="Please specify…" value={answers.certifications_detail} onChange={e => setField('certifications_detail', e.target.value)} />
+            </div>
+            {errors.certifications_detail && <p className="text-xs font-semibold text-red-600 mt-1">{errors.certifications_detail}</p>}
+          </div>
         )}
       </Field>
-      <Field label="Have you attended professional training, seminars, or workshops after graduation?" required>
+      <Field label="Have you attended professional training, seminars, or workshops after graduation?" required error={errors.has_professional_training}>
         <RadioGroup options={['Yes', 'No']} value={answers.has_professional_training} onChange={v => setField('has_professional_training', v)} disabled={readOnly} />
         {answers.has_professional_training === 'Yes' && (
-          <textarea disabled={readOnly} rows={2} className={`${inputCls} mt-2`} placeholder="Please specify…" value={answers.professional_training_detail} onChange={e => setField('professional_training_detail', e.target.value)} />
+          <div className="mt-2">
+            <div className={errors.professional_training_detail ? 'rounded-xl ring-2 ring-red-400' : ''}>
+              <textarea disabled={readOnly} rows={2} className={inputCls} placeholder="Please specify…" value={answers.professional_training_detail} onChange={e => setField('professional_training_detail', e.target.value)} />
+            </div>
+            {errors.professional_training_detail && <p className="text-xs font-semibold text-red-600 mt-1">{errors.professional_training_detail}</p>}
+          </div>
         )}
       </Field>
-      <Field label="Would you be interested in participating in future Asian College Alumni Association activities and programs?" required>
+      <Field label="Would you be interested in participating in future Asian College Alumni Association activities and programs?" required error={errors.interested_in_alumni_activities}>
         <RadioGroup options={['Yes', 'No']} value={answers.interested_in_alumni_activities} onChange={v => setField('interested_in_alumni_activities', v)} disabled={readOnly} />
       </Field>
-      <Field label="Which alumni activities would you like to participate in? (select at least 3)" required>
-        <CheckboxGroup options={ALUMNI_ACTIVITY_OPTIONS} value={answers.preferred_alumni_activities} onChange={v => setField('preferred_alumni_activities', v)} minSelect={3} hasOther otherValue={answers.preferred_alumni_activities_other} onOtherChange={v => setField('preferred_alumni_activities_other', v)} disabled={readOnly} />
+      <Field label="Which alumni activities would you like to participate in? (select at least 3)" required error={errors.preferred_alumni_activities}>
+        <CheckboxGroup options={ALUMNI_ACTIVITY_OPTIONS} value={answers.preferred_alumni_activities} onChange={v => setField('preferred_alumni_activities', v)} minSelect={3} hasOther otherValue={answers.preferred_alumni_activities_other} onOtherChange={v => setField('preferred_alumni_activities_other', v)} otherError={errors.preferred_alumni_activities_other} disabled={readOnly} />
       </Field>
     </div>
   );
 }
 
-export function renderFeedbackSection(answers: Answers, setField: SetField, readOnly: boolean) {
+export function renderFeedbackSection(answers: Answers, setField: SetField, readOnly: boolean, errors: Partial<Record<keyof Answers, string>> = {}) {
   return (
     <div className="space-y-6">
-      <Field label="What improvements do you recommend for your academic program? (select at least 3)" required>
-        <CheckboxGroup options={PROGRAM_IMPROVEMENT_OPTIONS} value={answers.program_improvements} onChange={v => setField('program_improvements', v)} minSelect={3} hasOther otherValue={answers.program_improvements_other} onOtherChange={v => setField('program_improvements_other', v)} disabled={readOnly} />
+      <Field label="What improvements do you recommend for your academic program? (select at least 3)" required error={errors.program_improvements}>
+        <CheckboxGroup options={PROGRAM_IMPROVEMENT_OPTIONS} value={answers.program_improvements} onChange={v => setField('program_improvements', v)} minSelect={3} hasOther otherValue={answers.program_improvements_other} onOtherChange={v => setField('program_improvements_other', v)} otherError={errors.program_improvements_other} disabled={readOnly} />
       </Field>
-      <Field label="What additional training, facilities, or student services should Asian College provide to better prepare future graduates for employment? (select at least 3)" required>
-        <CheckboxGroup options={ADDITIONAL_SERVICES_OPTIONS} value={answers.additional_services_needed} onChange={v => setField('additional_services_needed', v)} minSelect={3} hasOther otherValue={answers.additional_services_needed_other} onOtherChange={v => setField('additional_services_needed_other', v)} disabled={readOnly} />
+      <Field label="What additional training, facilities, or student services should Asian College provide to better prepare future graduates for employment? (select at least 3)" required error={errors.additional_services_needed}>
+        <CheckboxGroup options={ADDITIONAL_SERVICES_OPTIONS} value={answers.additional_services_needed} onChange={v => setField('additional_services_needed', v)} minSelect={3} hasOther otherValue={answers.additional_services_needed_other} onOtherChange={v => setField('additional_services_needed_other', v)} otherError={errors.additional_services_needed_other} disabled={readOnly} />
       </Field>
-      <Field label="Would you recommend Asian College to your family, friends, or colleagues?" required>
+      <Field label="Would you recommend Asian College to your family, friends, or colleagues?" required error={errors.would_recommend_college}>
         <RadioGroup options={RECOMMEND_OPTIONS} value={answers.would_recommend_college} onChange={v => setField('would_recommend_college', v)} disabled={readOnly} />
       </Field>
-      <Field label="Please share any additional comments, suggestions, or messages for Asian College." required>
+      <Field label="Please share any additional comments, suggestions, or messages for Asian College." required error={errors.additional_comments}>
         <textarea disabled={readOnly} rows={4} className={inputCls} value={answers.additional_comments} onChange={e => setField('additional_comments', e.target.value)} placeholder="Share any other feedback or recommendations…" />
       </Field>
+    </div>
+  );
+}
+
+// =====================================================================
+// READ-ONLY SUMMARY RENDERERS — for admin/PendingRegistrations.tsx.
+// Reusing the interactive controls above (RadioGroup, CheckboxGroup,
+// CompetencyGrid, big disabled <input>s) just to *display* an already-
+// submitted answer turns a review dialog into a long column of
+// form-sized option cards — every one of them full width and tall
+// whether or not it's even selected — which is slow to scan and a pain
+// to scroll. These instead render each answer as one compact
+// "label — value" line, the way a filled-out form is normally reviewed
+// rather than filled out.
+// =====================================================================
+
+function SummaryRow({ label, value }: { label: string; value?: string }) {
+  const empty = !value;
+  return (
+    <div className="flex flex-col sm:flex-row sm:gap-4 py-2 border-b border-gray-100 last:border-0">
+      <p className="text-xs font-semibold text-gray-500 sm:w-72 sm:flex-shrink-0">{label}</p>
+      <p className={`text-sm ${empty ? 'text-gray-400 italic' : 'text-gray-800'} flex-1`}>{empty ? 'Not answered' : value}</p>
+    </div>
+  );
+}
+
+// A single-select "Other" answer stores the real text in the paired
+// `*_other` field — fold it into one readable line instead of showing
+// a bare "Other". Same idea for a multi-select list below.
+function withOther(value: string, other: string): string {
+  return value === 'Other' && other ? `Other — ${other}` : value;
+}
+function listWithOther(list: string[], other: string): string {
+  return (list || []).map(v => (v === 'Other' && other ? `Other — ${other}` : v)).join(', ');
+}
+function rating(value: string): string {
+  return value ? `${value} / 5` : '';
+}
+function programName(code: string): string {
+  if (!code) return '';
+  for (const list of Object.values(PROGRAMS_BY_DEPT)) {
+    const found = list.find(p => p.code === code);
+    if (found) return found.name;
+  }
+  return code;
+}
+
+export function renderProfileSummary(answers: Answers) {
+  return (
+    <div>
+      <SummaryRow label="First Name" value={answers.first_name} />
+      <SummaryRow label="Last Name" value={answers.last_name} />
+      <SummaryRow label="Birthdate" value={answers.date_of_birth} />
+      <SummaryRow label="Email" value={answers.email} />
+      <SummaryRow label="Mobile Number" value={answers.mobile_number} />
+      <SummaryRow label="Social Network ID" value={answers.social_network_id} />
+      <SummaryRow label="Current Address" value={answers.current_address} />
+      <SummaryRow label="Permanent Address" value={answers.permanent_address} />
+      <SummaryRow label="Sex" value={answers.sex} />
+      <SummaryRow label="Civil Status" value={answers.civil_status} />
+      <SummaryRow label="Year Graduated" value={answers.year_graduated} />
+      <SummaryRow label="College Department" value={DEPARTMENT_LABELS[answers.college_department] || answers.college_department} />
+      <SummaryRow label="Program Graduated" value={programName(answers.program_graduated)} />
+    </div>
+  );
+}
+
+export function renderEmploymentStatusSummary(answers: Answers) {
+  return (
+    <div>
+      <SummaryRow label="Current Employment Status" value={answers.employment_status} />
+      <SummaryRow label="Employment Classification" value={answers.employment_classification} />
+    </div>
+  );
+}
+
+export function renderEmploymentInfoSummary(answers: Answers) {
+  const employed = isEmployed(answers);
+  return (
+    <div>
+      {!employed && (
+        <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 mb-2">
+          Indicated as currently unemployed, studying, or not seeking work — the fields below reflect their most recent job, if any.
+        </p>
+      )}
+      <SummaryRow label="Company / Organization" value={answers.company_organization} />
+      <SummaryRow label="Job Title" value={answers.job_title} />
+      <SummaryRow label="Job Classification" value={withOther(answers.job_classification, answers.job_classification_other)} />
+      <SummaryRow label="Industry / Sector" value={withOther(answers.industry_sector, answers.industry_sector_other)} />
+      <SummaryRow label="Job Related to Degree" value={answers.job_related_to_degree} />
+      <SummaryRow label="Time to First Job" value={answers.time_to_first_job} />
+      <SummaryRow label="Number of Employers Since Graduation" value={answers.number_of_employers} />
+      {hasChangedEmployers(answers) && (
+        <SummaryRow label="Reasons for Leaving Previous Job" value={listWithOther(answers.reasons_for_leaving_job, answers.reasons_for_leaving_job_other)} />
+      )}
+      <SummaryRow label="Monthly Salary Range" value={answers.monthly_salary_range} />
+      <SummaryRow label="How First Job Was Obtained" value={withOther(answers.first_job_source, answers.first_job_source_other)} />
+      <SummaryRow label="Current Work Location" value={answers.current_work_location} />
+      <SummaryRow label="Job Satisfaction" value={rating(answers.job_satisfaction_rating)} />
+      <SummaryRow label="Job Securing Factors" value={listWithOther(answers.job_securing_factors, answers.job_securing_factors_other)} />
+    </div>
+  );
+}
+
+export function renderCurriculumSummary(answers: Answers) {
+  return (
+    <div>
+      <SummaryRow label="Education Quality" value={rating(answers.education_quality_rating)} />
+      <SummaryRow label="Program Relevance" value={answers.program_relevance} />
+      <div className="py-2 border-b border-gray-100">
+        <p className="text-xs font-semibold text-gray-500 mb-1.5">Competency Ratings</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          {COMPETENCIES.map(c => (
+            <div key={c} className="flex justify-between gap-3 text-sm py-0.5">
+              <span className="text-gray-600">{c}</span>
+              <span className="text-gray-800 font-medium flex-shrink-0">{answers.competency_ratings[c] || '—'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <SummaryRow label="Employability Experiences" value={listWithOther(answers.employability_experiences, answers.employability_experiences_other)} />
+      <SummaryRow label="Areas to Strengthen" value={listWithOther(answers.areas_to_strengthen, answers.areas_to_strengthen_other)} />
+      <SummaryRow label="Training Satisfaction" value={rating(answers.training_satisfaction_rating)} />
+    </div>
+  );
+}
+
+export function renderLicensureSummary(answers: Answers) {
+  return (
+    <div>
+      <SummaryRow label="Licensure Exam Status" value={answers.licensure_exam_status} />
+      <SummaryRow label="Certifications" value={answers.has_certifications === 'Yes' ? (answers.certifications_detail || 'Yes') : answers.has_certifications} />
+      <SummaryRow label="Professional Training / Seminars" value={answers.has_professional_training === 'Yes' ? (answers.professional_training_detail || 'Yes') : answers.has_professional_training} />
+      <SummaryRow label="Interested in Alumni Activities" value={answers.interested_in_alumni_activities} />
+      <SummaryRow label="Preferred Alumni Activities" value={listWithOther(answers.preferred_alumni_activities, answers.preferred_alumni_activities_other)} />
+    </div>
+  );
+}
+
+export function renderFeedbackSummary(answers: Answers) {
+  return (
+    <div>
+      <SummaryRow label="Program Improvements" value={listWithOther(answers.program_improvements, answers.program_improvements_other)} />
+      <SummaryRow label="Additional Services Needed" value={listWithOther(answers.additional_services_needed, answers.additional_services_needed_other)} />
+      <SummaryRow label="Would Recommend College" value={answers.would_recommend_college} />
+      <SummaryRow label="Additional Comments" value={answers.additional_comments} />
     </div>
   );
 }

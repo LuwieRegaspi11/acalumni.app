@@ -52,7 +52,7 @@ export default function PendingApprovalPage() {
         </div>
 
         <h1 className="text-xl font-bold mb-1" style={{ color: NAVY }}>Your Account Is Pending Approval</h1>
-        <p className="text-sm text-gray-400 mb-5">{user.name}</p>
+        <p className="text-sm text-gray-500 mb-5">{user.name}</p>
 
         <p className="text-sm text-gray-500 leading-relaxed mb-6">
           Thanks for completing the Alumni Tracer Survey, {user.name.split(' ')[0]}! We couldn't automatically verify

@@ -165,7 +165,7 @@ export default function FundTransparency({ backTo = '/alumni/donations' }: { bac
       {receiptUrl && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setReceiptUrl(null)}>
           <div className="relative max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setReceiptUrl(null)} className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
+            <button onClick={() => setReceiptUrl(null)} aria-label="Close receipt viewer" className="absolute -top-10 right-0 text-white"><X className="w-6 h-6" /></button>
             <img src={receiptUrl} alt="Expense receipt" className="w-full rounded-2xl shadow-2xl" />
           </div>
         </div>
