@@ -52,14 +52,21 @@ export function RadioGroup({ options, value, onChange, hasOther, otherValue, onO
   return (
     <div className="space-y-2" role="radiogroup">
       {options.map(opt => (
-        <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${value === opt ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${disabled ? '' : 'hover:border-gray-300'}`}`}>
-          {/* sr-only (not `hidden`/display:none) keeps the native input
-              focusable and in the tab order — a display:none input can
-              never receive keyboard focus, which would make this option
-              unreachable and unselectable without a mouse. The
+        <label key={opt} className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${value === opt ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${disabled ? '' : 'hover:border-gray-300'}`}`}>
+          {/* opacity-0 stretched over the whole label (not Tailwind's
+              `sr-only`, which clips the input down to a 1x1px box) keeps
+              the native input focusable and in the tab order — a
+              display:none input can never receive keyboard focus, which
+              would make this option unreachable and unselectable without
+              a mouse. A 1x1px focus target has its own problem though:
+              some Windows browser/display-scaling combinations try to
+              scroll or zoom that literal pixel into view on focus, which
+              visibly breaks the page layout until the user changes their
+              display scaling. Sizing the invisible input to match the
+              label instead gives focus a normal-sized target. The
               peer-focus-visible ring on the drawn circle stands in for
               the native focus ring browsers won't paint on a hidden input. */}
-          <input type="radio" name={groupName} checked={value === opt} onChange={() => onChange(opt)} disabled={disabled} className="sr-only peer" />
+          <input type="radio" name={groupName} checked={value === opt} onChange={() => onChange(opt)} disabled={disabled} className="absolute inset-0 w-full h-full opacity-0 peer" />
           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 ${value === opt ? 'border-blue-600' : 'border-gray-300'}`}>
             {value === opt && <div className="w-2 h-2 rounded-full bg-blue-600" />}
           </div>
@@ -93,10 +100,13 @@ export function CheckboxGroup({ options, value, onChange, minSelect, maxSelect, 
         // clickable (to uncheck) — everything else locks until room frees up.
         const optionDisabled = disabled || (atMax && !checked);
         return (
-          <label key={opt} className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${optionDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${checked ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${optionDisabled ? '' : 'hover:border-gray-300'}`}`}>
-            {/* sr-only, not `hidden` — see RadioGroup above for why a
-                display:none checkbox would be unreachable by keyboard. */}
-            <input type="checkbox" checked={checked} onChange={() => toggle(opt)} disabled={optionDisabled} className="sr-only peer" />
+          <label key={opt} className={`relative flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${optionDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${checked ? 'border-blue-500 bg-blue-50' : `border-gray-200 ${optionDisabled ? '' : 'hover:border-gray-300'}`}`}>
+            {/* Stretched opacity-0 input, not `sr-only`/`hidden` — see
+                RadioGroup above for why a display:none checkbox would be
+                unreachable by keyboard, and why a 1x1px sr-only one is
+                its own problem (a tiny focus target some Windows
+                browser/scaling combinations try to zoom into view). */}
+            <input type="checkbox" checked={checked} onChange={() => toggle(opt)} disabled={optionDisabled} className="absolute inset-0 w-full h-full opacity-0 peer" />
             <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2 ${checked ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
               {checked && <Check className="w-3 h-3 text-white" />}
             </div>
