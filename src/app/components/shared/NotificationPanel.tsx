@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, X, CheckCheck, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { useNotifications } from './NotificationContext';
+import RepOfferActions from './RepOfferActions';
 
 const typeIcon: Record<string, React.ReactNode> = {
   info: <Info className="w-4 h-4 text-blue-500" />,
@@ -69,8 +70,8 @@ export default function NotificationPanel({ role, department, open, onClose }: P
                   tabIndex={0}
                   aria-label={`${n.title}. ${n.read ? 'Read' : 'Unread'} notification.`}
                   className={`px-5 py-4 border-l-4 ${typeBg[n.type]} ${n.read ? 'bg-white' : 'bg-blue-50/40'} hover:bg-gray-50 transition-colors cursor-pointer`}
-                  onClick={() => markRead(n.id)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markRead(n.id); } }}>
+                  onClick={() => { if (!n.read) markRead(n.id); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!n.read) markRead(n.id); } }}>
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">{typeIcon[n.type]}</div>
                     <div className="flex-1 min-w-0">
@@ -79,7 +80,8 @@ export default function NotificationPanel({ role, department, open, onClose }: P
                         {!n.read && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed">{n.message}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">{n.createdAt}</p>
+                      {n.offerId && <RepOfferActions offerId={n.offerId} onResponded={onClose} />}
+                      <p className="text-[10px] text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
                     </div>
                   </div>
                 </div>

@@ -61,9 +61,8 @@ export default function TermsAndPrivacyContent() {
         <p>Registration on the Platform is limited to the following user categories, each subject to verification by the College:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><span className="font-semibold text-gray-700">Alumni</span> — individuals who have graduated from or completed a program at Asian College.</li>
-          <li><span className="font-semibold text-gray-700">Faculty</span> — current or former faculty and staff members authorized to support alumni engagement within their department.</li>
           <li><span className="font-semibold text-gray-700">Batch Representatives</span> — alumni designated to coordinate communication and activities for a specific batch year.</li>
-          <li><span className="font-semibold text-gray-700">Administrators</span> — College personnel authorized to manage the Platform, verify accounts, and oversee donations and records.</li>
+          <li><span className="font-semibold text-gray-700">Administrators</span> — the Alumni Head and other College personnel authorized to manage the Platform, verify accounts, and oversee donations and records.</li>
         </ul>
         <p>The College reserves the right to request supporting documentation (such as a valid ID or proof of graduation) to confirm eligibility for any of the above categories, and to deny or revoke registration where eligibility cannot be reasonably established.</p>
       </Section>
@@ -152,7 +151,7 @@ export default function TermsAndPrivacyContent() {
 
       <p className="text-sm text-gray-600 leading-relaxed mb-6">
         Asian College is committed to protecting the privacy and security of personal data entrusted to it by
-        alumni, faculty, and other users of the Platform. This Privacy Policy explains what data we collect, why
+        alumni and other users of the Platform. This Privacy Policy explains what data we collect, why
         we collect it, how it is used and protected, and what rights you have over your information.
       </p>
 
@@ -160,7 +159,7 @@ export default function TermsAndPrivacyContent() {
         <p>Through your use of the Platform, we may collect and process the following categories of personal data:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><span className="font-semibold text-gray-700">Identity and contact information:</span> full name, email address, home/mailing address, phone number.</li>
-          <li><span className="font-semibold text-gray-700">Academic/affiliation information:</span> department/program, batch year, and role (alumni, faculty, batch representative, administrator).</li>
+          <li><span className="font-semibold text-gray-700">Academic/affiliation information:</span> department/program, batch year, and role (alumni, batch representative, administrator).</li>
           <li><span className="font-semibold text-gray-700">Identity verification documents:</span> an uploaded photo or scan of a valid ID, used solely to confirm your identity and eligibility.</li>
           <li><span className="font-semibold text-gray-700">Donation history:</span> records of donations made through the Platform, including amount, date, campaign/purpose, and payment reference (excluding full payment card/account details, which are handled by our payment processor).</li>
           <li><span className="font-semibold text-gray-700">Survey and tracer study responses:</span> answers submitted to alumni tracer studies, employment surveys, or other institutional surveys.</li>
@@ -202,10 +201,6 @@ export default function TermsAndPrivacyContent() {
               <tr className="border-b border-gray-100">
                 <td className="p-2 font-semibold text-gray-700 align-top whitespace-nowrap">Administrator</td>
                 <td className="p-2 align-top">Full access to all alumni records, donation data, and survey responses, for verification, reporting, and system administration purposes.</td>
-              </tr>
-              <tr className="border-b border-gray-100">
-                <td className="p-2 font-semibold text-gray-700 align-top whitespace-nowrap">Faculty</td>
-                <td className="p-2 align-top">Access limited to alumni records within their own department only.</td>
               </tr>
               <tr className="border-b border-gray-100">
                 <td className="p-2 font-semibold text-gray-700 align-top whitespace-nowrap">Batch Representative</td>
@@ -257,11 +252,11 @@ export default function TermsAndPrivacyContent() {
         <p>We implement appropriate organizational, physical, and technical security measures to protect your personal data, including:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li><span className="font-semibold text-gray-700">Encryption</span> of data in transit (via HTTPS/TLS) and, where applicable, at rest.</li>
-          <li><span className="font-semibold text-gray-700">Access control</span> based on user roles, ensuring users can only view or modify data appropriate to their role (alumni, faculty, batch representative, administrator).</li>
-          <li><span className="font-semibold text-gray-700">Row-Level Security (RLS) policies</span> enforced at the database level, restricting data queries so that each role can only retrieve records it is authorized to access — for example, faculty are restricted to their own department, and batch representatives to their own batch year.</li>
+          <li><span className="font-semibold text-gray-700">Access control</span> based on user roles, ensuring users can only view or modify data appropriate to their role (alumni, batch representative, administrator).</li>
+          <li><span className="font-semibold text-gray-700">Row-Level Security (RLS) policies</span> enforced at the database level, restricting data queries so that each role can only retrieve records it is authorized to access — for example, batch representatives are restricted to their own batch year.</li>
           <li><span className="font-semibold text-gray-700">Secure storage of uploaded ID documents</span>, with access limited to authorized personnel involved in the verification process.</li>
           <li>Regular review of access permissions and system configurations to identify and remediate security gaps.</li>
-          <li>Internal policies governing staff access to and handling of personal data, including confidentiality obligations for administrators and faculty with elevated access.</li>
+          <li>Internal policies governing staff access to and handling of personal data, including confidentiality obligations for administrators with elevated access.</li>
         </ul>
         <p>While we take reasonable measures to protect your data, no system can guarantee absolute security. We encourage you to safeguard your account credentials and to notify us immediately of any suspected unauthorized access.</p>
       </Section>

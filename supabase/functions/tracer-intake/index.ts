@@ -34,23 +34,17 @@
 //     auto-reset; the submitter is told to contact the Alumni Office.
 //     The "possible duplicate" queue below only still exists for the
 //     rare case where the automatic password reset itself technically
-//     fails; only an admin can confirm and retry it from there.
+//     fails; the admin can then confirm the registration from there.
 //
-//   { action: "approve" | "reject", intakeId, reason? }
+//   { action: "approve", intakeId }
 //     Admin-only (the caller's JWT is checked against profiles.role).
-//     Called from admin/PendingRegistrations.tsx. Since the account
-//     already exists in the normal case, "approve" is just flipping
-//     registration_status to 'approved' — there's no password left to
-//     relay, the alumnus already got their own the moment they
-//     submitted. "reject" flips it to 'rejected', which (per
-//     AuthContext.tsx's login()) blocks sign-in entirely from then on.
-//     Two exceptions on approve, both returning a fresh password to
-//     relay: if account creation itself failed back at submission time
-//     (rare — see handleSubmit's catch block), this creates the account
-//     for the first time here instead; if this intake was queued as a
-//     "possible duplicate" (an existing account's email, but the
-//     automatic password reset itself technically failed — see
-//     handleSubmit), approving retries that password reset.
+//     Called from admin/PendingRegistrations.tsx ("Confirm"). Confirming
+//     only flips registration_status to 'approved' — an admin never creates,
+//     sees or resets a password. An alumnus who forgot theirs uses
+//     "Forgot your password?" on the sign-in page and gets a reset link by
+//     email. (Rare branches: if account creation itself failed back at
+//     submission time this creates the account, and a "possible duplicate"
+//     is simply confirmed — neither returns or changes a password.)
 //
 //   { action: "bulk_import", rows }
 //     Admin-only. See handleBulkImport's own header comment.
@@ -72,7 +66,7 @@
 //
 // Deploy: mcp__claude_ai_Supabase__deploy_edge_function, verify_jwt:
 // false (public "submit" callers have no session at all; "approve"/
-// "reject" verify admin-ness themselves via the Authorization header).
+// "approve" verify admin-ness themselves via the Authorization header).
 // =====================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -209,6 +203,14 @@ const REQUIRED_FIELDS = [
   "has_certifications", "has_professional_training", "interested_in_alumni_activities",
   "would_recommend_college", "additional_comments",
 ];
+// Mirrors src/lib/realName.ts (this function can't import from src/).
+function isRealNamePart(value: string): boolean {
+  const v = value.trim();
+  if (!/^[p{L}][p{L}p{M}s.'’-]*$/u.test(v)) return false;
+  const letters = v.replace(/[^p{L}]/gu, "");
+  if (letters.length < 2) return false;
+  return new Set(letters.toLowerCase()).size > 1;
+}
 function findMissingFields(payload: Record<string, unknown>): string[] {
   return REQUIRED_FIELDS.filter(key => {
     const v = payload[key];
@@ -322,6 +324,9 @@ async function handleSubmit(payload: Record<string, unknown>): Promise<Response>
   const missing = findMissingFields(payload);
   if (missing.length > 0) {
     return json({ error: `Missing required field(s): ${missing.join(", ")}` }, 400);
+  }
+  if (!isRealNamePart(String(payload.first_name || "")) || !isRealNamePart(String(payload.last_name || ""))) {
+    return json({ error: "Please enter your real first and last name (letters only)." }, 400);
   }
 
   const email = String(payload.email || "").trim().toLowerCase();
@@ -473,7 +478,7 @@ async function requireAdmin(req: Request): Promise<{ ok: true; adminId: string }
   return { ok: true, adminId: userData.user.id };
 }
 
-async function handleReview(req: Request, body: any, kind: "approve" | "reject"): Promise<Response> {
+async function handleReview(req: Request, body: any): Promise<Response> {
   const guard = await requireAdmin(req);
   if (!guard.ok) return guard.res;
 
@@ -488,27 +493,7 @@ async function handleReview(req: Request, body: any, kind: "approve" | "reject")
   if (fetchErr || !intake) return json({ error: "Submission not found." }, 404);
   if (intake.status !== "pending") return json({ error: `This submission is already ${intake.status}.` }, 409);
 
-  if (kind === "reject") {
-    // The account already exists (every submission gets one at intake
-    // time — see handleSubmit) and can currently sign in as far as
-    // "pending"; actively lock it out the same way any rejected
-    // account is (see AuthContext.tsx's login(), which signs a
-    // rejected account straight back out).
-    if (intake.linked_profile_id) {
-      const { error: profErr } = await admin.from("profiles").update({ registration_status: "rejected" }).eq("id", intake.linked_profile_id);
-      if (profErr) console.error("[tracer-intake] reject: profile update failed", intake.linked_profile_id, profErr);
-    }
-    const { error } = await admin.from("alumni_tracer_intake").update({
-      status: "rejected",
-      rejection_reason: body?.reason || null,
-      reviewed_by: guard.adminId,
-      reviewed_at: new Date().toISOString(),
-    }).eq("id", intakeId);
-    if (error) return json({ error: "Could not update the submission." }, 500);
-    return json({ ok: true });
-  }
-
-  // Approve. The common case: this submission already has a real
+  // Confirm. The common case: this submission already has a real
   // account (created at submission time, per handleSubmit) sitting at
   // registration_status='pending' — there's no new password to
   // generate or relay, the alumnus already got their own credentials
@@ -526,22 +511,17 @@ async function handleReview(req: Request, body: any, kind: "approve" | "reject")
   }
 
   // "Possible duplicate": handleSubmit tried to auto-reset this existing
-  // account's password but the reset call itself technically failed, so
-  // it queued here instead of leaving the submission lost. Approving
-  // retries the password reset now, and refreshes the survey answers
-  // with what was submitted, exactly like the auto-reset in handleSubmit
-  // would have.
+  // account's password but the reset call itself technically failed, so it
+  // queued here instead of leaving the submission lost. Confirming approves
+  // the account and refreshes its survey answers with what was submitted.
+  // It does NOT touch the password — the alumnus uses "Forgot your password?".
   if (intake.possible_duplicate_profile_id) {
     const targetId = intake.possible_duplicate_profile_id;
-    const newPassword = generatePassword();
-    const { error: pwErr } = await admin.auth.admin.updateUserById(targetId, { password: newPassword });
-    if (pwErr) return json({ error: `Could not reset the password: ${pwErr.message}` }, 500);
-    const { error: profErr } = await admin.from("profiles").update({ registration_status: "approved", active: true, must_change_password: true }).eq("id", targetId);
-    if (profErr) return json({ error: "Could not approve this account." }, 500);
+    const { error: profErr } = await admin.from("profiles").update({ registration_status: "approved", active: true }).eq("id", targetId);
+    if (profErr) return json({ error: "Could not confirm this account." }, 500);
 
     const refreshed = await updateExistingRecord(targetId, intake);
-    if (!refreshed.ok) console.error("[tracer-intake] possible-duplicate approve: survey refresh failed", targetId, refreshed.error);
-    const fallbackName = [intake.first_name, intake.last_name].filter(Boolean).join(" ") || intake.email;
+    if (!refreshed.ok) console.error("[tracer-intake] possible-duplicate confirm: survey refresh failed", targetId, refreshed.error);
 
     await admin.from("alumni_tracer_intake").update({
       status: "approved",
@@ -551,22 +531,17 @@ async function handleReview(req: Request, body: any, kind: "approve" | "reject")
       reviewed_at: new Date().toISOString(),
     }).eq("id", intakeId);
 
-    return json({
-      email: refreshed.ok ? refreshed.email : intake.email,
-      password: newPassword,
-      name: refreshed.ok ? refreshed.name : fallbackName,
-      userId: targetId,
-      hadExistingAccount: true,
-      wasReset: true,
-    });
+    return json({ ok: true, userId: targetId, hadExistingAccount: true });
   }
 
   // Rare fallback: account creation failed back at submission time
   // (see handleSubmit's catch block) and this intake row was never
-  // linked to one — create it now, and this time there IS a fresh
-  // password to relay.
+  // linked to one — create it now. No password is relayed: the alumnus sets
+  // their own with "Forgot your password?" on the sign-in page.
   const result = await provisionAccount(intake, { approved: true });
   if (!result.ok) return json({ error: result.error }, 409);
+  // Nobody knows the generated password, so don't force a "change password" step later.
+  await admin.from("profiles").update({ must_change_password: false }).eq("id", result.userId);
 
   const { error: updateErr } = await admin.from("alumni_tracer_intake").update({
     status: "approved",
@@ -578,7 +553,7 @@ async function handleReview(req: Request, body: any, kind: "approve" | "reject")
   }).eq("id", intakeId);
   if (updateErr) console.error("[tracer-intake] intake approval update failed", intakeId, updateErr);
 
-  return json({ email: result.email, password: result.password, name: result.name, userId: result.userId, hadExistingAccount: false });
+  return json({ ok: true, userId: result.userId, hadExistingAccount: false });
 }
 
 // ---------------------------------------------------------------------
@@ -677,7 +652,7 @@ async function handleAdminUpdateContact(req: Request, body: any): Promise<Respon
 // silently re-queued to Pending — this is a deliberate, reviewed batch,
 // not a public intake.
 // ---------------------------------------------------------------------
-const BULK_REQUIRED_FIELDS = ["email", "first_name", "last_name"];
+const BULK_REQUIRED_FIELDS = ["email", "first_name", "last_name", "year_graduated", "college_department", "program_graduated"];
 
 // Used when the admin reviewed a detected duplicate in
 // admin/BulkImportResponses.tsx's preview and chose "Update existing
@@ -813,8 +788,7 @@ Deno.serve(async (req: Request) => {
 
   const action = body?.action;
   if (action === "submit") return handleSubmit(body.payload ?? {});
-  if (action === "approve") return handleReview(req, body, "approve");
-  if (action === "reject") return handleReview(req, body, "reject");
+  if (action === "approve") return handleReview(req, body);
   if (action === "bulk_import") return handleBulkImport(req, body);
   if (action === "admin_update_contact") return handleAdminUpdateContact(req, body);
   return json({ error: "Unknown action." }, 400);

@@ -19,6 +19,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { KeyRound, LogOut } from 'lucide-react';
 import { NAVY, PANEL_GRADIENT, PasswordStrengthField, InputField, isPasswordStrong } from './AuthPage';
 import asianCollegeLogo from '../../imports/asiancollege_logo.jpeg';
+import { PageSkeleton } from './shared/Skeleton';
 
 export default function ChangePasswordPage() {
   const { user, loading, logout, refreshProfile } = useAuth();
@@ -33,7 +34,7 @@ export default function ChangePasswordPage() {
     if (!loading && !user) navigate('/login', { replace: true });
     // Already changed (e.g. re-visiting this URL directly) — nothing left to do.
     if (!loading && user && !user.mustChangePassword) {
-      const dest = user.role === 'admin' ? '/admin' : user.role === 'faculty' ? '/user' : `/${user.role}`;
+      const dest = `/${user.role}`;
       navigate(dest, { replace: true });
     }
   }, [loading, user, navigate]);
@@ -68,15 +69,13 @@ export default function ChangePasswordPage() {
     const { ok } = await refreshProfile();
     setSubmitting(false);
     if (!ok) { setError('Password updated — please sign in again.'); return; }
-    const dest = user.role === 'admin' ? '/admin' : user.role === 'faculty' ? '/user' : `/${user.role}`;
+    const dest = `/${user.role}`;
     navigate(dest, { replace: true });
   };
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500 text-sm">Loading…</div>
-      </div>
+      <PageSkeleton />
     );
   }
 

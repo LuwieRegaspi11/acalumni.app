@@ -7,29 +7,13 @@ import { useNotifications } from './NotificationContext';
 import { useDonations, getCampaignPhase, CampaignPhase, Campaign } from './DonationContext';
 import CampaignFormModal, { NewCampaignInput } from './CampaignFormModal';
 import DonorListModal from './DonorListModal';
+import DonorRanking from '../admin/DonorRanking';
+import type { CampaignMediaChanges } from '../../../lib/campaignMedia';
 
 // ================= [SHARED: DONATIONMANAGEMENTVIEW] =================
 // The full Donation Management screen (Campaigns/Transactions tabs,
-// progress bars, donor lists, expense logging, the works), shared
-// verbatim between the admin page (admin/DonationManagement.tsx) and
-// the faculty page (faculty/FacultyDonationMonitor.tsx) — one
-// implementation so a feature added here reaches both roles instead of
-// two copies silently drifting apart.
-//
-// `department` is the ONLY behavioral difference between the two:
-//   - omitted (admin): sees/manages every department's campaigns and
-//     donations, unrestricted — same as before this was split out.
-//   - set (faculty): every list, stat, and filter below is scoped to
-//     just that department, campaigns are always created/edited locked
-//     to it (via CampaignFormModal's lockDepartment), and the
-//     cross-department filter chips are hidden since there's nothing
-//     for them to filter. This is a UI convenience only — the real
-//     boundary is enforced at the database via RLS (writes: see
-//     supabase/faculty_campaign_department_scope.sql; reads, plus the
-//     same department scoping for alumni/representative viewers on the
-//     donor-facing screens: supabase/donation_campaigns_scoped_rls.sql),
-//     so a faculty account can't reach another department's data even
-//     by bypassing this screen.
+// progress bars, donor lists, expense logging, the works). Admin-only: the
+// Alumni Head sees and manages every department's campaigns and donations.
 //
 // Tabs: Campaigns (default) → Transactions. Scheduled campaigns live
 // inside the Campaigns tab as the "Scheduled" sub-filter (see
@@ -59,26 +43,21 @@ const statusConfig = {
 // text shown to admins/donors changes to "Confirmed".
 const STATUS_LABELS: Record<string, string> = { All: 'All', Pending: 'Pending', Verified: 'Confirmed', Rejected: 'Rejected' };
 
-const TAB_TO_PARAM: Record<'campaigns' | 'transactions', string> = {
-  campaigns: 'campaigns', transactions: 'transactions',
+type DonationTab = 'campaigns' | 'transactions' | 'ranking';
+const TAB_TO_PARAM: Record<DonationTab, string> = {
+  campaigns: 'campaigns', transactions: 'transactions', ranking: 'ranking',
 };
-const PARAM_TO_TAB: Record<string, 'campaigns' | 'transactions'> = {
-  campaigns: 'campaigns', transactions: 'transactions',
+const PARAM_TO_TAB: Record<string, DonationTab> = {
+  campaigns: 'campaigns', transactions: 'transactions', ranking: 'ranking',
 };
 
-interface Props {
-  // Faculty pass their own department here to lock the whole screen to
-  // it; admin renders this with no department at all.
-  department?: string;
-}
-
-export default function DonationManagementView({ department }: Props) {
+export default function DonationManagementView() {
   const { user } = useAuth();
   const { donations, campaigns, expenses, verifyDonation, rejectDonation, addCampaign, updateCampaign, releaseCampaignNow, endCampaign, deleteCampaign, deleteDonation, getProofUrl } = useDonations();
   const { trigger } = useNotifications();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = PARAM_TO_TAB[searchParams.get('tab') || ''] || 'campaigns';
-  const setTab = (t: 'campaigns' | 'transactions') => {
+  const setTab = (t: DonationTab) => {
     setSearchParams(t === 'campaigns' ? {} : { tab: TAB_TO_PARAM[t] }, { replace: false });
   };
   const [filterStatus, setFilterStatus] = useState('All');
@@ -96,17 +75,10 @@ export default function DonationManagementView({ department }: Props) {
   const [viewDonationsCampaign, setViewDonationsCampaign] = useState<Campaign | null>(null);
   const [donorListCampaign, setDonorListCampaign] = useState<Campaign | null>(null);
 
-  const actorFallback = department ? 'Faculty' : 'Admin';
+  const actorFallback = 'Admin';
 
-  // The one place department-scoping actually happens — everything below
-  // reads from these instead of the raw context arrays, so a faculty
-  // account never even sees another department's row to begin with.
-  // Campaigns additionally include department: 'All' (college-wide)
-  // ones — those are visible to every department's faculty by design,
-  // so a strict equality-only filter would hide every college-wide
-  // campaign (which is most of them) from every faculty account.
-  const scopedCampaigns = department ? campaigns.filter(c => c.department === department || c.department === 'All') : campaigns;
-  const scopedDonations = department ? donations.filter(d => d.department === department) : donations;
+  const scopedDonations = donations;
+  const scopedCampaigns = campaigns;
 
   const filtered = scopedDonations.filter(d => {
     const matchStatus = filterStatus === 'All' || d.status === filterStatus;
@@ -149,14 +121,14 @@ export default function DonationManagementView({ department }: Props) {
     if (url) setViewProof(url);
   };
 
-  const handleAddCampaign = (input: NewCampaignInput) => {
-    addCampaign(input);
+  const handleAddCampaign = (input: NewCampaignInput, media: CampaignMediaChanges) => {
+    addCampaign(input, media);
     setShowCampaignForm(false);
   };
 
-  const handleEditCampaign = (input: NewCampaignInput) => {
+  const handleEditCampaign = (input: NewCampaignInput, media: CampaignMediaChanges) => {
     if (!editCampaignTarget) return;
-    updateCampaign(editCampaignTarget.id, input);
+    updateCampaign(editCampaignTarget.id, input, media);
     setEditCampaignTarget(null);
   };
 
@@ -184,19 +156,15 @@ export default function DonationManagementView({ department }: Props) {
     setDeleteDonationTarget(null);
   };
 
-  const transactionHeaders = department
-    ? ['Donor', 'Campaign', 'Amount', 'Type', 'Submitted', 'Status', 'Proof', 'Actions']
-    : ['Donor', 'Dept', 'Campaign', 'Amount', 'Type', 'Submitted', 'Status', 'Proof', 'Actions'];
+  const transactionHeaders = ['Donor', 'Dept', 'Campaign', 'Amount', 'Type', 'Submitted', 'Status', 'Proof', 'Actions'];
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">{department ? 'Donation Center' : 'Donation Management'}</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Donation Management</h2>
           <p className="text-sm text-gray-500">
-            {department
-              ? <>Manage campaigns and verify transactions for the <strong>{department}</strong> department</>
-              : 'Manage campaigns, verify transactions, and generate reports'}
+            Manage campaigns, verify transactions, and generate reports
           </p>
         </div>
         {tab === 'campaigns' && (
@@ -207,15 +175,6 @@ export default function DonationManagementView({ department }: Props) {
           </button>
         )}
       </div>
-
-      {department && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-          <span className="text-amber-600">🔒</span>
-          <p className="text-xs text-amber-700 font-medium">
-            You can only view/verify donations and create/manage campaigns for <strong>{department}</strong>. Other departments and admin payment settings are out of reach — enforced by database policy, not just this screen.
-          </p>
-        </div>
-      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -240,6 +199,7 @@ export default function DonationManagementView({ department }: Props) {
         {([
           { key: 'campaigns' as const, label: 'Campaigns' },
           { key: 'transactions' as const, label: 'Transactions' },
+          { key: 'ranking' as const, label: 'Donor Ranking' },
         ]).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t.key ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -247,6 +207,8 @@ export default function DonationManagementView({ department }: Props) {
           </button>
         ))}
       </div>
+
+      {tab === 'ranking' && <DonorRanking />}
 
       {tab === 'transactions' && (
         <div className="space-y-4">
@@ -264,7 +226,7 @@ export default function DonationManagementView({ department }: Props) {
                 {STATUS_LABELS[s]}
               </button>
             ))}
-            {!department && (
+            {(
               <>
                 <div className="w-px bg-gray-200 mx-1" />
                 {['All','CSE','CTHM','BAA'].map(d => (
@@ -298,7 +260,7 @@ export default function DonationManagementView({ department }: Props) {
                           <p className="font-semibold text-gray-800">{d.alumniName}</p>
                           <p className="text-xs text-gray-400">{d.alumniEmail}</p>
                         </td>
-                        {!department && (
+                        {(
                           <td className="px-4 py-3"><span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{d.department}</span></td>
                         )}
                         <td className="px-4 py-3 text-gray-600 text-xs">{d.campaign}</td>
@@ -586,7 +548,7 @@ export default function DonationManagementView({ department }: Props) {
                 </span>
               </div>
             </div>
-            <div className="overflow-y-auto flex-1 min-h-0">
+            <div className="overflow-auto flex-1 min-h-0">
               {(() => {
                 const campaignDonations = scopedDonations.filter(d => d.campaign === viewDonationsCampaign.name);
                 if (campaignDonations.length === 0) {
@@ -638,15 +600,15 @@ export default function DonationManagementView({ department }: Props) {
         <DonorListModal campaign={donorListCampaign} onClose={() => setDonorListCampaign(null)} />
       )}
 
-      {/* New campaign form — locked to `department` for faculty; admin
-          campaigns stay college-wide ("All") when department is unset. */}
+      {/* New campaign form — admin campaigns stay college-wide ("All")
+          */}
       {showCampaignForm && (
-        <CampaignFormModal onClose={() => setShowCampaignForm(false)} onSubmit={handleAddCampaign} lockDepartment={department} />
+        <CampaignFormModal onClose={() => setShowCampaignForm(false)} onSubmit={handleAddCampaign} />
       )}
 
       {/* Edit campaign form — department stays whatever it already was (no picker to change it) */}
       {editCampaignTarget && (
-        <CampaignFormModal onClose={() => setEditCampaignTarget(null)} onSubmit={handleEditCampaign} initial={editCampaignTarget} lockDepartment={department} />
+        <CampaignFormModal onClose={() => setEditCampaignTarget(null)} onSubmit={handleEditCampaign} initial={editCampaignTarget} />
       )}
     </div>
   );

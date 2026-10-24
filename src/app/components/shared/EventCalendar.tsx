@@ -5,9 +5,18 @@ import {
   TextField, Alert
 } from '@mui/material';
 import { ChevronLeft, ChevronRight, ChevronDown, Calendar, MapPin, Clock, Users, Plus, X, Upload } from 'lucide-react';
-import { useEvents, AppEvent } from './EventsContext';
+import { useEvents, AppEvent, EVENT_TYPES, type EventType } from './EventsContext';
 import { useNotifications } from './NotificationContext';
 import EventRegistrantsDialog from './EventRegistrantsDialog';
+import NotifyChannelPicker from './NotifyChannelPicker';
+import { notifyAlumni, DEFAULT_NOTIFY_CHANNELS, type NotifyChannels } from '../../../lib/notifyAlumni';
+
+// Chip colors for the event type badge (General gets no badge — it's the default).
+const TYPE_BADGE: Record<EventType, string> = {
+  General: 'bg-gray-100 text-gray-700',
+  Seminar: 'bg-emerald-100 text-emerald-800',
+  Workshop: 'bg-amber-100 text-amber-800',
+};
 
 const DEPT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   'All':   { bg: 'bg-blue-100',   text: 'text-blue-800',   border: 'border-blue-400' },
@@ -19,10 +28,10 @@ const DEPT_COLORS: Record<string, { bg: string; text: string; border: string }> 
 const getColor = (dept: string) => DEPT_COLORS[dept] || DEPT_COLORS['default'];
 
 interface Props {
-  department?: string; // faculty's locked department; undefined = admin sees all
+  department?: string; // optional department lock; undefined = admin sees all
   canCreate?: boolean;
   createdBy?: string;
-  canViewRegistrants?: boolean; // admin/faculty only: clicking an event in "Upcoming Events" opens the registrants table
+  canViewRegistrants?: boolean; // admin only: clicking an event in "Upcoming Events" opens the registrants table
 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -38,9 +47,9 @@ const HIDDEN_SCROLLBAR_SX = {
   '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari/new Edge
 };
 
-const BLANK_FORM = { title: '', description: '', date: '', time: '', location: '', maxCapacity: '', imageUrl: '', department: 'All' };
+const BLANK_FORM = { title: '', description: '', date: '', time: '', location: '', maxCapacity: '', imageUrl: '', department: 'All', eventType: 'General' as EventType };
 
-export default function EventCalendar({ department, canCreate = false, createdBy = 'faculty', canViewRegistrants = false }: Props) {
+export default function EventCalendar({ department, canCreate = false, createdBy = 'admin', canViewRegistrants = false }: Props) {
   const { events, addEvent } = useEvents();
   const { trigger } = useNotifications();
   const [currentDate, setCurrentDate]     = useState(new Date());
@@ -54,6 +63,8 @@ export default function EventCalendar({ department, canCreate = false, createdBy
   const [imageError, setImageError]       = useState<string | null>(null);
   const [createError, setCreateError]     = useState<string | null>(null);
   const [creating, setCreating]           = useState(false);
+  const [channels, setChannels]           = useState<NotifyChannels>(DEFAULT_NOTIFY_CHANNELS);
+  const [notifyStatus, setNotifyStatus]   = useState<{ ok: boolean; text: string } | null>(null);
   const [monthYearAnchor, setMonthYearAnchor] = useState<HTMLElement | null>(null);
 
   const year  = currentDate.getFullYear();
@@ -142,6 +153,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
         time: form.time,
         location: form.location,
         department: targetDept,
+        eventType: form.eventType,
         createdBy,
         maxCapacity: form.maxCapacity ? parseInt(form.maxCapacity) : undefined,
         imageUrl: form.imageUrl || undefined,
@@ -154,23 +166,40 @@ export default function EventCalendar({ department, canCreate = false, createdBy
     setCreating(false);
 
     // Only the people this event is actually for get notified — the
-    // event's own department (alumni + their faculty/reps), or everyone
+    // event's own department (alumni + reps), or everyone
     // when the event is tagged "All". Fired only once the event has
     // actually saved, so a failed create never sends a notification for
     // an event nobody will ever see.
-    const notifyMsg = `"${form.title}" has been scheduled for ${form.date}${targetDept !== 'All' ? ` (${targetDept} Department)` : ''}.`;
-    const roles: Array<'alumni' | 'faculty' | 'representative'> = ['alumni', 'faculty', 'representative'];
-    roles.forEach(role => {
-      trigger({
-        title: 'New Event Published',
-        message: notifyMsg,
-        type: 'info',
-        targetRole: role,
-        targetDept: targetDept === 'All' ? undefined : targetDept,
-      });
+    const typeLabel = form.eventType === 'General' ? 'Event' : form.eventType;
+    const notifyTitle = `New ${typeLabel}: ${form.title}`;
+    const notifyMsg = `"${form.title}" has been scheduled for ${form.date} at ${form.time}, ${form.location}${targetDept !== 'All' ? ` (${targetDept} Department)` : ''}.`;
+    // In-app + email (+ optional SMS) through the notify-alumni Edge
+    // Function. If it can't be reached, the in-app bell still gets the
+    // old role-based notification so alumni never miss the event.
+    const outcome = await notifyAlumni({
+      title: notifyTitle,
+      message: notifyMsg,
+      channels,
+      audience: { department: targetDept },
     });
+    if (!outcome.ok && channels.inApp) {
+      const roles: Array<'alumni' | 'representative'> = ['alumni', 'representative'];
+      roles.forEach(role => {
+        trigger({
+          title: 'New Event Published',
+          message: notifyMsg,
+          type: 'info',
+          targetRole: role,
+          targetDept: targetDept === 'All' ? undefined : targetDept,
+        });
+      });
+      setNotifyStatus({ ok: true, text: `Event created. In-app notification sent; email/SMS could not be sent (${outcome.summary}).` });
+    } else {
+      setNotifyStatus({ ok: outcome.ok, text: `Event created. ${outcome.summary}` });
+    }
 
     setForm(BLANK_FORM);
+    setChannels(DEFAULT_NOTIFY_CHANNELS);
     setImagePreview(null);
     setImageError(null);
     setCreateOpen(false);
@@ -178,6 +207,10 @@ export default function EventCalendar({ department, canCreate = false, createdBy
 
   return (
     <div className="space-y-4">
+      {notifyStatus && (
+        <Alert severity={notifyStatus.ok ? 'success' : 'warning'} onClose={() => setNotifyStatus(null)}>{notifyStatus.text}</Alert>
+      )}
+
       {/* Calendar card */}
       <Card>
         <CardContent>
@@ -302,7 +335,10 @@ export default function EventCalendar({ department, canCreate = false, createdBy
                     className={`border-l-4 ${c.border} rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors border border-gray-200`}>
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="text-sm font-semibold">{ev.title}</h4>
+                        <h4 className="text-sm font-semibold">
+                          {ev.title}
+                          {ev.eventType !== 'General' && <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-semibold align-middle ${TYPE_BADGE[ev.eventType]}`}>{ev.eventType}</span>}
+                        </h4>
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                           <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(ev.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ev.time}</span>
@@ -337,6 +373,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
                 {selectedEvent.maxCapacity && <div className="flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" />{selectedEvent.registeredCount} registered / {selectedEvent.maxCapacity} max</div>}
               </div>
               <div className="flex items-center gap-2">
+                {selectedEvent.eventType !== 'General' && <Chip label={selectedEvent.eventType} size="small" color={selectedEvent.eventType === 'Seminar' ? 'success' : 'warning'} />}
                 <Chip label={selectedEvent.department === 'All' ? 'All Alumni' : `${selectedEvent.department} Dept.`} size="small" />
                 <Chip label={`Created by ${selectedEvent.createdByName}`} size="small" variant="outlined" />
               </div>
@@ -348,7 +385,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
         </DialogActions>
       </Dialog>
 
-      {/* Create event dialog (faculty / admin) */}
+      {/* Create event dialog (admin) */}
       <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setForm(BLANK_FORM); setImagePreview(null); setImageError(null); setCreateError(null); }} maxWidth="sm" fullWidth>
         <DialogTitle>
           Add New Event
@@ -358,6 +395,10 @@ export default function EventCalendar({ department, canCreate = false, createdBy
           <div className="flex flex-col gap-4 pt-3">
             <TextField fullWidth label="Event Title" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} required />
             <TextField fullWidth label="Description" multiline rows={3} value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
+            <TextField fullWidth select label="Event Type" value={form.eventType} onChange={e => setForm(f => ({...f, eventType: e.target.value as EventType}))}
+              SelectProps={{ native: true }} helperText="Choose Seminar or Workshop for learning and training programs.">
+              {EVENT_TYPES.map(t => <option key={t} value={t}>{t === 'General' ? 'General Event' : t}</option>)}
+            </TextField>
 
             {/* Image upload */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-3">
@@ -387,7 +428,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
             </div>
             <TextField fullWidth label="Location" value={form.location} onChange={e => setForm(f => ({...f, location: e.target.value}))} required />
 
-            {/* Department — locked for faculty, selectable for admin */}
+            {/* Department — selectable for admin */}
             {department ? (
               <TextField
                 fullWidth
@@ -413,6 +454,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
               </TextField>
             )}
             <TextField fullWidth label="Max Capacity (optional)" type="number" value={form.maxCapacity} onChange={e => setForm(f => ({...f, maxCapacity: e.target.value}))} />
+            <NotifyChannelPicker value={channels} onChange={setChannels} />
             {createError && <Alert severity="error" onClose={() => setCreateError(null)}>{createError}</Alert>}
           </div>
         </DialogContent>
@@ -425,7 +467,7 @@ export default function EventCalendar({ department, canCreate = false, createdBy
         </DialogActions>
       </Dialog>
 
-      {/* Registrants table — admin/faculty only, opened from "Upcoming Events This Month" */}
+      {/* Registrants table — admin only, opened from "Upcoming Events This Month" */}
       {canViewRegistrants && (
         <EventRegistrantsDialog
           event={registrantsEvent}

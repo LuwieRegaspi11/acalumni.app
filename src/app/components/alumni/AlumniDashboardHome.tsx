@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext';
 import { DollarSign, Calendar, Megaphone, FileText, Briefcase, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useDonations } from '../shared/DonationContext';
 import { useEvents } from '../shared/EventsContext';
+import { TopDonorsLeaderboard } from '../shared/DonorTransparency';
 
 // ================= [ALUMNI: ALUMNIDASHBOARDHOME] =================
 
@@ -96,6 +97,9 @@ export default function AlumniDashboardHome() {
           ))}
         </div>
       </div>
+
+      {/* Top donors — verified gifts only; seeing who gave inspires others to give */}
+      <TopDonorsLeaderboard limit={5} />
 
       {/* Donation status */}
       {myDonations.length > 0 && (

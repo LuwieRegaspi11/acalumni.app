@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent
 
 // ================= [SHARED: CURRENCYAMOUNTFIELD] =================
 // One currency-style amount input, shared by every place someone types a
-// peso figure into this app: the admin/faculty campaign goal amount
+// peso figure into this app: the admin campaign goal amount
 // (CampaignFormModal) and the alumni + batch rep donation amount forms
 // (DonationPortal, RepDonationMonitor). Centralizing it means the
 // formatting rules — and any future fix to them — live in one place

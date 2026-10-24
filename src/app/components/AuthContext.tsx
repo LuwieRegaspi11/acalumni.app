@@ -5,7 +5,7 @@ export interface User {
  id: string;
  name: string;
  email: string;
- role: 'admin' | 'alumni' | 'faculty' | 'representative';
+ role: 'admin' | 'alumni' | 'representative';
  registrationStatus?: 'pending' | 'approved' | 'rejected';
  department?: string;
  batchYear?: number;
@@ -21,7 +21,6 @@ export interface User {
  currentCompany?: string;
  currentPosition?: string;
  username?: string;   // admin accounts
- position?: string;   // faculty accounts (job title, distinct from alumni's currentPosition)
  // True whenever the system (not the alumnus) generated this account's
  // password — the Alumni Tracer Survey intake flow, or an admin
  // approving a Pending submission (see supabase/alumni_tracer_intake.sql
@@ -43,7 +42,6 @@ export interface ProfileUpdate {
  currentCompany?: string;
  currentPosition?: string;
  username?: string;
- position?: string;
 }
 
 export type LoginStatus = 'success' | 'invalid' | 'pending' | 'rejected' | 'unconfirmed' | 'error' | 'no_profile';
@@ -88,7 +86,6 @@ function mapProfileToUser(profile: any): User {
    currentCompany: profile.current_company ?? undefined,
    currentPosition: profile.current_position ?? undefined,
    username: profile.username ?? undefined,
-   position: profile.position ?? undefined,
    mustChangePassword: profile.must_change_password ?? false,
  };
 }
@@ -422,7 +419,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    if (patch.currentCompany !== undefined) dbPatch.current_company = patch.currentCompany;
    if (patch.currentPosition !== undefined) dbPatch.current_position = patch.currentPosition;
    if (patch.username !== undefined) dbPatch.username = patch.username;
-   if (patch.position !== undefined) dbPatch.position = patch.position;
 
    const { error } = await supabase.from('profiles').update(dbPatch).eq('id', user.id);
    if (error) {

@@ -10,6 +10,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 
+// -- Live homepage data (campaigns, projects, news feed, headline numbers) --
+import { ProjectsSection } from './landing/LandingSections';
+import { fetchCampaignShowcase, fetchLandingStats, type ShowcaseCampaign, type LandingStats } from '../../lib/donorApi';
+import { PROGRAMS_BY_DEPT } from '../../lib/academicPrograms';
+
 // -- Icons (lucide-react) ------------------------------------------------
 import {
   GraduationCap, Users, TrendingUp, Calendar,
@@ -22,9 +27,16 @@ import {
 // -- Local image assets --------------------------------------------------
 import asianCollegeLogo from '../../imports/asiancollege-logo-transparent.png';
 import headerLogo from '@/imports/asiancollege-logo-transparent.png';
-import heroGraduation1 from '../../imports/hero-graduation-1.jpeg';
-import heroCampusStudents from '../../imports/hero-campus-students.jpeg';
-import heroGraduation2 from '../../imports/hero-graduation-2.jpeg';
+
+// REAL ASIAN COLLEGE PHOTOS — every .jpg/.jpeg/.png/.webp in
+// src/imports/campus/ (see the README there) is used automatically, sorted by
+// file name: 1st-3rd = hero slides, 4th = About photo, the rest = the
+// "Campus life" strip.
+const campusModules = import.meta.glob('../../imports/campus/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', { eager: true, import: 'default' }) as Record<string, string>;
+const CAMPUS_PHOTOS: string[] = Object.keys(campusModules).sort().map(k => campusModules[k]);
+const photo = (i: number) => CAMPUS_PHOTOS[i] ?? CAMPUS_PHOTOS[0] ?? asianCollegeLogo;
+const HAS_REAL_PHOTOS = CAMPUS_PHOTOS.length > 0;
+const EXTRA_CAMPUS_PHOTOS = CAMPUS_PHOTOS.slice(4);
 
 // PUBLIC SITE COLORS — edit these to change the landing page's
 // header, buttons, and accent colors everywhere on this page.
@@ -38,9 +50,11 @@ const PURPLE = '#a855f7';
 const YELLOW = '#eab308';
 const PANEL  = `linear-gradient(135deg, ${NAVY} 0%, ${BLUE} 55%, ${LBLUE} 100%)`;
 
+const PALETTE = { navy: NAVY, blue: BLUE, lblue: LBLUE, red: RED, panel: PANEL };
+
 const HERO_SLIDES = [
   {
-    image: heroGraduation1,
+    image: photo(0),
     tag: 'Welcome to Asian College',
     title: 'Excellence in\nEducation Since 1972',
     subtitle: 'Shaping future leaders in Dumaguete City through quality education, innovation, and holistic development.',
@@ -48,7 +62,7 @@ const HERO_SLIDES = [
     ctaSecondary: 'Alumni Portal',
   },
   {
-    image: heroCampusStudents,
+    image: photo(1),
     tag: 'Alumni Network',
     title: 'Stay Connected\nWith Your Alma Mater',
     subtitle: 'Join thousands of Asian College alumni and be part of a thriving community dedicated to giving back.',
@@ -56,7 +70,7 @@ const HERO_SLIDES = [
     ctaSecondary: 'Sign In',
   },
   {
-    image: heroGraduation2,
+    image: photo(2),
     tag: 'Tracer & Donation',
     title: 'Track, Engage &\nGive Back',
     subtitle: 'Help us build the future of education by participating in alumni tracer surveys and supporting student scholarships.',
@@ -69,7 +83,7 @@ const NAV_LINKS = [
   { label: 'Home', href: '#home' },
   { label: 'About', href: '#about' },
   { label: 'Programs', href: '#programs' },
-  { label: 'News & Events', href: '#news' },
+  { label: 'Projects', href: '#projects' },
   { label: 'Alumni', href: '#alumni' },
   { label: 'Contact', href: '#contact' },
 ];
@@ -110,40 +124,13 @@ const PROGRAMS = [
   },
 ];
 
-const NEWS = [
-  {
-    date: 'June 5, 2026',
-    category: 'Alumni',
-    title: 'Annual Alumni Homecoming 2026 Registration Now Open',
-    excerpt: 'Join us for the grand Alumni Homecoming celebration this July. Reconnect with classmates and celebrate milestones together.',
-    img: heroGraduation2,
-    catColor: NAVY,
-  },
-  {
-    date: 'May 28, 2026',
-    category: 'Donation',
-    title: 'Scholarship Fund Reaches ₱500,000 Milestone',
-    excerpt: 'Thanks to generous donations from alumni, the Asian College Scholarship Fund has reached a record high this year.',
-    img: heroGraduation1,
-    catColor: RED,
-  },
-  {
-    date: 'May 15, 2026',
-    category: 'Events',
-    title: 'Batch Representative System Successfully Launched',
-    excerpt: 'Asian College officially launches its batch representative verification system to streamline alumni database management.',
-    img: heroCampusStudents,
-    catColor: LBLUE,
-  },
-];
+// Headline numbers that don't change (founding year / program catalog). The
+// two live ones — registered alumni and donations raised — come from the
+// database (see fetchLandingStats) so the page never shows made-up figures.
+const FOUNDED_YEAR = 1972;
+const PROGRAM_COUNT = Object.values(PROGRAMS_BY_DEPT).reduce((n, list) => n + list.length, 0);
 
-const STATS = [
-  { value: '1,247+', label: 'Registered Alumni', icon: <Users className="w-7 h-7" /> },
-  { value: '36+',    label: 'Years of Excellence', icon: <Award className="w-7 h-7" /> },
-  { value: '3',      label: 'Departments', icon: <Landmark className="w-7 h-7" /> },
-  { value: '10+',    label: 'Degree Programs', icon: <GraduationCap className="w-7 h-7" /> },
-  { value: '₱500K+', label: 'Donations Raised', icon: <Heart className="w-7 h-7" /> },
-];
+const compactPeso = (n: number) => n >= 1_000_000 ? `₱${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `₱${(n / 1_000).toFixed(n >= 100_000 ? 0 : 1)}K` : `₱${n.toLocaleString()}`;
 
 const QUICK_LINKS = [
   { label: 'Alumni Registration', icon: <GraduationCap className="w-5 h-5" />, action: 'register' },
@@ -160,6 +147,25 @@ export default function LandingPage() {
   const [menuOpen, setMenuOpen]           = useState(false);
   const [scrolled, setScrolled]           = useState(false);
   const [activeProgram, setActiveProgram] = useState(0);
+  const [showcase, setShowcase]           = useState<ShowcaseCampaign[] | null>(null);
+  const [liveStats, setLiveStats]         = useState<LandingStats | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchCampaignShowcase().then(rows => { if (active) setShowcase(rows); });
+    fetchLandingStats().then(s => { if (active) setLiveStats(s); });
+    return () => { active = false; };
+  }, []);
+
+  const yearsOfExcellence = new Date().getFullYear() - FOUNDED_YEAR;
+  const alumniValue = liveStats ? liveStats.alumniCount.toLocaleString() : '—';
+  const stats = [
+    { value: alumniValue, label: 'Registered Alumni', icon: <Users className="w-7 h-7" /> },
+    { value: `${yearsOfExcellence}+`, label: 'Years of Excellence', icon: <Award className="w-7 h-7" /> },
+    { value: String(PROGRAMS.length), label: 'Departments', icon: <Landmark className="w-7 h-7" /> },
+    { value: String(PROGRAM_COUNT), label: 'Degree Programs', icon: <GraduationCap className="w-7 h-7" /> },
+    { value: liveStats ? compactPeso(liveStats.totalRaised) : '—', label: 'Donations Raised', icon: <Heart className="w-7 h-7" /> },
+  ];
 
   useEffect(() => {
     const t = setInterval(() => setCurrentSlide(s => (s + 1) % HERO_SLIDES.length), 5500);
@@ -295,7 +301,7 @@ export default function LandingPage() {
         {HERO_SLIDES.map((s, i) => (
           <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
             <img src={s.image} alt={s.title} className="w-full h-full object-cover" />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(27,58,107,0.88) 0%, rgba(27,58,107,0.55) 60%, rgba(27,58,107,0.15) 100%)' }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(27,58,107,0.74) 0%, rgba(27,58,107,0.42) 55%, rgba(27,58,107,0.08) 100%)' }} />
           </div>
         ))}
 
@@ -324,6 +330,7 @@ export default function LandingPage() {
               </button>
             </div>
           </div>
+
         </div>
 
         {/* Slide controls */}
@@ -395,8 +402,8 @@ export default function LandingPage() {
             </div>
             <div className="relative">
               <img
-                src={heroGraduation1}
-                alt="Graduation" className="rounded-2xl shadow-2xl w-full object-cover h-80 md:h-[440px]"
+                src={photo(3)}
+                alt="Asian College alumni" className="rounded-2xl shadow-2xl w-full object-cover h-80 md:h-[440px]"
               />
               <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-5 border border-gray-100">
                 <div className="flex items-center gap-3">
@@ -404,13 +411,13 @@ export default function LandingPage() {
                     <GraduationCap className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <div className="text-2xl font-extrabold" style={{ color: NAVY }}>1,247+</div>
+                    <div className="text-2xl font-extrabold" style={{ color: NAVY }}>{alumniValue}</div>
                     <div className="text-xs text-gray-500">Registered Alumni</div>
                   </div>
                 </div>
               </div>
               <div className="absolute -top-5 -right-5 rounded-xl shadow-xl p-5 text-white" style={{ background: PANEL }}>
-                <div className="text-2xl font-extrabold">36+</div>
+                <div className="text-2xl font-extrabold">{yearsOfExcellence}+</div>
                 <div className="text-xs opacity-80">Years of Excellence</div>
               </div>
             </div>
@@ -422,7 +429,7 @@ export default function LandingPage() {
       <section className="py-16" style={{ background: PANEL }}>
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {STATS.map((s, i) => (
+            {stats.map((s, i) => (
               <div key={i} className="text-center group">
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3 group-hover:bg-white/25 transition-all duration-300"
                   style={{ background: 'rgba(255,255,255,0.15)' }}>
@@ -508,55 +515,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* -- News & Events -- */}
-      <section className="py-20 bg-gray-50" id="news">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-end justify-between mb-12 flex-wrap gap-4">
-            <div>
-              <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-full mb-4"
-                style={{ background: '#dce6f5', color: NAVY }}>
-                Latest Updates
-              </span>
-              <h2 className="text-3xl md:text-4xl text-gray-900">
-                News & <span style={{ color: NAVY }}>Events</span>
-              </h2>
+      {/* -- Campus life strip: only shown once real photos have been added to src/imports/campus -- */}
+      {HAS_REAL_PHOTOS && EXTRA_CAMPUS_PHOTOS.length > 0 && (
+        <section className="py-16 bg-gray-50" aria-label="Campus life">
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-2xl md:text-3xl text-gray-900 text-center mb-8">Campus <span style={{ color: NAVY }}>Life</span></h2>
+            {/* 3 columns x 2 rows on tablets and desktops (2 columns on phones) — balanced for the six Campus Life photos */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+              {EXTRA_CAMPUS_PHOTOS.map((src, i) => (
+                <img key={src} src={src} alt={`Asian College campus life ${i + 1}`} loading="lazy" className="w-full h-40 sm:h-44 md:h-56 object-cover rounded-xl shadow-sm" />
+              ))}
             </div>
-            <button onClick={() => navigate('/login')}
-              className="flex items-center gap-2 text-sm font-bold hover:opacity-75 transition-opacity"
-              style={{ color: NAVY }}>
-              View All <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {NEWS.map((n, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer">
-                <div className="relative h-48 overflow-hidden">
-                  <img src={n.img} alt={n.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute top-3 left-3">
-                    <span className="px-2 py-1 text-white text-xs font-bold rounded-md" style={{ background: n.catColor }}>
-                      {n.category}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-                    <Calendar className="w-3 h-3" /> {n.date}
-                  </div>
-                  <h3 className="text-gray-900 mb-3 leading-snug group-hover:transition-colors" style={{}}
-                    onMouseOver={e => (e.currentTarget.style.color = NAVY)}
-                    onMouseOut={e => (e.currentTarget.style.color = '')}>
-                    {n.title}
-                  </h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{n.excerpt}</p>
-                  <div className="mt-4 flex items-center gap-1 text-sm font-semibold" style={{ color: NAVY }}>
-                    Read More <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* -- Alumni projects: funded campaigns with photos + "Donated by" credits -- */}
+      <ProjectsSection palette={PALETTE} showcase={showcase} />
 
       {/* -- Alumni CTA -- */}
       <section className="py-20 bg-white" id="alumni">
@@ -624,32 +599,32 @@ export default function LandingPage() {
       </section>
 
       {/* -- Contact -- */}
-      <section className="py-20 bg-gray-50" id="contact">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-14">
-            <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-full mb-4"
+      <section className="py-10 bg-gray-50" id="contact">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-6">
+            <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-full mb-2"
               style={{ background: '#dce6f5', color: NAVY }}>
               Get In Touch
             </span>
-            <h2 className="text-3xl md:text-4xl text-gray-900 mb-4">
+            <h2 className="text-2xl md:text-3xl text-gray-900 mb-2">
               Contact <span style={{ color: NAVY }}>Us</span>
             </h2>
-            <p className="text-gray-500 max-w-xl mx-auto">Reach out to the Alumni Admin Office for any concerns or inquiries about the Alumni Tracer System.</p>
+            <p className="text-sm text-gray-500 max-w-xl mx-auto">Reach out to the Alumni Admin Office for any concerns or inquiries about the Alumni Tracer System.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { icon: <Phone className="w-7 h-7" />, label: 'Phone', value: '(035) 523-5373', sub: 'Mon–Fri: 8:00 AM – 5:00 PM', bg: '#EEF2FA', border: '#dce6f5', iconColor: NAVY },
-              { icon: <Mail className="w-7 h-7" />, label: 'Email', value: 'admin@asiancollege.edu.ph', sub: 'Response within 24 hours', bg: '#FDF0EE', border: '#fde0db', iconColor: RED },
-              { icon: <MapPin className="w-7 h-7" />, label: 'Address', value: 'Dr. V. Locsin Street', sub: 'Dumaguete City, Philippines 6200', bg: '#EDF5FB', border: '#d6ecf8', iconColor: LBLUE },
+              { icon: <Phone className="w-5 h-5" />, label: 'Phone', value: '(035) 523-5373', sub: 'Mon–Fri: 8:00 AM – 5:00 PM', bg: '#EEF2FA', border: '#dce6f5', iconColor: NAVY },
+              { icon: <Mail className="w-5 h-5" />, label: 'Email', value: 'admin@asiancollege.edu.ph', sub: 'Response within 24 hours', bg: '#FDF0EE', border: '#fde0db', iconColor: RED },
+              { icon: <MapPin className="w-5 h-5" />, label: 'Address', value: 'Dr. V. Locsin Street', sub: 'Dumaguete City, Philippines 6200', bg: '#EDF5FB', border: '#d6ecf8', iconColor: LBLUE },
             ].map((c, i) => (
-              <div key={i} className="rounded-xl p-8 text-center hover:shadow-lg transition-all duration-300"
+              <div key={i} className="rounded-xl p-4 text-center hover:shadow-md transition-all duration-300"
                 style={{ background: c.bg, border: `1px solid ${c.border}` }}>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-md mb-5">
+                <div className="inline-flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-sm mb-2">
                   <div style={{ color: c.iconColor }}>{c.icon}</div>
                 </div>
-                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{c.label}</h4>
-                <p className="font-semibold text-gray-900 mb-1">{c.value}</p>
-                <p className="text-sm text-gray-500">{c.sub}</p>
+                <h4 className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">{c.label}</h4>
+                <p className="text-sm font-semibold text-gray-900 break-words">{c.value}</p>
+                <p className="text-xs text-gray-500">{c.sub}</p>
               </div>
             ))}
           </div>

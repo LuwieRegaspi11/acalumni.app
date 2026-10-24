@@ -1,11 +1,12 @@
 import React, { useId, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { DollarSign, CheckCircle, Clock, AlertCircle, TrendingUp, Heart, Building2, Upload, Image, Copy, Check, Wallet, CreditCard, X, ChevronRight } from 'lucide-react';
 import { useDonations, isCampaignLive, type Campaign } from '../shared/DonationContext';
 import { useNotifications } from '../shared/NotificationContext';
 import CurrencyAmountField from '../shared/CurrencyAmountField';
 import DonorListModal from '../shared/DonorListModal';
+import { DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, type ThankYouInfo } from '../shared/DonorTransparency';
 
 // ================= [BATCH REPRESENTATIVE: REPDONATIONMONITOR] =================
 // Batch reps get the same "make a donation" flow alumni get (they're alumni
@@ -22,6 +23,7 @@ const referenceNo = (id: string) => `DON-${id.replace(/-/g, '').slice(0, 8).toUp
 export default function RepDonationMonitor() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { donations, campaigns, paymentDestinations, submitDonation, getProofUrl } = useDonations();
   const { trigger } = useNotifications();
 
@@ -36,6 +38,20 @@ export default function RepDonationMonitor() {
   const [selectedDestId, setSelectedDestId] = useState<string | null>(null);
   const [copiedDestId, setCopiedDestId] = useState<string | null>(null);
   const [donorListCampaign, setDonorListCampaign] = useState<Campaign | null>(null);
+  // Consent is opt-in: anonymous unless the donor chooses "Show my name".
+  const [anonymous, setAnonymous] = useState(true);
+  const [thankYou, setThankYou] = useState<ThankYouInfo | null>(null);
+  const [submitError, setSubmitError] = useState('');
+
+  // Arrived from the homepage's "Donate" button (?donate=<campaign id>).
+  useEffect(() => {
+    const wanted = searchParams.get('donate');
+    if (!wanted || campaigns.length === 0) return;
+    const c = campaigns.find(x => x.id === wanted && isCampaignLive(x));
+    if (c) { setForm(f => ({ ...f, campaign: c.name })); setShowForm(true); }
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaigns, searchParams]);
 
   const activeDestinations = paymentDestinations.filter(d => d.isActive);
   const destTypeIcon = (type: string) => type === 'Bank' ? <Building2 className="w-4 h-4 text-gray-500" /> : type === 'E-Wallet' ? <Wallet className="w-4 h-4 text-gray-500" /> : <CreditCard className="w-4 h-4 text-gray-500" />;
@@ -81,33 +97,42 @@ export default function RepDonationMonitor() {
   const handleSubmit = async () => {
     if (!form.campaign || !form.amount || !proofFile) return;
     setSubmitting(true);
-    await submitDonation({
+    const donationAmount = parseFloat(form.amount) || 0;
+    const donationCampaign = form.campaign || 'General Fund';
+    const donationId = await submitDonation({
       alumniName: user?.name || 'Batch Representative',
       alumniEmail: user?.email || '',
       department: user?.assignedDepartment || 'All',
-      campaign: form.campaign || 'General Fund',
-      amount: parseFloat(form.amount) || 0,
+      campaign: donationCampaign,
+      amount: donationAmount,
       type: 'Cash',
       description: form.description,
+      isAnonymous: anonymous,
     }, proofFile);
+    if (!donationId) {
+      setSubmitting(false);
+      setSubmitError('Your donation could not be saved. Please try again, or contact the alumni office.');
+      return;
+    }
     trigger({
       title: 'Donation Submitted',
       message: `A new donation from ${user?.name || 'a batch representative'} is pending verification.`,
       type: 'info',
       targetRole: 'admin',
     });
-    trigger({
-      title: 'Donation Submitted',
-      message: `A new donation from ${user?.name || 'a batch representative'} is pending verification.`,
-      type: 'info',
-      targetRole: 'faculty',
-      targetDept: user?.assignedDepartment,
-    });
     setSubmitting(false);
     setShowForm(false);
     setForm({ campaign: '', amount: '', description: '' });
     setProofFile(null); setProofFileName('');
     setSelectedDestId(null);
+    setSubmitError('');
+    setThankYou({
+      donorName: user?.name || 'friend',
+      amount: donationAmount,
+      campaign: donationCampaign,
+      reference: referenceNo(donationId),
+      anonymous,
+    });
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 4000);
   };
@@ -217,7 +242,7 @@ export default function RepDonationMonitor() {
         <h3 className="font-bold text-gray-800 mb-3">Batch {user?.assignedBatchYear} {user?.assignedDepartment} — All Donations</h3>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2 mb-3">
           <span className="text-amber-600">👁️</span>
-          <p className="text-xs text-amber-700 font-medium">You have <strong>monitoring access only</strong> over your batch's donations. Verification is handled by Admin and Faculty.</p>
+          <p className="text-xs text-amber-700 font-medium">You have <strong>monitoring access only</strong> over your batch's donations. Verification is handled by the Alumni Head (Admin).</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
@@ -275,6 +300,9 @@ export default function RepDonationMonitor() {
         </div>
       </div>
 
+      {/* Donor ranking — verified gifts only; shows where you stand */}
+      <TopDonorsLeaderboard limit={10} />
+
       {/* Active campaigns */}
       <div>
         <h3 className="font-bold text-gray-800 mb-3">Active Campaigns</h3>
@@ -319,6 +347,8 @@ export default function RepDonationMonitor() {
           </table>
         </div>
       </div>
+
+      {thankYou && <DonationThankYou info={thankYou} onClose={() => setThankYou(null)} />}
 
       {/* Donor list for a campaign — opened by clicking the campaign name/row, same as admin's Campaigns table */}
       {donorListCampaign && (
@@ -405,6 +435,9 @@ export default function RepDonationMonitor() {
                   <input type="file" accept="image/*" className="hidden" onChange={handleProof} />
                 </label>
               </div>
+
+              <DonorVisibilityChoice anonymous={anonymous} onChange={setAnonymous} />
+              {submitError && <p className="text-xs text-red-600 font-semibold" role="alert">{submitError}</p>}
             </div>
             <div className="flex gap-3 px-6 py-4 border-t flex-shrink-0">
               <button onClick={() => { setShowForm(false); setProofFile(null); setProofFileName(''); setSelectedDestId(null); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>

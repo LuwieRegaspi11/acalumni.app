@@ -18,7 +18,7 @@ export default function PendingApprovalPage() {
   const navigate = useNavigate();
 
   // Only meant for a signed-in, still-pending alumni account — pending
-  // approval only ever applies to alumni registrations (faculty/rep
+  // approval only ever applies to alumni registrations (rep
   // accounts are auto-approved on signup), so anyone else who lands
   // here (already approved, not alumni, or not signed in at all) gets
   // sent where they actually belong.
@@ -30,7 +30,6 @@ export default function PendingApprovalPage() {
     } else if (!isPending) {
       if (user.role === 'admin') navigate('/admin', { replace: true });
       else if (user.role === 'alumni') navigate('/alumni', { replace: true });
-      else if (user.role === 'faculty') navigate('/user', { replace: true });
       else if (user.role === 'representative') navigate('/representative', { replace: true });
     }
   }, [user, isPending, navigate]);

@@ -1,6 +1,8 @@
 import { useId, useState } from 'react';
 import { Megaphone, Pin, Edit, Trash2, X, Plus } from 'lucide-react';
 import { useAnnouncements, Announcement } from '../shared/AnnouncementContext';
+import NotifyChannelPicker from '../shared/NotifyChannelPicker';
+import { DEFAULT_NOTIFY_CHANNELS, type NotifyChannels } from '../../../lib/notifyAlumni';
 
 // ================= [ADMIN: ANNOUNCEMENT MANAGEMENT — connected to Supabase] =================
 
@@ -22,17 +24,27 @@ export default function AnnouncementManagement() {
   const [filterDept, setFilterDept] = useState('All Alumni');
   const [form, setForm] = useState({ title: '', content: '', category: 'General', targetDept: 'All Alumni' });
   const formId = useId(); // ties each field's <label> to its input — see per-field ids below
+  const [channels, setChannels] = useState<NotifyChannels>(DEFAULT_NOTIFY_CHANNELS);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   const filtered = announcements.filter(a => filterDept === 'All Alumni' || a.targetDept === filterDept || a.targetDept === 'All Alumni');
   const pinned = filtered.filter(a => a.pinned);
   const rest = filtered.filter(a => !a.pinned);
 
   const handleSave = async () => {
+    setSaving(true);
     if (editTarget) {
       await updateAnnouncement(editTarget.id, form);
+      setStatus(null);
     } else {
-      await addAnnouncement(form);
+      // New announcements notify alumni on the channels picked in the form
+      // (in-app + email by default, SMS optional) via the notify-alumni
+      // Edge Function — editing an existing post never re-notifies.
+      const outcome = await addAnnouncement(form, channels);
+      setStatus({ ok: outcome.ok, text: outcome.summary });
     }
+    setSaving(false);
     setForm({ title: '', content: '', category: 'General', targetDept: 'All Alumni' });
     setShowForm(false); setEditTarget(null);
   };
@@ -75,11 +87,18 @@ export default function AnnouncementManagement() {
           <h2 className="text-2xl font-bold text-gray-800">Announcements</h2>
           <p className="text-sm text-gray-500">Post and manage announcements for alumni</p>
         </div>
-        <button onClick={() => { setEditTarget(null); setForm({ title: '', content: '', category: 'General', targetDept: 'All Alumni' }); setShowForm(true); }}
+        <button onClick={() => { setEditTarget(null); setForm({ title: '', content: '', category: 'General', targetDept: 'All Alumni' }); setChannels(DEFAULT_NOTIFY_CHANNELS); setShowForm(true); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
           <Plus className="w-4 h-4" /> New Announcement
         </button>
       </div>
+
+      {status && (
+        <div role="status" className={`rounded-xl border p-3 text-sm flex items-start justify-between gap-3 ${status.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          <span>{status.text}</span>
+          <button onClick={() => setStatus(null)} aria-label="Dismiss"><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 flex-wrap">
         {ANNOUNCEMENT_DEPARTMENTS.map(d => (
@@ -138,11 +157,12 @@ export default function AnnouncementManagement() {
                   </select>
                 </div>
               </div>
+              {!editTarget && <NotifyChannelPicker value={channels} onChange={setChannels} />}
             </div>
             <div className="flex gap-3 px-6 pb-6">
               <button onClick={() => { setShowForm(false); setEditTarget(null); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
-                {editTarget ? 'Save Changes' : 'Post Announcement'}
+              <button onClick={handleSave} disabled={saving || !form.title.trim() || !form.content.trim()} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
+                {saving ? 'Posting…' : editTarget ? 'Save Changes' : 'Post Announcement'}
               </button>
             </div>
           </div>

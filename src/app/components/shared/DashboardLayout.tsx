@@ -1,13 +1,13 @@
 // =====================================================================
 // DASHBOARD LAYOUT — THE SHARED HEADER + SIDEBAR FRAME
-// Every logged-in page (admin/alumni/faculty/representative) renders
+// Every logged-in page (alumni/representative) renders
 // its content INSIDE this component. This is the single file that
 // controls the top header bar, the collapsible sidebar, and the
 // mobile menu for the whole logged-in app.
 //
 // This file itself has no hardcoded color — each dashboard passes its
-// own `accentColor` / `accentGradient` props in (see AdminDashboard.tsx,
-// AlumniDashboard.tsx, UserDashboard.tsx, RepresentativeDashboard.tsx).
+// own `accentColor` / `accentGradient` props in (see AlumniDashboard.tsx,
+// RepresentativeDashboard.tsx; the admin has its own layout in AdminDashboard.tsx).
 // The public marketing site's header lives separately, in LandingPage.tsx.
 // =====================================================================
 
@@ -25,6 +25,7 @@ import { LogOut, Menu, X, Bell, Sun, Moon, User } from 'lucide-react';
 
 // -- Shared components ---------------------------------------------------
 import NotificationPanel from './NotificationPanel';
+import RepOfferPrompt from './RepOfferPrompt';
 
 // -- Local image assets --------------------------------------------------
 // Transparent-background version of the Asian College logo. The wordmark's
@@ -278,6 +279,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
+      {user?.role === 'alumni' && <RepOfferPrompt />}
       <NotificationPanel role={user?.role || ''} department={user?.department} open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   );

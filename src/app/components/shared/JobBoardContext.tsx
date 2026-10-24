@@ -69,7 +69,9 @@ export function JobBoardProvider({ children }: { children: ReactNode }) {
     setJobs((data || []).map(mapRow));
   };
 
-  useEffect(() => { loadJobs(); }, []);
+  // Reload when the signed-in user changes: these tables are protected by row-level
+  // security, so the load that ran at page start (before sign-in) came back empty.
+  useEffect(() => { loadJobs(); }, [user?.id]);
 
   const addJob = async (j: Omit<Job, 'id' | 'postedAt' | 'active'>) => {
     if (!user) return;

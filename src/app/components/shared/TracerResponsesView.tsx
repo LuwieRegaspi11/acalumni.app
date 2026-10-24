@@ -26,10 +26,7 @@ import {
 // Reads the graduate_tracer_responses table (see
 // supabase/graduate_tracer_survey.sql) — filters plus two views (the raw
 // response list, and a per-question breakdown), no CRUD. Shared verbatim
-// between admin/TracerResponses.tsx and faculty/FacultyTracerResponses.tsx
-// — one implementation so a feature added here reaches both roles instead
-// of two copies silently drifting apart. Same split as
-// shared/DonationManagementView.tsx.
+// by admin/TracerResponses.tsx (admin-only).
 //
 // The aggregate "Analytics Report" (employment-outcome charts + Graduate
 // Profile breakdowns) that used to live here as a third view has moved to
@@ -38,17 +35,6 @@ import {
 // alumni roster instead of a separate fetch, so its response-rate framing
 // covers every alumnus Alumni Tracer manages, not just the ones who've
 // submitted. See that file for the moved code.
-//
-// `department` is the ONLY behavioral difference between the two:
-//   - omitted (admin): sees every submitted response, unrestricted.
-//   - set (faculty): every list, stat, and filter below is scoped to just
-//     that department's alumni, and the Department filter is hidden
-//     (nothing to switch between). This is a UI convenience only — the
-//     real boundary is enforced at the database via RLS (see
-//     supabase/faculty_alumni_tracer_scope.sql's "Faculty can view
-//     tracer responses in their department" policy), so a faculty
-//     account can't reach another department's responses even by
-//     bypassing this screen.
 //
 // Only `status = 'submitted'` rows are ever shown here — drafts are
 // incomplete, not real submissions yet.
@@ -179,13 +165,7 @@ const EXPORT_COLUMNS = [
   'Monthly Salary Range', 'Work Location', 'Job Satisfaction (1-5)', 'Would Recommend College', 'Submitted',
 ] as const;
 
-interface Props {
-  // Faculty pass their own department here to lock the whole screen to
-  // it; admin renders this with no department at all.
-  department?: string;
-}
-
-export default function TracerResponsesView({ department }: Props) {
+export default function TracerResponsesView() {
   const [rows, setRows] = useState<ResponseRow[]>([]);
   const [draftCount, setDraftCount] = useState(0);
   const [approvedAlumniCount, setApprovedAlumniCount] = useState(0);
@@ -203,31 +183,22 @@ export default function TracerResponsesView({ department }: Props) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
-  // Which department's program list the Program filter should offer —
-  // faculty always see just their own department's programs.
-  const effectiveDeptForPrograms = department || filterDept;
+  // Which department's program list the Program filter should offer.
+  const effectiveDeptForPrograms = filterDept;
 
   const load = async () => {
     setLoading(true);
-    // `!inner` on the respondent embed lets PostgREST accept a filter on
-    // an embedded column (respondent.department) — same technique the
-    // old faculty tracer view used against the legacy survey table.
-    // RLS (graduate_tracer_responses' faculty SELECT policy) already
-    // scopes this independently; the explicit filter here just keeps
-    // the query itself honest about what it's asking for.
-    let query = supabase
+    const query = supabase
       .from('graduate_tracer_responses')
-      .select(`*, respondent:profiles${department ? '!inner' : ''}(name, department, program, batch_year)`)
+      .select(`*, respondent:profiles(name, department, program, batch_year)`)
       .eq('status', 'submitted');
-    if (department) query = query.eq('respondent.department', department);
 
     // The mandatory tracer gate covers both alumni and batch representatives
     // (App.tsx's TRACER_GATED_ROLES — a rep is an alumnus first), so the
     // response-rate denominator counts both roles too; otherwise a rep's
     // submitted response would inflate the numerator with no matching
     // increase in the denominator.
-    let approvedQuery = supabase.from('profiles').select('*', { count: 'exact', head: true }).in('role', ['alumni', 'representative']).eq('registration_status', 'approved');
-    if (department) approvedQuery = approvedQuery.eq('department', department);
+    const approvedQuery = supabase.from('profiles').select('*', { count: 'exact', head: true }).in('role', ['alumni', 'representative']).eq('registration_status', 'approved');
 
     const [{ data }, { count: drafts }, { count: approved }] = await Promise.all([
       query.order('submitted_at', { ascending: false }),
@@ -240,7 +211,7 @@ export default function TracerResponsesView({ department }: Props) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [department]);
+  useEffect(() => { load(); }, []);
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -254,13 +225,13 @@ export default function TracerResponsesView({ department }: Props) {
   const filtered = useMemo(() => rows.filter(r => {
     const q = search.trim().toLowerCase();
     const matchSearch = !q || r.name.toLowerCase().includes(q);
-    const matchDept = department ? true : (filterDept === 'All' || r.department === filterDept);
+    const matchDept = filterDept === 'All' || r.department === filterDept;
     const matchProgram = filterProgram === 'All' || normalizeProgramCode(r.program) === filterProgram;
     const matchYear = filterYear === 'All' || String(r.batchYear || '') === filterYear;
     const matchEmployment = filterEmployment === 'All' || r.raw.employment_status === filterEmployment;
     const matchLocation = filterLocation === 'All' || r.raw.current_work_location === filterLocation;
     return matchSearch && matchDept && matchProgram && matchYear && matchEmployment && matchLocation;
-  }), [rows, search, filterDept, filterProgram, filterYear, filterEmployment, filterLocation, department]);
+  }), [rows, search, filterDept, filterProgram, filterYear, filterEmployment, filterLocation]);
 
   const clearFilters = () => {
     setSearch(''); setFilterDept('All'); setFilterProgram('All');
@@ -293,14 +264,14 @@ export default function TracerResponsesView({ department }: Props) {
       Submitted: r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '',
     }));
     const timestamp = new Date().toISOString().slice(0, 10);
-    const generatedAt = `Generated ${new Date().toLocaleString()} • ${exportRows.length} response${exportRows.length === 1 ? '' : 's'}${department ? ` • ${department}` : ''}`;
+    const generatedAt = `Generated ${new Date().toLocaleString()} • ${exportRows.length} response${exportRows.length === 1 ? '' : 's'}`;
 
     const download = (content: BlobPart, mimeType: string, extension: string) => {
       const blob = new Blob([content], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `tracer-responses-${department ? `${department}-` : ''}${timestamp}.${extension}`;
+      link.download = `tracer-responses-${timestamp}.${extension}`;
       link.click();
       URL.revokeObjectURL(url);
     };
@@ -346,9 +317,7 @@ export default function TracerResponsesView({ department }: Props) {
         <div>
           <h2 className="text-2xl mb-1">Tracer Responses</h2>
           <p className="text-gray-600">
-            {department
-              ? <>Submitted Graduate Tracer Survey responses for <strong>{department}</strong></>
-              : 'Submitted Graduate Tracer Survey responses, question by question'}
+            Submitted Graduate Tracer Survey responses, question by question
           </p>
         </div>
         <div className="relative" ref={exportMenuRef}>
@@ -369,15 +338,6 @@ export default function TracerResponsesView({ department }: Props) {
           )}
         </div>
       </div>
-
-      {department && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-          <span className="text-amber-600">🔒</span>
-          <p className="text-xs text-amber-700 font-medium">
-            You can only view tracer responses for <strong>{department}</strong>. Other departments are out of reach — enforced by database policy, not just this screen.
-          </p>
-        </div>
-      )}
 
       {/* Stats strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -452,7 +412,7 @@ export default function TracerResponsesView({ department }: Props) {
           </div>
           {showFilters && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {!department && (
+              {(
                 <FormControl size="small" fullWidth>
                   <InputLabel>Department</InputLabel>
                   <Select label="Department" value={filterDept}

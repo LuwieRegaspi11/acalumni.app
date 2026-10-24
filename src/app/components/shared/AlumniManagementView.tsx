@@ -1,5 +1,5 @@
-import { useId, useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Filter, Download, ChevronDown, Users, BarChart3, ListChecks } from 'lucide-react';
+import { Fragment, useId, useState, useEffect, useMemo, useRef } from 'react';
+import { Search, Filter, Download, ChevronDown, Users, BarChart3, ListChecks, Mail, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -22,35 +22,21 @@ import {
 import {
   JOB_RELATED_OPTIONS, TIME_TO_FIRST_JOB_OPTIONS,
 } from '../../../lib/graduateTracerSurveyOptions';
+import { isFullRealName } from '../../../lib/realName';
 import { useDarkMode } from './DarkModeContext';
 import AlumniRoster from '../admin/AlumniRoster';
+import ContactAlumniDialog from './ContactAlumniDialog';
 
 // ================= [SHARED: ALUMNIMANAGEMENTVIEW] =================
-// The full Alumni Tracer screen (labeled "Alumni Tracer" in both the admin
-// and faculty nav — this file/component name is the one holdover from its
-// old "Alumni Management" name), search/filter, export, and each alumnus's
-// Graduate Profile columns, shared verbatim between the admin page
-// (admin/AlumniManagement.tsx) and the faculty page
-// (faculty/FacultyAlumniManagement.tsx) — one implementation so a feature
-// added here reaches both roles instead of two copies silently drifting
-// apart. Mirrors the split already used for Donation Management — see
-// shared/DonationManagementView.tsx's header comment for the same
-// rationale. Read-only from here — no verifying, no donation modal, no
-// per-row edit action — since an alumnus's own record (including the
-// Graduate Profile columns below) is only ever editable by that alumnus,
-// from their own Profile page.
-//
-
-// `department` is the ONLY behavioral difference between the two:
-//   - omitted (admin): sees every department's alumni, unrestricted.
-//   - set (faculty): every list, stat, and filter below is scoped to
-//     just that department, and the Department filter/column is hidden
-//     (nothing to switch between). This is a UI convenience only — the
-//     real boundary is enforced at the database via RLS (see
-//     supabase/faculty_alumni_tracer_scope.sql, and the pre-existing
-//     "Faculty can view alumni in their department" policy), so a
-//     faculty account can't reach another department's alumni even by
-//     bypassing this screen.
+// The full Alumni Tracer screen (labeled "Alumni Tracer" in the admin nav —
+// this file/component name is the one holdover from its old "Alumni
+// Management" name): search, filter by department / program / batch year,
+// group by batch and/or program, "Contact batch" (one message to a whole
+// group over in-app / email / SMS), export, and each alumnus's Graduate
+// Profile columns. Rendered by admin/AlumniManagement.tsx. Read-only for the
+// records themselves — an alumnus's own record (including the Graduate
+// Profile columns below) is only ever editable by that alumnus, from their
+// own Profile page. Admin-only.
 
 // Graduate Profile fields, rendered as their own columns on the Alumni
 // Management table below so every alumnus's self-reported profile is
@@ -100,7 +86,7 @@ function fmtTracerValue(v: any): string {
 
 // ---- Analytics Report ----
 // Moved here from shared/TracerResponsesView.tsx (previously the
-// "Analytics Report" view under admin/faculty Tracer Responses) so it
+// "Analytics Report" view under admin Tracer Responses) so it
 // runs off Alumni Tracer's own already-loaded roster instead of a
 // separate fetch — every chart below reflects the exact same alumni (and
 // the same search/filters) as the table on the "Alumni Records" tab.
@@ -186,6 +172,14 @@ const normalizeProgram = normalizeProgramCode;
 
 const BATCH_YEARS = getBatchYearOptions().map(String);
 
+type GroupBy = 'none' | 'batch' | 'program' | 'batchProgram';
+const GROUP_BY_OPTIONS: { id: GroupBy; label: string }[] = [
+  { id: 'none', label: 'No grouping' },
+  { id: 'batch', label: 'Batch year' },
+  { id: 'program', label: 'Program' },
+  { id: 'batchProgram', label: 'Batch year + Program' },
+];
+
 interface AlumniRow {
   id: string;
   name: string;
@@ -232,6 +226,14 @@ function lastNameOf(fullName: string): string {
   return parts.length ? parts[parts.length - 1] : '';
 }
 
+// A record is incomplete when it lacks any of the three required fields: a
+// full real name, a course/program, or a batch (graduation) year. Legacy rows
+// created before those became mandatory (see supabase/alumni_required_fields.sql)
+// can show up here until someone fills them in.
+function isIncomplete(a: AlumniRow): boolean {
+  return !isFullRealName(a.name) || !a.program || a.program === '—' || !a.batchYear;
+}
+
 function mapRow(p: any): AlumniRow {
   return {
     id: p.id,
@@ -246,13 +248,7 @@ function mapRow(p: any): AlumniRow {
   };
 }
 
-interface Props {
-  // Faculty pass their own department here to lock the whole screen to
-  // it; admin renders this with no department at all.
-  department?: string;
-}
-
-export default function AlumniManagementView({ department }: Props) {
+export default function AlumniManagementView() {
   const { dark } = useDarkMode();
   const filterId = useId(); // ties each filter <label> to its <select> — see per-field ids below
   const [alumni, setAlumni] = useState<AlumniRow[]>([]);
@@ -265,6 +261,9 @@ export default function AlumniManagementView({ department }: Props) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<'records' | 'analytics' | 'roster'>('records');
+  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [onlyIncomplete, setOnlyIncomplete] = useState(false);
+  const [contactTarget, setContactTarget] = useState<{ label: string; ids: string[] } | null>(null);
 
   // Analytics Report's own Department filter — kept entirely separate from
   // the Alumni Records filter above (filterDept etc.) so narrowing the
@@ -281,8 +280,7 @@ export default function AlumniManagementView({ department }: Props) {
     // (and Rejected) are handled on their own screen. Without this filter
     // an account still awaiting approval (or turned down) would already
     // show up in this list before the admin ever acted on it.
-    let query = supabase.from('profiles').select('*').eq('role', 'alumni').eq('registration_status', 'approved');
-    if (department) query = query.eq('department', department);
+    const query = supabase.from('profiles').select('*').eq('role', 'alumni').eq('registration_status', 'approved');
     const { data } = await query.order('created_at', { ascending: false });
     const rows = (data || []).map(mapRow);
 
@@ -306,7 +304,7 @@ export default function AlumniManagementView({ department }: Props) {
     setLoading(false);
   };
 
-  useEffect(() => { loadAlumni(); }, [department]);
+  useEffect(() => { loadAlumni(); }, []);
 
   useEffect(() => {
     if (!exportOpen) return;
@@ -326,34 +324,53 @@ export default function AlumniManagementView({ department }: Props) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [showAnalyticsFilters]);
 
-  // Which department's program list the Program filter/editor should
-  // offer — faculty always see just their own department's programs;
-  // admin sees whatever department is currently picked in the filter
-  // (or every program, until one is).
-  const effectiveDeptForPrograms = department || filterDept;
+  // Which department's program list the Program filter should offer: the
+  // department currently picked in the filter (or every program, until one is).
+  const effectiveDeptForPrograms = filterDept;
 
   const filtered = alumni.filter(a => {
     const q = search.toLowerCase();
     const matchSearch = !q || a.name.toLowerCase().includes(q) || a.email.includes(q);
-    const matchDept = department ? true : (filterDept === 'All' || a.department === filterDept);
+    const matchDept = filterDept === 'All' || a.department === filterDept;
     const matchProgram = filterProgram === 'All' || normalizeProgram(a.program) === filterProgram;
     const matchYear = filterYear === 'All' || a.batchYear.toString() === filterYear;
-    return matchSearch && matchDept && matchProgram && matchYear;
+    const matchComplete = !onlyIncomplete || isIncomplete(a);
+    return matchSearch && matchDept && matchProgram && matchYear && matchComplete;
   }).sort((a, b) => lastNameOf(a.name).localeCompare(lastNameOf(b.name)) || a.name.localeCompare(b.name));
+
+  // Batch-year / program grouping for the Alumni Records table. Each group
+  // keeps its own member ids so "Contact batch" can message exactly that
+  // group. Batches sort newest-first, programs A–Z; alumni with no batch
+  // year / program land in a "No batch year" / "No program" group last.
+  const groups = (() => {
+    if (groupBy === 'none') return [{ key: 'all', label: '', batchYear: 0, program: '', rows: filtered }];
+    const map = new Map<string, { key: string; label: string; batchYear: number; program: string; rows: AlumniRow[] }>();
+    filtered.forEach(a => {
+      const batchYear = groupBy === 'program' ? 0 : a.batchYear;
+      const program = groupBy === 'batch' ? '' : (a.program && a.program !== '—' ? normalizeProgram(a.program) : '');
+      const batchLabel = groupBy === 'program' ? '' : (batchYear ? `Batch ${batchYear}` : 'No batch year');
+      const programLabel = groupBy === 'batch' ? '' : (program || 'No program');
+      const label = [batchLabel, programLabel].filter(Boolean).join(' · ');
+      const key = `${batchYear}|${program}`;
+      if (!map.has(key)) map.set(key, { key, label, batchYear, program, rows: [] });
+      map.get(key)!.rows.push(a);
+    });
+    return Array.from(map.values()).sort((x, y) =>
+      (y.batchYear || -1) - (x.batchYear || -1) || (x.program || '￿').localeCompare(y.program || '￿'));
+  })();
 
   // Analytics Report's own filter — just Department (see analyticsFilterDept
   // above), independent of the Alumni Records tab's filter.
   const analyticsFiltered = alumni.filter(a => {
-    return department ? true : (analyticsFilterDept === 'All' || a.department === analyticsFilterDept);
+    return analyticsFilterDept === 'All' || a.department === analyticsFilterDept;
   });
 
-  // Whenever the report ends up scoped to exactly one department — either
-  // the whole screen is department-locked (faculty) or an admin picked one
-  // in the Analytics Report's own Department filter — the "College
+  // Whenever the report ends up scoped to exactly one department (the admin
+  // picked one in the Analytics Report's own Department filter) the "College
   // Department" pie chart below would just be a single 100% slice, so it's
   // hidden instead of shown as a redundant chart (see analyticsSingleDept
   // usage further down).
-  const analyticsSingleDept = department || (analyticsFilterDept !== 'All' ? analyticsFilterDept : null);
+  const analyticsSingleDept = (analyticsFilterDept !== 'All' ? analyticsFilterDept : null);
 
   // Analytics Report data — all derived from `analyticsFiltered` (its own
   // filter, independent of the "Alumni Records" tab's), then narrowed to
@@ -467,14 +484,14 @@ export default function AlumniManagementView({ department }: Props) {
       'Record State': a.active ? 'Active' : 'Archived',
     }));
     const timestamp = new Date().toISOString().slice(0, 10);
-    const generatedAt = `Generated ${new Date().toLocaleString()} • ${rows.length} alumni${department ? ` • ${department}` : ''}`;
+    const generatedAt = `Generated ${new Date().toLocaleString()} • ${rows.length} alumni`;
 
     const download = (content: BlobPart, mimeType: string, extension: string) => {
       const blob = new Blob([content], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `alumni-tracer-${department ? `${department}-` : ''}${timestamp}.${extension}`;
+      link.download = `alumni-tracer-${timestamp}.${extension}`;
       link.click();
       URL.revokeObjectURL(url);
     };
@@ -519,11 +536,14 @@ export default function AlumniManagementView({ department }: Props) {
     }
   };
 
+  const hasActiveFilter = !!search || filterDept !== 'All' || filterProgram !== 'All' || filterYear !== 'All' || onlyIncomplete;
+  const incompleteCount = alumni.filter(isIncomplete).length;
+
   const filterFields = [
-    ...(department ? [] : [{
+    {
       label: 'Department', value: filterDept, opts: DEPARTMENTS,
       onChange: (v: string) => { setFilterDept(v); setFilterProgram('All'); },
-    }]),
+    },
     {
       label: 'Program', value: filterProgram,
       opts: ['All', ...(effectiveDeptForPrograms === 'All' ? ALL_PROGRAMS : (PROGRAMS_BY_DEPT[effectiveDeptForPrograms as keyof typeof PROGRAMS_BY_DEPT] || []).map(p => p.code))],
@@ -538,12 +558,19 @@ export default function AlumniManagementView({ department }: Props) {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Alumni Tracer</h2>
           <p className="text-sm text-gray-500">
-            {department
-              ? <>Track <strong>{department}</strong> department alumni records</>
-              : 'Track all registered alumni records'}
+            Track all registered alumni records
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {view === 'records' && (
+            <button
+              onClick={() => setContactTarget({ label: groupBy === 'none' && !hasActiveFilter ? 'All alumni' : 'Current filter', ids: filtered.map(a => a.id) })}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
+              <Mail className="w-4 h-4" /> Contact {filtered.length} {filtered.length === 1 ? 'alumnus' : 'alumni'}
+            </button>
+          )}
           {view === 'records' && (
             <div className="relative" ref={exportMenuRef}>
               <button onClick={() => setExportOpen(o => !o)}
@@ -566,23 +593,11 @@ export default function AlumniManagementView({ department }: Props) {
         </div>
       </div>
 
-      {department && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-          <span className="text-amber-600">🔒</span>
-          <p className="text-xs text-amber-700 font-medium">
-            You can only see alumni for <strong>{department}</strong>. Other departments are out of reach — enforced by database policy, not just this screen.
-          </p>
-        </div>
-      )}
-
       {/* Tab switcher — Alumni Records (the roster table) vs. Analytics
           Report (charts, moved here from Tracer Responses so they run off
           this same roster/filters instead of a separate fetch), plus a
           third, admin-only "Alumni Roster" tab for the registrar
-          match-source importer (admin/AlumniRoster.tsx) — hidden for
-          faculty (department set) since that CSV import is a global,
-          cross-department operation and its `alumni_roster` table has no
-          department column to scope by. */}
+          match-source importer (admin/AlumniRoster.tsx). */}
       <div className="flex gap-2">
         <button onClick={() => setView('records')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'records' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
@@ -594,7 +609,7 @@ export default function AlumniManagementView({ department }: Props) {
           style={view === 'analytics' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
           <BarChart3 className="w-4 h-4" /> Analytics Report
         </button>
-        {!department && (
+        {(
           <button onClick={() => setView('roster')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'roster' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
             style={view === 'roster' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>
@@ -606,12 +621,19 @@ export default function AlumniManagementView({ department }: Props) {
       {view === 'records' && (
       <>
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-        <div className="flex gap-3">
-          <div className="relative flex-1">
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
               aria-label="Search by name or email"
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor={`${filterId}-groupBy`} className="text-xs font-semibold text-gray-500 whitespace-nowrap">Group by</label>
+            <select id={`${filterId}-groupBy`} value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}
+              className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-400">
+              {GROUP_BY_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
           </div>
           <button onClick={() => setShowFilters(f => !f)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">
@@ -629,6 +651,11 @@ export default function AlumniManagementView({ department }: Props) {
                 </select>
               </div>
             ))}
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer sm:col-span-2 md:col-span-4">
+              <input type="checkbox" checked={onlyIncomplete} onChange={e => setOnlyIncomplete(e.target.checked)} className="w-4 h-4 flex-shrink-0 accent-blue-700" />
+              Only incomplete records (missing full name, program or batch year)
+              <span className="text-xs text-gray-400">· {incompleteCount} in total</span>
+            </label>
           </div>
         )}
       </div>
@@ -654,6 +681,8 @@ export default function AlumniManagementView({ department }: Props) {
                     rest of the sticky header row (z-20) and the frozen
                     body column beneath it (z-10) at their overlap. */}
                 <th className="sticky top-0 left-0 z-30 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-gray-50 border-b border-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">Name</th>
+                <th className="sticky top-0 z-20 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-gray-50 border-b border-gray-100">Program</th>
+                <th className="sticky top-0 z-20 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-gray-50 border-b border-gray-100">Batch Year</th>
                 {GRADUATE_PROFILE_FIELDS.map(f => (
                   <th key={f.key} className="sticky top-0 z-20 px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-left bg-gray-50 border-b border-gray-100">{f.label}</th>
                 ))}
@@ -667,16 +696,43 @@ export default function AlumniManagementView({ department }: Props) {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={1 + GRADUATE_PROFILE_FIELDS.length + JOB_INFO_FIELDS.length} className="px-4 py-8 text-center text-sm text-gray-400">
+                <tr><td colSpan={3 + GRADUATE_PROFILE_FIELDS.length + JOB_INFO_FIELDS.length} className="px-4 py-8 text-center text-sm text-gray-400">
                   No alumni registered yet.
                 </td></tr>
               )}
-              {filtered.map(a => (
+              {groups.map(g => (
+              <Fragment key={g.key}>
+              {groupBy !== 'none' && (
+                <tr className="bg-blue-50/70">
+                  <td colSpan={3 + GRADUATE_PROFILE_FIELDS.length + JOB_INFO_FIELDS.length} className="px-4 py-2 border-y border-blue-100">
+                    <div className="sticky left-0 inline-flex items-center gap-3 max-w-[calc(100vw-6rem)]">
+                      <span className="text-sm font-bold text-blue-900">{g.label}</span>
+                      <span className="text-xs text-blue-700">{g.rows.length} {g.rows.length === 1 ? 'alumnus' : 'alumni'}</span>
+                      <button
+                        onClick={() => setContactTarget({ label: g.label, ids: g.rows.map(r => r.id) })}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg text-white"
+                        style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
+                        <Mail className="w-3 h-3" /> Contact batch
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {g.rows.map(a => (
                 <tr key={a.id} className="group hover:bg-gray-50 transition-colors">
                   <td className="sticky left-0 z-10 px-4 py-3 bg-white group-hover:bg-gray-50 transition-colors shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
-                    <div className="font-semibold text-gray-800">{formatDisplayName(a.name)}</div>
+                    <div className="font-semibold text-gray-800 flex items-center gap-1.5">
+                      {formatDisplayName(a.name)}
+                      {isIncomplete(a) && (
+                        <span title="Missing a full real name, program or batch year" className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                          <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Incomplete
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-gray-400">{a.email}</div>
                   </td>
+                  <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{a.program}</td>
+                  <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{a.batchYear || '—'}</td>
                   {/* Graduate Profile columns — from the alumnus's own submitted
                       Graduate Tracer Survey response, merged in by loadAlumni.
                       '—' for anyone who hasn't submitted one yet. */}
@@ -706,12 +762,21 @@ export default function AlumniManagementView({ department }: Props) {
                   ))}
                 </tr>
               ))}
+              </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
       </>
       )}
+
+      <ContactAlumniDialog
+        open={!!contactTarget}
+        onClose={() => setContactTarget(null)}
+        audienceLabel={contactTarget?.label || ''}
+        recipientIds={contactTarget?.ids || []}
+      />
 
       {view === 'analytics' && (
         <div className="space-y-4">
@@ -734,7 +799,7 @@ export default function AlumniManagementView({ department }: Props) {
                 the Response Rate card — separate from the Alumni Records
                 tab's filter above, so narrowing one doesn't narrow the
                 other. Just Department (see analyticsFilterDept above). */}
-            {!department && (
+            {(
               <div className="relative shrink-0" ref={analyticsFilterMenuRef}>
                 <button onClick={() => setShowAnalyticsFilters(f => !f)}
                   className="flex items-center gap-2 px-4 py-2 h-full rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 bg-white">
@@ -776,8 +841,7 @@ export default function AlumniManagementView({ department }: Props) {
                   </CardContent></Card>
 
                   {analyticsSingleDept ? (
-                    // Already scoped to one department (faculty lock, or the
-                    // Department filter above) — a "College Department" pie
+                    // Already scoped to one department (the Department filter above) — a "College Department" pie
                     // chart would just be a single 100% slice, so skip it
                     // and let Program Graduated take the full width instead.
                     <Card><CardContent>
@@ -967,7 +1031,7 @@ export default function AlumniManagementView({ department }: Props) {
         </div>
       )}
 
-      {view === 'roster' && !department && <AlumniRoster />}
+      {view === 'roster' && <AlumniRoster />}
 
     </div>
   );

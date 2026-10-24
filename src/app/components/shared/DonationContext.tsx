@@ -10,6 +10,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import { uploadCampaignImage, removeCampaignImages, campaignPhotoUrl, type CampaignMediaChanges } from '../../../lib/campaignMedia';
 
 export interface DonationRecord {
   id: string;
@@ -27,6 +28,17 @@ export interface DonationRecord {
   verifiedAt?: string;
   verifiedBy?: string;
   rejectionReason?: string;
+  // The donor's consent choice: false = "Show my name", true = "Anonymous".
+  // Public screens never get an anonymous donor's name (see supabase/donations_transparency.sql).
+  isAnonymous: boolean;
+}
+
+// One photo in a campaign/project's gallery (shows where the money goes).
+export interface CampaignPhoto {
+  id: string;
+  storagePath: string;
+  url: string;     // public URL in the campaign-photos bucket
+  caption: string;
 }
 
 export interface Campaign {
@@ -38,10 +50,22 @@ export interface Campaign {
   department: string;
   active: boolean;
   // Three distinct, non-overlapping date fields — never conflate these:
+  location?: string; // Where the project/event happens. Purely informational.
   eventStartDate?: string; // Date the real-world event/campaign starts. Purely informational, shown to donors. Does NOT affect status.
   postedDate: string; // Auto-set when the row was created. Read-only, display-only — never used in status logic.
   releaseDate?: string; // ISO timestamp, admin-set. ALONE controls Scheduled -> Active (release_date <= now => Active; future => Scheduled). Never nulled once set — kept as a permanent "released on" record.
   endedAt?: string; // ISO timestamp — set only via endCampaign(); distinguishes an explicitly-ended campaign from one still running.
+  coverImageUrl?: string; // public URL of the campaign/project cover photo
+  photos: CampaignPhoto[]; // project photo gallery, in display order
+}
+
+// What the admin types into the New/Edit Campaign form; cover + gallery
+// uploads travel separately as CampaignMediaChanges.
+export type CampaignInput = Omit<Campaign, 'id' | 'current' | 'postedDate' | 'photos' | 'coverImageUrl'>;
+
+// A campaign that has reached its goal.
+export function isCampaignFunded(c: Campaign): boolean {
+  return c.target > 0 && c.current >= c.target;
 }
 
 // Turns a campaign's `eventStartDate` (YYYY-MM-DD) into a human status
@@ -116,11 +140,13 @@ interface DonationCtx {
   submitDonation: (
     d: Omit<DonationRecord, 'id' | 'status' | 'submittedAt' | 'proofUrl' | 'donorId'>,
     proofFile?: File | null
-  ) => Promise<void>;
+  ) => Promise<string | null>; // resolves with the new donation's id (null if it could not be saved)
+  // A donor changing their "Show my name" / "Anonymous" choice after the fact.
+  setDonationAnonymity: (id: string, anonymous: boolean) => Promise<boolean>;
   verifyDonation: (id: string, verifiedBy: string) => Promise<void>;
   rejectDonation: (id: string, reason: string, verifiedBy: string) => Promise<void>;
-  addCampaign: (c: Omit<Campaign, 'id' | 'current' | 'postedDate'>) => Promise<void>;
-  updateCampaign: (id: string, c: Omit<Campaign, 'id' | 'current' | 'postedDate'>) => Promise<void>;
+  addCampaign: (c: CampaignInput, media?: CampaignMediaChanges) => Promise<void>;
+  updateCampaign: (id: string, c: CampaignInput, media?: CampaignMediaChanges) => Promise<void>;
   releaseCampaignNow: (id: string) => Promise<void>;
   endCampaign: (id: string) => Promise<void>;
   deleteCampaign: (id: string) => Promise<void>;
@@ -136,7 +162,7 @@ interface DonationCtx {
 
 const Ctx = createContext<DonationCtx>({
   donations: [], campaigns: [], expenses: [], paymentDestinations: [],
-  submitDonation: async () => {}, verifyDonation: async () => {},
+  submitDonation: async () => null, setDonationAnonymity: async () => false, verifyDonation: async () => {},
   rejectDonation: async () => {}, addCampaign: async () => {},
   updateCampaign: async () => {}, releaseCampaignNow: async () => {},
   endCampaign: async () => {},
@@ -181,6 +207,15 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     if (!data) return;
     // "current" = sum of verified donations for this campaign
     const { data: totals } = await supabase.from('donations').select('campaign_id, amount').eq('status', 'verified');
+    // Gallery rows (campaign_photos). Missing table/RLS denial just means no photos.
+    const { data: photoRows } = await supabase.from('campaign_photos').select('id, campaign_id, storage_path, caption')
+      .order('sort_order', { ascending: true }).order('created_at', { ascending: true });
+    const photosByCampaign: Record<string, CampaignPhoto[]> = {};
+    (photoRows || []).forEach((p: any) => {
+      (photosByCampaign[p.campaign_id] ||= []).push({
+        id: p.id, storagePath: p.storage_path, url: campaignPhotoUrl(p.storage_path), caption: p.caption || '',
+      });
+    });
     const sums: Record<string, number> = {};
     (totals || []).forEach(t => { if (t.campaign_id) sums[t.campaign_id] = (sums[t.campaign_id] || 0) + Number(t.amount); });
     setCampaigns(data.map((c: any) => ({
@@ -188,9 +223,12 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       target: Number(c.goal_amount) || 0, current: sums[c.id] || 0,
       department: c.department || 'All', active: c.active,
       eventStartDate: c.event_start_date || undefined,
+      location: c.location || undefined,
       postedDate: c.posted_date,
       releaseDate: c.release_date || undefined,
       endedAt: c.ended_at || undefined,
+      coverImageUrl: c.cover_image_url || undefined,
+      photos: photosByCampaign[c.id] || [],
     })));
   };
 
@@ -216,6 +254,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       verifiedAt: d.verified_at || undefined,
       verifiedBy: d.verified_by || undefined,
       rejectionReason: d.rejection_reason || undefined,
+      isAnonymous: !!d.is_anonymous,
     })));
   };
 
@@ -229,7 +268,9 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     })));
   };
 
-  useEffect(() => { loadCampaigns(); loadDonations(); loadExpenses(); loadPaymentDestinations(); }, []);
+  // Reload when the signed-in user changes: these tables are protected by row-level
+  // security, so the load that ran at page start (before sign-in) came back empty.
+  useEffect(() => { loadCampaigns(); loadDonations(); loadExpenses(); loadPaymentDestinations(); }, [user?.id]);
 
   // Uploads a proof-of-payment (or expense receipt) file into the
   // uploader's own folder in the private bucket and returns the storage
@@ -266,8 +307,8 @@ export function DonationProvider({ children }: { children: ReactNode }) {
   const submitDonation = async (
     d: Omit<DonationRecord, 'id' | 'status' | 'submittedAt' | 'proofUrl' | 'donorId'>,
     proofFile?: File | null
-  ) => {
-    if (!user) return;
+  ): Promise<string | null> => {
+    if (!user) return null;
     const campaign = campaigns.find(c => c.name === d.campaign);
 
     let proofPath: string | null = null;
@@ -275,17 +316,27 @@ export function DonationProvider({ children }: { children: ReactNode }) {
       proofPath = await uploadProof(proofFile);
     }
 
-    await supabase.from('donations').insert({
+    const { data: inserted, error } = await supabase.from('donations').insert({
       donor_id: user.id,
       campaign_id: campaign?.id,
       amount: roundMoney(d.amount),
       type: d.type,
       description: d.description || null,
       proof_url: proofPath,
+      is_anonymous: !!d.isAnonymous,
       status: 'pending',
-    });
+    }).select('id').single();
+    if (error) console.error('[donations] submit failed', error);
     await loadDonations();
     await loadCampaigns();
+    return inserted?.id ?? null;
+  };
+
+  const setDonationAnonymity = async (id: string, anonymous: boolean): Promise<boolean> => {
+    const { error } = await supabase.rpc('set_donation_anonymity', { p_donation_id: id, p_anonymous: anonymous });
+    if (error) { console.error('[donations] set_donation_anonymity failed', error); return false; }
+    await loadDonations();
+    return true;
   };
 
   const verifyDonation = async (id: string, verifiedBy: string) => {
@@ -313,19 +364,67 @@ export function DonationProvider({ children }: { children: ReactNode }) {
   // Now" rather than "Schedule" — it's stamped to "now" so the field is
   // always populated (never nulled) and there's always a real "Releases
   // On" value to show, instead of falling back to the raw `active` flag.
-  const addCampaign = async (c: Omit<Campaign, 'id' | 'current' | 'postedDate'>) => {
+  // Cover + gallery changes for one campaign: uploads new files to the
+  // campaign-photos bucket, inserts/deletes campaign_photos rows, and keeps
+  // donation_campaigns.cover_image_url in step. Photo problems are logged
+  // but never undo the campaign save itself.
+  const applyCampaignMedia = async (campaignId: string, media: CampaignMediaChanges | undefined, existing?: Campaign) => {
+    if (!media) return;
+    try {
+      const pathsToDelete: string[] = [];
+      if (media.removeCover || media.coverFile) {
+        const oldCover = existing?.coverImageUrl;
+        if (oldCover) {
+          const marker = '/campaign-photos/';
+          const idx = oldCover.indexOf(marker);
+          if (idx >= 0) pathsToDelete.push(decodeURIComponent(oldCover.slice(idx + marker.length).split('?')[0]));
+        }
+        if (media.coverFile) {
+          const path = await uploadCampaignImage(campaignId, media.coverFile);
+          await supabase.from('donation_campaigns').update({ cover_image_url: campaignPhotoUrl(path) }).eq('id', campaignId);
+        } else {
+          await supabase.from('donation_campaigns').update({ cover_image_url: null }).eq('id', campaignId);
+        }
+      }
+      if (media.removePhotoIds.length > 0) {
+        const doomed = (existing?.photos || []).filter(p => media.removePhotoIds.includes(p.id));
+        await supabase.from('campaign_photos').delete().in('id', media.removePhotoIds);
+        pathsToDelete.push(...doomed.map(p => p.storagePath));
+      }
+      if (media.newPhotos.length > 0) {
+        const baseOrder = (existing?.photos.length || 0);
+        const rows: { campaign_id: string; storage_path: string; caption: string | null; sort_order: number }[] = [];
+        for (let i = 0; i < media.newPhotos.length; i++) {
+          const { file, caption } = media.newPhotos[i];
+          const path = await uploadCampaignImage(campaignId, file);
+          rows.push({ campaign_id: campaignId, storage_path: path, caption: caption.trim() || null, sort_order: baseOrder + i });
+        }
+        const { error } = await supabase.from('campaign_photos').insert(rows);
+        if (error) console.error('[donations] gallery insert failed', error);
+      }
+      await removeCampaignImages(pathsToDelete);
+    } catch (err) {
+      console.error('[donations] campaign photo update failed', err);
+    }
+  };
+
+  const addCampaign = async (c: CampaignInput, media?: CampaignMediaChanges) => {
     const releaseDate = c.releaseDate || new Date().toISOString();
     const isFutureRelease = new Date(releaseDate).getTime() > Date.now();
-    await supabase.from('donation_campaigns').insert({
+    const { data: inserted } = await supabase.from('donation_campaigns').insert({
       name: c.name, description: c.description, goal_amount: roundMoney(c.target),
       department: c.department, event_start_date: c.eventStartDate || null,
+      // Only sent when set, so saving a campaign keeps working even before
+      // supabase/campaign_location.sql has added the column.
+      ...(c.location?.trim() ? { location: c.location.trim() } : {}),
       active: !isFutureRelease,
       release_date: releaseDate,
-    });
+    }).select('id').single();
+    if (inserted?.id) await applyCampaignMedia(inserted.id, media);
     await loadCampaigns();
   };
 
-  const updateCampaign = async (id: string, c: Omit<Campaign, 'id' | 'current' | 'postedDate'>) => {
+  const updateCampaign = async (id: string, c: CampaignInput, media?: CampaignMediaChanges) => {
     const releaseDate = c.releaseDate || new Date().toISOString();
     const isFutureRelease = new Date(releaseDate).getTime() > Date.now();
     // An explicit end always wins — editing other fields on an ended
@@ -334,9 +433,11 @@ export function DonationProvider({ children }: { children: ReactNode }) {
     await supabase.from('donation_campaigns').update({
       name: c.name, description: c.description, goal_amount: roundMoney(c.target),
       department: c.department, event_start_date: c.eventStartDate || null,
+      ...((c.location?.trim() || campaigns.find(x => x.id === id)?.location) ? { location: c.location?.trim() || null } : {}),
       active: c.endedAt ? false : !isFutureRelease,
       release_date: releaseDate,
     }).eq('id', id);
+    await applyCampaignMedia(id, media, campaigns.find(x => x.id === id));
     await loadCampaigns();
   };
 
@@ -456,7 +557,7 @@ export function DonationProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      donations, campaigns, expenses, paymentDestinations, submitDonation, verifyDonation, rejectDonation,
+      donations, campaigns, expenses, paymentDestinations, submitDonation, setDonationAnonymity, verifyDonation, rejectDonation,
       addCampaign, updateCampaign, releaseCampaignNow, endCampaign, deleteCampaign, deleteDonation, addExpense, deleteExpense, getProofUrl,
       addPaymentDestination, updatePaymentDestination, deletePaymentDestination, movePaymentDestination,
     }}>

@@ -2,8 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { useEvents } from './EventsContext';
-import { useDepartmentStats } from './useDepartmentStats';
-import { DollarSign, Calendar, Megaphone, Briefcase, Users, FileText, ClipboardList, Clock, Shield } from 'lucide-react';
+import { DollarSign, Calendar, Megaphone, Briefcase, Users, Clock, Shield } from 'lucide-react';
 
 interface QuickLink { label: string; desc: string; icon: React.ReactNode; path: string; color: string; }
 
@@ -60,38 +59,6 @@ function QuickLinkGrid({ links, basePath }: { links: QuickLink[]; basePath: stri
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-/* ── FACULTY DASHBOARD HOME ── */
-export function FacultyDashboardHome() {
-  const { user } = useAuth();
-  const { deptAlumni, pendingDonations, upcomingEvents } = useDepartmentStats(user?.department);
-
-  const links: QuickLink[] = [
-    { label: 'Alumni Tracer', desc: 'Track department alumni records', icon: <Users className="w-5 h-5" />, path: 'alumni', color: '#2B5BA8' },
-    { label: 'Tracer Surveys', desc: 'Create & deploy department surveys', icon: <FileText className="w-5 h-5" />, path: 'surveys', color: '#7c3aed' },
-    { label: 'Tracer Responses', desc: 'View responses & analytics', icon: <ClipboardList className="w-5 h-5" />, path: 'tracer-responses', color: '#0891b2' },
-    { label: 'Donation Center', desc: 'Monitor & verify donations', icon: <DollarSign className="w-5 h-5" />, path: 'donations', color: '#059669' },
-    { label: 'Event Calendar', desc: 'Schedule department events', icon: <Calendar className="w-5 h-5" />, path: 'calendar', color: '#0891b2' },
-    { label: 'Announcements', desc: 'Post department updates', icon: <Megaphone className="w-5 h-5" />, path: 'announcements', color: '#d97706' },
-    { label: 'Job Board', desc: 'Post and manage job listings', icon: <Briefcase className="w-5 h-5" />, path: 'jobs', color: '#dc2626' },
-  ];
-
-  return (
-    <div className="space-y-6 w-full">
-      <DashboardBanner
-        title={user?.name || 'Faculty'}
-        subtitle={`${user?.department} Department · Faculty Portal`}
-        gradient="linear-gradient(135deg, #1B3A6B 0%, #2B5BA8 55%, #5B9BD5 100%)"
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Dept Alumni" value={deptAlumni.value} loading={deptAlumni.loading} sub={`${user?.department} graduates`} color="#2B5BA8" icon={<Users className="w-5 h-5" />} />
-        <StatCard label="Pending Donations" value={pendingDonations.value} loading={pendingDonations.loading} sub="Needs verification" color="#d97706" icon={<Clock className="w-5 h-5" />} />
-        <StatCard label="Upcoming Events" value={upcomingEvents.value} loading={upcomingEvents.loading} sub="Department events" color="#7c3aed" icon={<Calendar className="w-5 h-5" />} />
-      </div>
-      <QuickLinkGrid links={links} basePath="user" />
     </div>
   );
 }

@@ -17,9 +17,9 @@ import { useEvents } from './shared/EventsContext';
 import { supabase } from '../../lib/supabaseClient';
 
 // -- 3. Icons (lucide-react) — used throughout the sidebar/nav & UI ---
-import { Users, TrendingUp, DollarSign, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Building2, Settings, BookOpen, Sun, Moon, User, ClipboardList, IdCard } from 'lucide-react';
+import { Trophy, Users, TrendingUp, DollarSign, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Settings, BookOpen, Sun, Moon, User, ClipboardList, IdCard } from 'lucide-react';
 
-// -- 5. Shared components (reused across admin/alumni/faculty/rep) ----
+// -- 5. Shared components (reused across admin/alumni/rep) ----
 import NotificationPanel from './shared/NotificationPanel';
 import JobBoard from './shared/JobBoard';
 import ProfilePage from './shared/ProfilePage';
@@ -34,8 +34,8 @@ import AlumniManagement from './admin/AlumniManagement';
 import AnnouncementManagement from './admin/AnnouncementManagement';
 import AuditLogs from './admin/AuditLogs';
 import BatchRepresentatives from './admin/BatchRepresentatives';
-import DepartmentManagement from './admin/DepartmentManagement';
 import DonationManagement from './admin/DonationManagement';
+import DonorRanking from './admin/DonorRanking';
 import EventManagement from './admin/EventManagement';
 import PendingRegistrations from './admin/PendingRegistrations';
 import PopulationAnalytics from './admin/PopulationAnalytics';
@@ -75,6 +75,7 @@ const NAV_GROUPS = [
     label: 'Programs',
     items: [
 { label: 'Donation Center',  icon: <DollarSign className="w-4 h-4" />, path: 'donations' },
+      { label: 'Donor Ranking',    icon: <Trophy className="w-4 h-4" />,     path: 'donor-ranking' },
       { label: 'Events / Calendar',icon: <Calendar className="w-4 h-4" />,   path: 'events' },
       { label: 'Announcements',    icon: <Megaphone className="w-4 h-4" />,  path: 'announcements' },
       { label: 'Job Board',        icon: <BookOpen className="w-4 h-4" />,   path: 'jobs' },
@@ -85,7 +86,6 @@ const NAV_GROUPS = [
   {
     label: 'Administration',
     items: [
-      { label: 'Department Management', icon: <Building2 className="w-4 h-4" />, path: 'departments' },
       { label: 'User Accounts',         icon: <IdCard className="w-4 h-4" />,    path: 'users' },
       { label: 'Reports & Analytics',   icon: <BarChart3 className="w-4 h-4" />, path: 'reports' },
       { label: 'Audit Logs',            icon: <Shield className="w-4 h-4" />,    path: 'audit' },
@@ -303,12 +303,14 @@ export default function AdminDashboard() {
                 tab. Keep the route alive (bookmarks, old links) by bouncing
                 to Donation Center. */}
             <Route path="scheduled-campaigns" element={<Navigate to="/admin/donations" replace />} />
+            <Route path="donor-ranking" element={<DonorRanking />} />
             <Route path="events"        element={<EventManagement />} />
             <Route path="announcements" element={<AnnouncementManagement />} />
             <Route path="jobs"          element={<JobBoard role="admin" userName={user?.name} />} />
             <Route path="surveys"       element={<TracerSurveys />} />
             <Route path="tracer-responses" element={<TracerResponses />} />
-            <Route path="departments"   element={<DepartmentManagement />} />
+            {/* Department Management page was removed — keep old bookmarks working. */}
+            <Route path="departments"   element={<Navigate to="/admin" replace />} />
             <Route path="users"         element={<UserAccountManagement />} />
             <Route path="reports"       element={<Reports />} />
             <Route path="audit"         element={<AuditLogs />} />
@@ -389,7 +391,6 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
     { label: 'Upcoming Events', value: String(upcomingEventsCount), sub: `${events.length} total`, icon: <Calendar className="w-5 h-5" />, color: '#0891b2', path: 'events' },
     { label: 'Pending Registrations', value: String(counts.pendingRegistrations), sub: 'Needs review', icon: <UserCheck className="w-5 h-5" />, color: '#dc2626', path: 'registrations' },
     { label: 'Survey Responses', value: String(counts.surveyResponses), sub: 'Total submitted', icon: <FileText className="w-5 h-5" />, color: '#1B3A6B', path: 'surveys' },
-    { label: 'Departments', value: String(counts.departments), sub: 'With alumni', icon: <Building2 className="w-5 h-5" />, color: '#374151', path: 'departments' },
   ];
 
   const recentDonations = donations.slice(0, 4);

@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 const roleLabel = (role: string) => ROLE_LABELS[role] || (role ? role[0].toUpperCase() + role.slice(1) : '—');
 
-// Admin/faculty-only view of exactly who registered for an event — opened
+// Admin-only view of exactly who registered for an event — opened
 // by clicking an event's title in "Upcoming Events This Month". Alumni and
 // batch reps never see this dialog; they still get the plain event detail
 // dialog EventCalendar already shows everyone.

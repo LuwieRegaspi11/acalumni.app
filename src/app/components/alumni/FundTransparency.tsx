@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Heart, Eye, X } from 'lucide-react';
 import { useDonations, isCampaignLive } from '../shared/DonationContext';
+import { TopDonorsLeaderboard, CampaignGallery, DonatedBy } from '../shared/DonorTransparency';
 
 // =====================================================================
 // FUND TRANSPARENCY — its own page (not just a tab) so donors have a
@@ -62,6 +63,24 @@ export default function FundTransparency({ backTo = '/alumni/donations' }: { bac
       <p className="text-xs text-gray-400">
         This page reflects every campaign's real numbers as logged by the alumni office — updated the moment funds are raised or spent.
       </p>
+
+      {/* Photos of the projects and who made them possible */}
+      {campaigns.some(c => c.photos.length > 0) && (
+        <div className="space-y-4">
+          <h3 className="font-bold text-gray-800">Project Photos</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {campaigns.filter(c => c.photos.length > 0).map(c => (
+              <div key={c.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+                <p className="font-bold text-gray-800">{c.name}</p>
+                <CampaignGallery photos={c.photos} title={c.name} />
+                <DonatedBy campaignId={c.id} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <TopDonorsLeaderboard limit={10} />
 
       {/* Per-campaign breakdown */}
       {campaigns.length === 0 ? (
