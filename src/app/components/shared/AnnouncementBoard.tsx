@@ -15,7 +15,7 @@ const categoryColors: Record<string, string> = {
   'University Update': 'bg-purple-100 text-purple-700',
 };
 
-type ViewerRole = 'admin' | 'faculty' | 'representative' | 'alumni';
+type ViewerRole = 'admin' | 'representative' | 'alumni';
 
 interface Props {
   role: ViewerRole;
@@ -30,8 +30,8 @@ export default function AnnouncementBoard({ role, department }: Props) {
   const formId = useId(); // ties each field's <label> to its input — see per-field ids below
   const [filterDept, setFilterDept] = useState('All Alumni');
 
-  const canPost = role === 'admin' || role === 'faculty';
-  const canManage = (a: Announcement) => role === 'admin' || (role === 'faculty' && a.authorRole === 'faculty' && a.targetDept === department);
+  const canPost = role === 'admin';
+  const canManage = (_a: Announcement) => role === 'admin';
 
   const visible = announcements.filter(a => {
     const matchAudience = a.targetDept === 'All Alumni' || !department || a.targetDept === department;
@@ -43,7 +43,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
   const rest = visible.filter(a => !a.pinned);
 
   const handleSave = async () => {
-    const targetDept = role === 'faculty' && department ? department : form.targetDept;
+    const targetDept = form.targetDept;
     if (editTarget) {
       await updateAnnouncement(editTarget.id, { ...form, targetDept });
     } else {
@@ -85,7 +85,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Announcement Board</h2>
           <p className="text-sm text-gray-500">
-            {canPost ? (role === 'faculty' ? `Post announcements for ${department} department` : 'Manage announcements for all alumni') : 'Stay updated with the latest news and announcements'}
+            {canPost ? 'Manage announcements for all alumni' : 'Stay updated with the latest news and announcements'}
           </p>
         </div>
         {canPost && (
@@ -97,7 +97,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
         )}
       </div>
 
-      {role !== 'faculty' && (
+      {(
         <div className="flex gap-2 flex-wrap">
           {DEPARTMENTS.map(d => (
             <button key={d} onClick={() => setFilterDept(d)}
@@ -152,7 +152,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
                 <textarea id={`${formId}-content`} value={form.content} onChange={e => setForm(f => ({...f, content: e.target.value}))} rows={4}
                   className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400 resize-none" placeholder="Write your announcement..." />
               </div>
-              <div className={`grid grid-cols-1 gap-3 ${role === 'faculty' && department ? '' : 'sm:grid-cols-2'}`}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor={`${formId}-category`} className="text-xs font-semibold text-gray-500 mb-1 block">Category</label>
                   <select id={`${formId}-category`} value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}
@@ -160,7 +160,7 @@ export default function AnnouncementBoard({ role, department }: Props) {
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
-                {!(role === 'faculty' && department) && (
+                {(
                   <div>
                     <label htmlFor={`${formId}-dept`} className="text-xs font-semibold text-gray-500 mb-1 block">Target Department</label>
                     <select id={`${formId}-dept`} value={form.targetDept} onChange={e => setForm(f => ({...f, targetDept: e.target.value}))}

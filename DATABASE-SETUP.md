@@ -103,18 +103,18 @@ the browser, regardless of whether it can be verified:
 - If nothing matches, the account is created the same way but starts
   `registration_status = 'pending'` — signing in shows a pending-
   approval status page instead of the dashboard until an admin reviews
-  the full survey in **Admin -> Pending Registrations** and Approves or
-  Rejects it. Approving just lifts that gate (there's no password left
-  to relay — the alumnus already has their own from when they
-  submitted); Rejecting blocks sign-in entirely.
+  the full survey in **Admin -> Pending Registrations** and presses
+  **Confirm**. Confirming just lifts that gate — admins never create or
+  reset passwords. An alumnus who forgot theirs uses **Forgot your
+  password?** on the sign-in page and gets a reset link by email.
 
 Either way, the new account is forced to set its own password on first
-login (`profiles.must_change_password`). Non-alumni roles (faculty,
-representative) aren't self-serve; promote an existing account by
-updating its `role` column directly:
+login (`profiles.must_change_password`). Non-alumni roles aren't self-serve. The only roles are `admin` (the
+Alumni Head), `alumni` and `representative`; promote an existing account
+by updating its `role` column directly:
 
 ```sql
-update public.profiles set role = 'faculty' where email = 'someone@asiancollege.edu.ph';
+update public.profiles set role = 'admin' where email = 'someone@asiancollege.edu.ph';
 ```
 
 Batch representatives are a special case — assign them from
@@ -155,8 +155,42 @@ sender has a low rate limit on projects without it.
 
 ## Everything is connected
 
-Every admin/alumni/faculty/representative screen reads and writes
+Every admin/alumni/representative screen reads and writes
 through Supabase now — there's no remaining mock-data area. The one
 deliberate exception: the "Generate PDF" / "Export" / "Generate
 Letters" buttons in Reports and Tracer Surveys are UI-only (no
 file-generation library wired in yet).
+
+## Pre-oral-defense changes — migrations & deployment
+
+Run these SQL files **in this order** in the Supabase SQL Editor (each is
+safe to re-run):
+
+1. `supabase/remove_faculty_role.sql` — removes the Faculty role (role
+   CHECK, RLS policies, helper RPCs). It stops with a message if any
+   `faculty` profile still exists: delete those users in Authentication
+   (or `update public.profiles set role = 'alumni' where role = 'faculty'`)
+   and run it again.
+2. `supabase/alumni_required_fields.sql` — real full name, program and batch
+   year required on profiles + roster.
+3. `supabase/event_types_and_notifications.sql` — Seminar / Workshop event
+   types (`events.event_type`).
+4. `supabase/donations_transparency.sql` — campaign cover + gallery
+   (`campaign_photos`, `campaign-photos` bucket), `donations.is_anonymous`,
+   the Top Donors / donor credit / homepage functions.
+
+Then deploy the two Edge Functions and set their secrets (these are server
+side only — never put them in the app's `.env` and never prefix them with
+`VITE_`):
+
+```
+supabase functions deploy notify-alumni
+supabase functions deploy tracer-intake        # re-deploy: name validation + stricter bulk import
+cp supabase/functions/.env.example supabase/functions/.env   # then fill in the keys
+supabase secrets set --env-file supabase/functions/.env
+```
+
+`notify-alumni` sends the in-app, email (Resend) and optional SMS
+(Semaphore) notifications for announcements, events and "Contact batch".
+Email and SMS are skipped — with a visible message to the admin — until their
+keys are set; in-app notifications always work.

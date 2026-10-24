@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../../lib/supabaseClient';
 import { DEPARTMENTS, PROGRAMS_BY_DEPT, type DepartmentCode } from '../../../lib/academicPrograms';
 import { MIN_BATCH_YEAR } from '../../../lib/batchYears';
+import { isRealNamePart } from '../../../lib/realName';
 
 // =====================================================================
 // ALUMNI ROSTER — Admin -> Alumni Tracer -> "Alumni Roster" tab. Lets an
@@ -178,7 +179,7 @@ export default function AlumniRoster() {
         first_name: col('first_name'), last_name: col('last_name'),
         department: col('department'), program: col('program'), batch_year: col('batch_year'),
       };
-      if (idx.first_name < 0 || idx.last_name < 0 || idx.department < 0 || idx.program < 0) {
+      if (idx.first_name < 0 || idx.last_name < 0 || idx.department < 0 || idx.program < 0 || idx.batch_year < 0) {
         setImportError(`This file is missing required column(s). Expected a header row with: ${CSV_HEADERS.join(', ')}.`);
         return;
       }
@@ -202,7 +203,9 @@ export default function AlumniRoster() {
         const reasons: string[] = [];
 
         if (!firstName) reasons.push('missing first_name');
+        else if (!isRealNamePart(firstName)) reasons.push(`first_name "${firstName}" doesn't look like a real name`);
         if (!lastName) reasons.push('missing last_name');
+        else if (!isRealNamePart(lastName)) reasons.push(`last_name "${lastName}" doesn't look like a real name`);
 
         const department = departmentRaw.toUpperCase() as DepartmentCode;
         if (!departmentRaw) reasons.push('missing department');
@@ -222,7 +225,9 @@ export default function AlumniRoster() {
         }
 
         let batchYear: number | null = null;
-        if (batchYearRaw) {
+        if (!batchYearRaw) {
+          reasons.push('missing batch_year');
+        } else {
           const parsed = Number.parseInt(batchYearRaw, 10);
           if (!Number.isInteger(parsed) || parsed < MIN_BATCH_YEAR || parsed > currentYear + 1) {
             reasons.push(`implausible batch_year "${batchYearRaw}"`);

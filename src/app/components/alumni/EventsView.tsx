@@ -17,6 +17,7 @@ export default function EventsView() {
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    e.eventType.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.department.toLowerCase().includes(searchTerm.toLowerCase());
 
   const filteredEvents = events.filter(matches);
@@ -94,6 +95,7 @@ export default function EventsView() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="text-lg">{event.title}</h4>
+                            {event.eventType !== 'General' && <Chip label={event.eventType} size="small" color={event.eventType === 'Seminar' ? 'success' : 'warning'} variant="outlined" />}
                             <Chip label="Registered" size="small" color="success" icon={<CheckCircle className="w-3 h-3" />} />
                           </div>
                           <p className="text-sm text-gray-600 mb-3">{event.description}</p>
@@ -152,7 +154,10 @@ export default function EventsView() {
                           </div>
                         )}
                         <div className="mb-3">
-                          <h4 className="text-lg mb-2">{event.title}</h4>
+                          <h4 className="text-lg mb-2">
+                            {event.title}
+                            {event.eventType !== 'General' && <Chip label={event.eventType} size="small" color={event.eventType === 'Seminar' ? 'success' : 'warning'} variant="outlined" className="ml-2" />}
+                          </h4>
                           <p className="text-sm text-gray-600 mb-3">{event.description}</p>
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm">

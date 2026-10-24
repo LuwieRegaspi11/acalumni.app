@@ -13,12 +13,14 @@ import { X, DollarSign, ArrowUp, ArrowDown, Eye, Plus, Upload, Image, Trash2 } f
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useDonations, type Campaign } from './DonationContext';
+import { CampaignGallery, DonatedBy } from './DonorTransparency';
 
 interface DonorRow {
   id: string;
   name: string;
   amount: number;
   date: string; // ISO timestamp
+  anonymous: boolean; // donor chose "Anonymous" (admin still sees the real name)
 }
 
 type SortKey = 'name' | 'amount' | 'date';
@@ -40,7 +42,7 @@ const COLUMNS: { key: SortKey; label: string; align?: 'right' }[] = [
 export default function DonorListModal({ campaign, onClose }: Props) {
   const { user } = useAuth();
   const { expenses, getProofUrl, addExpense, deleteExpense } = useDonations();
-  // Alumni, faculty, and batch representatives all get this same modal
+  // Alumni and batch representatives both get this same modal
   // for transparency (see the campaign click-through in
   // DonationPortal/RepDonationMonitor/DonationManagementView) — but
   // expense logging (add/delete) is admin-only from the UI now, so
@@ -110,7 +112,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
       return;
     }
     setLoggingExpense(true);
-    await addExpense(campaign.id, expenseForm.description, amt, user?.name || (user?.role === 'faculty' ? 'Faculty' : 'Admin'), expenseReceiptFile);
+    await addExpense(campaign.id, expenseForm.description, amt, user?.name || 'Admin', expenseReceiptFile);
     setLoggingExpense(false);
     resetExpenseForm();
     setShowExpenseForm(false);
@@ -128,24 +130,20 @@ export default function DonorListModal({ campaign, onClose }: Props) {
     resetExpenseForm();
 
     (async () => {
-      const { data, error } = await supabase
-        .from('donations')
-        .select('id, amount, created_at, donor:profiles!donations_donor_id_fkey(name)')
-        .eq('campaign_id', campaign.id)
-        .eq('status', 'verified')
-        .order('created_at', { ascending: false });
+      // Goes through a database function so a donor who chose "Anonymous"
+      // is returned as "Anonymous" to everyone except the admin (see
+      // supabase/donations_transparency.sql -> campaign_donor_list).
+      const { data, error } = await supabase.rpc('campaign_donor_list', { p_campaign_id: campaign.id });
       if (cancelled) return;
       if (error) {
         console.error('[DonorListModal] failed to load donors', error);
       } else {
         setRows((data || []).map((d: any) => ({
           id: d.id,
-          // There's no donor-facing "hide my name" opt-out yet — this
-          // fallback only covers a donor row whose profile can't be
-          // resolved (e.g. a deleted account), so it never renders blank.
-          name: d.donor?.name || 'Anonymous',
+          name: d.display_name || 'Anonymous',
           amount: Number(d.amount),
           date: d.created_at,
+          anonymous: !!d.is_anonymous,
         })));
       }
       setLoading(false);
@@ -200,6 +198,13 @@ export default function DonorListModal({ campaign, onClose }: Props) {
           </div>
           <button onClick={onClose} aria-label="Close"><X className="w-5 h-5 text-gray-500" /></button>
         </div>
+
+        {(campaign.coverImageUrl || campaign.photos.length > 0) && (
+          <div className="px-6 py-3 border-b flex-shrink-0 space-y-2">
+            {campaign.coverImageUrl && <img src={campaign.coverImageUrl} alt={`${campaign.name} cover`} className="w-full h-36 object-cover rounded-xl" />}
+            <CampaignGallery photos={campaign.photos} title={campaign.name} />
+          </div>
+        )}
 
         <div className="px-6 py-3 border-b flex-shrink-0">
           <div className="flex items-center gap-1.5 mb-2">
@@ -291,7 +296,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
           {campaignExpenses.length === 0 ? (
             <p className="text-xs text-gray-400">No expenses logged yet.</p>
           ) : (
-            <div className="border border-gray-100 rounded-lg max-h-40 overflow-y-auto">
+            <div className="border border-gray-100 rounded-lg max-h-40 overflow-auto">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 border-b border-gray-100 sticky top-0">
                   <tr>
@@ -360,7 +365,12 @@ export default function DonorListModal({ campaign, onClose }: Props) {
                   {sortedRows.map((r, i) => (
                     <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-800">{r.name}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-800">
+                        {r.name}
+                        {canManageExpenses && r.anonymous && (
+                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500" title="This donor chose to be shown as Anonymous publicly">Anonymous to public</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right font-bold text-gray-800">{money(r.amount)}</td>
                       <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">{formatDate(r.date)}</td>
                     </tr>
@@ -380,8 +390,9 @@ export default function DonorListModal({ campaign, onClose }: Props) {
         </div>
 
         {!loading && rows.length > 0 && (
-          <div className="px-6 py-3 border-t flex-shrink-0 text-xs font-semibold text-gray-500 rounded-b-2xl">
-            {rows.length} donor{rows.length !== 1 ? 's' : ''} total
+          <div className="px-6 py-3 border-t flex-shrink-0 text-xs text-gray-500 rounded-b-2xl space-y-1">
+            <p className="font-semibold">{rows.length} donor{rows.length !== 1 ? 's' : ''} total</p>
+            <DonatedBy campaignId={campaign.id} />
           </div>
         )}
       </div>

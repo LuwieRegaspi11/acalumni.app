@@ -11,27 +11,7 @@ import { Card, CardContent, TextField, Button, Chip, LinearProgress, Dialog, Dia
 // Google Forms — alumni just get sent there in a new tab). Response
 // counts are inherently untrackable for external surveys, so they're
 // excluded from response-rate stats instead of being force-fit into them.
-//
-// Shared verbatim between admin/TracerSurveys.tsx and
-// faculty/FacultyTracerSurveys.tsx — one implementation so a feature
-// added here reaches both roles instead of two copies silently
-// drifting apart. Same split as shared/DonationManagementView.tsx.
-//
-// `department` is the ONLY behavioral difference between the two:
-//   - omitted (admin): sees every survey, creates/deploys/closes
-//     college-wide ('All') or department-targeted surveys freely.
-//   - set (faculty): the survey list is narrowed to surveys targeted at
-//     this department plus college-wide ('All') ones (visible so
-//     faculty can see how their own alumni are responding to those
-//     too), every survey this faculty account creates is always
-//     targeted at their own department, and Deploy/Close only render
-//     for surveys they can actually act on (their own department's —
-//     'All' surveys stay admin-only to manage). This is a UI
-//     convenience only — the real boundary is enforced at the database
-//     via RLS (see supabase/faculty_alumni_tracer_scope.sql's
-//     tracer_surveys_write_faculty_own_dept policy), so a faculty
-//     account can't deploy/close another department's (or a
-//     college-wide) survey even by bypassing this screen.
+// Admin-only: the Alumni Head creates, deploys and closes every survey.
 
 interface Survey {
   id: string; title: string; description: string; targetDept: string; targetYear: string;
@@ -50,7 +30,7 @@ const isValidUrl = (value: string) => {
 
 // ================= [BUILDER: Google Forms–style question builder] =================
 // Powers the "Standard Question Set" branch of the Create Survey dialog.
-// Admins/faculty compose their own sections/questions instead of using the
+// The admin composes their own sections/questions instead of using the
 // fixed TEMPLATE_QUESTIONS below (that template is now only used by "Quick
 // Deploy Template"). Flattened + saved into tracer_surveys.questions (jsonb)
 // in the same {id, section, question, type, options?, ...} shape
@@ -118,13 +98,7 @@ const TEMPLATE_QUESTIONS = [
   { id: 'q10', section: 'Feedback', question: 'Do you have any suggestions to improve the curriculum or alumni services?', type: 'textarea', placeholder: 'Your honest feedback helps us improve...' },
 ];
 
-interface Props {
-  // Faculty pass their own department here to lock the whole screen to
-  // it; admin renders this with no department at all.
-  department?: string;
-}
-
-export default function TracerSurveysView({ department }: Props) {
+export default function TracerSurveysView() {
   const { user } = useAuth();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -188,9 +162,7 @@ export default function TracerSurveysView({ department }: Props) {
     const { data } = await supabase.from('tracer_surveys').select('*').order('created_at', { ascending: false });
     if (!data) return;
 
-    let alumniQuery = supabase.from('profiles').select('department').eq('role', 'alumni').eq('registration_status', 'approved');
-    if (department) alumniQuery = alumniQuery.eq('department', department);
-    const { data: alumniRows } = await alumniQuery;
+    const { data: alumniRows } = await supabase.from('profiles').select('department').eq('role', 'alumni').eq('registration_status', 'approved');
     const deptCounts: Record<string, number> = {};
     (alumniRows || []).forEach((a: any) => { deptCounts[a.department] = (deptCounts[a.department] || 0) + 1; });
     const totalAlumni = (alumniRows || []).length;
@@ -199,14 +171,7 @@ export default function TracerSurveysView({ department }: Props) {
     const responseCounts: Record<string, number> = {};
     (responseRows || []).forEach((r: any) => { responseCounts[r.survey_id] = (responseCounts[r.survey_id] || 0) + 1; });
 
-    // tracer_surveys is readable in full by everyone (see
-    // tracer_surveys_select_all), so a faculty session's plain select
-    // above already comes back with every department's surveys — narrow
-    // it down here to "this department, or college-wide" the same way
-    // DonationManagementView's scopedCampaigns does for campaigns.
-    const visible = department ? data.filter((s: any) => s.target_dept === department || s.target_dept === 'All') : data;
-
-    setSurveys(visible.map((s: any) => ({
+    setSurveys(data.map((s: any) => ({
       id: s.id, title: s.title, description: s.description || '',
       targetDept: s.target_dept, targetYear: s.target_year, status: s.status,
       createdDate: s.created_at,
@@ -217,7 +182,7 @@ export default function TracerSurveysView({ department }: Props) {
     })));
   };
 
-  useEffect(() => { load(); }, [department]);
+  useEffect(() => { load(); }, []);
 
   const filteredSurveys = surveys.filter(survey =>
     survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -225,21 +190,12 @@ export default function TracerSurveysView({ department }: Props) {
     survey.targetDept.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // A survey can only be Deployed/Closed by whoever owns its target
-  // department — admin owns everything; faculty only their own
-  // department's surveys (never a college-wide 'All' one). RLS enforces
-  // this independently (tracer_surveys_write_faculty_own_dept); this just
-  // keeps the buttons from appearing where the write would be rejected.
-  const canManage = (survey: Survey) => !department || survey.targetDept === department;
-
   // targetDept/targetYear are optional and only used by the "Quick Deploy
   // Template" shortcut below — the Create New Survey modal no longer collects
   // either, so handleCreate's call omits them entirely and the insert leaves
   // those keys out of the payload, falling back to their DB column defaults
   // ('All' for both, per supabase/schema.sql) rather than the modal sending
-  // an explicit value. A scoped (faculty) view always passes its own
-  // `department` through instead, so a faculty account can never create a
-  // college-wide survey.
+  // an explicit value.
   const createSurvey = async (
     status: 'Draft' | 'Active', title: string, description: string,
     surveyType: 'standard' | 'external' = 'standard', surveyLink: string = '', customQuestions?: SurveyQuestion[],
@@ -275,9 +231,8 @@ export default function TracerSurveysView({ department }: Props) {
     if (newSurveyType === 'external' && !isValidUrl(newSurveyLink)) return;
     if (newSurveyType === 'standard' && !isBuilderValid(builderSections)) return;
     const customQuestions = newSurveyType === 'standard' ? flattenBuilderQuestions(builderSections) : undefined;
-    // Faculty always target their own department; admin leaves it unset
-    // (falls back to the 'All' DB default), same as before this was split out.
-    await createSurvey('Draft', newTitle, newDescription, newSurveyType, newSurveyLink, customQuestions, department, department ? 'All' : undefined);
+    // Target department/year are left unset so the 'All' DB defaults apply.
+    await createSurvey('Draft', newTitle, newDescription, newSurveyType, newSurveyLink, customQuestions);
     setCreateOpen(false);
     setNewTitle(''); setNewDescription('');
     setNewSurveyType('standard'); setNewSurveyLink(''); setBuilderSections([emptySection(1)]);
@@ -285,10 +240,8 @@ export default function TracerSurveysView({ department }: Props) {
 
   const handleDeployTemplate = () => createSurvey(
     'Active', 'Employment Tracer Survey',
-    department
-      ? `Standard employment tracer questions deployed to ${department} alumni.`
-      : 'Standard employment tracer questions deployed to all alumni.',
-    'standard', '', undefined, department || 'All', 'All'
+    'Standard employment tracer questions deployed to all alumni.',
+    'standard', '', undefined, 'All', 'All'
   );
 
   const handleClose = async (survey: Survey) => {
@@ -324,22 +277,13 @@ export default function TracerSurveysView({ department }: Props) {
         <div>
           <h2 className="text-2xl mb-1">Tracer Surveys</h2>
           <p className="text-gray-600">
-            {department ? <>Deploy and monitor tracer surveys for <strong>{department}</strong></> : 'Deploy and monitor alumni tracer surveys'}
+            Deploy and monitor alumni tracer surveys
           </p>
         </div>
         <Button variant="contained" startIcon={<FileText className="w-4 h-4" />} className="bg-blue-600" onClick={openCreateDialog}>
           Create New Survey
         </Button>
       </div>
-
-      {department && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
-          <span className="text-amber-600">🔒</span>
-          <p className="text-xs text-amber-700 font-medium">
-            You can create, deploy, and close surveys for <strong>{department}</strong> only. College-wide surveys are shown for visibility but stay admin-managed.
-          </p>
-        </div>
-      )}
 
       {/* Search Bar */}
       <Card>
@@ -419,10 +363,10 @@ export default function TracerSurveysView({ department }: Props) {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outlined" size="small" startIcon={<Eye className="w-4 h-4" />} onClick={() => openView(survey)}>View</Button>
-                      {canManage(survey) && survey.status === 'Draft' && (
+                      {survey.status === 'Draft' && (
                         <Button variant="contained" size="small" className="bg-blue-600" startIcon={<Send className="w-4 h-4" />} onClick={() => handleActivate(survey)}>Deploy</Button>
                       )}
-                      {canManage(survey) && survey.status !== 'Closed' && (
+                      {survey.status !== 'Closed' && (
                         <Button variant="outlined" size="small" color="error" onClick={() => handleClose(survey)}>Close</Button>
                       )}
                     </div>
@@ -464,7 +408,7 @@ export default function TracerSurveysView({ department }: Props) {
               <li>• Recommendations for curriculum improvement</li>
             </ul>
             <Button variant="contained" size="small" className="bg-blue-600" onClick={handleDeployTemplate}>
-              {department ? `Deploy to ${department} Alumni` : 'Deploy to All Alumni'}
+              Deploy to All Alumni
             </Button>
           </div>
         </CardContent>

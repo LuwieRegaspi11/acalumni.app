@@ -7,6 +7,12 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 
+// What kind of gathering this is. 'General' is the original catch-all; Seminar and
+// Workshop were added for the Alumni Head's learning/training programs (stored in
+// events.event_type — see supabase/event_types_and_notifications.sql).
+export const EVENT_TYPES = ['General', 'Seminar', 'Workshop'] as const;
+export type EventType = (typeof EVENT_TYPES)[number];
+
 export interface AppEvent {
   id: string;
   title: string;
@@ -15,8 +21,9 @@ export interface AppEvent {
   time: string;
   location: string;
   department: string; // 'All' | 'CSE' | 'CTHM' | 'BAA' | ...
-  createdBy: string;  // role: 'admin' | 'faculty'
-  createdByName: string; // display name of the admin/faculty account that created it
+  eventType: EventType;
+  createdBy: string;  // role: 'admin'
+  createdByName: string; // display name of the admin account that created it
   registeredCount: number;
   maxCapacity?: number;
   status: 'Upcoming' | 'Ongoing' | 'Completed';
@@ -85,6 +92,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         location: e.location || '',
         department: e.department || 'All',
+        eventType: (EVENT_TYPES as readonly string[]).includes(e.event_type) ? e.event_type : 'General',
         createdBy: e.creator?.role || '',
         createdByName: e.creator?.name || 'Unknown',
         registeredCount: e.registrations?.[0]?.count || 0,
@@ -95,7 +103,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  useEffect(() => { loadEvents(); }, []);
+  // Reload when the signed-in user changes: these tables are protected by row-level
+  // security, so the load that ran at page start (before sign-in) came back empty.
+  useEffect(() => { loadEvents(); }, [user?.id]);
   useEffect(() => { loadMyRegistrations(); }, [user]);
 
   const registerForEvent = async (eventId: string) => {
@@ -119,6 +129,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       event_date: eventDateTime.toISOString(),
       location: e.location,
       department: e.department || 'All',
+      event_type: e.eventType || 'General',
       max_capacity: e.maxCapacity ?? null,
       image_url: e.imageUrl ?? null,
       created_by: user.id,
@@ -133,12 +144,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     await loadEvents();
   };
 
-  // Admin/faculty-only: who actually registered for a given event, with
+  // Admin-only: who actually registered for a given event, with
   // enough profile detail (name, role, department, batch, contact) to show
   // in a registrants table. RLS scopes what comes back per-caller — admins
-  // see everyone, faculty see any profile that has an event_registrations
-  // row (see event_registrant_visibility.sql) — so this never needs a
-  // client-side role check of its own.
+  // see everyone — so this never needs a client-side role check of its own.
   const getEventRegistrants = async (eventId: string): Promise<EventRegistrant[]> => {
     const { data, error } = await supabase
       .from('event_registrations')

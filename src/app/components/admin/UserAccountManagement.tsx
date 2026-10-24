@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, Power, RefreshCw, Pencil, Check, X } from 'lucide-react';
+import { Search, CheckCircle, Power, Pencil, Check, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
 // ================= [ADMIN: USER ACCOUNT MANAGEMENT — connected to Supabase] =================
 
-type Role = 'alumni' | 'faculty' | 'representative' | 'admin';
+type Role = 'alumni' | 'representative' | 'admin';
 
 interface UserAccount {
   id: string;
@@ -21,7 +21,6 @@ interface UserAccount {
 const roleColors: Record<Role, string> = {
   admin: 'bg-red-100 text-red-700',
   alumni: 'bg-blue-100 text-blue-700',
-  faculty: 'bg-green-100 text-green-700',
   representative: 'bg-purple-100 text-purple-700',
 };
 
@@ -32,8 +31,8 @@ const statusColors = {
 };
 
 function mapRow(r: any): UserAccount {
-  // Pending approval only applies to alumni registrations — faculty and
-  // representative accounts are auto-approved on signup (see
+  // Pending approval only applies to alumni registrations — representative
+  // accounts are auto-approved on signup (see
   // handle_new_user() in registration_simplification.sql), so a
   // non-alumni row should never surface as "Pending" here even if its
   // registration_status happens to be stale/pending.
@@ -131,7 +130,7 @@ export default function UserAccountManagement() {
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400" />
         </div>
         {[
-          { label: 'Role', value: filterRole, set: setFilterRole, opts: ['All', 'admin', 'alumni', 'faculty', 'representative'] },
+          { label: 'Role', value: filterRole, set: setFilterRole, opts: ['All', 'admin', 'alumni', 'representative'] },
           { label: 'Status', value: filterStatus, set: setFilterStatus, opts: ['All', 'Active', 'Pending', 'Deactivated'] },
         ].map(f => (
           <select key={f.label} value={f.value} onChange={e => f.set(e.target.value)}
@@ -194,9 +193,6 @@ export default function UserAccountManagement() {
                           <CheckCircle className="w-4 h-4" />
                         </button>
                       )}
-                      <button disabled title="Reset Password (coming soon)" aria-label="Reset Password (coming soon)" className="p-1.5 rounded-lg text-blue-600 opacity-40 cursor-not-allowed">
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
                       {u.role !== 'admin' && (
                         <button onClick={() => deactivate(u.id, u.status)} title={u.status === 'Active' ? 'Deactivate' : 'Activate'}
                           className={`p-1.5 rounded-lg transition-colors ${u.status === 'Active' ? 'hover:bg-orange-50 text-orange-600' : 'hover:bg-green-50 text-green-600'}`}>

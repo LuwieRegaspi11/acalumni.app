@@ -1,11 +1,14 @@
 import React, { useId, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { DollarSign, CheckCircle, Clock, AlertCircle, Building2, Upload, Heart, TrendingUp, X, Image, ChevronRight, Copy, Check, Wallet, CreditCard } from 'lucide-react';
-import { useDonations, getEventStartStatus, isCampaignLive, type Campaign } from '../shared/DonationContext';
+import { useDonations, getEventStartStatus, isCampaignLive, isCampaignFunded, type Campaign } from '../shared/DonationContext';
 import { useNotifications } from '../shared/NotificationContext';
 import CurrencyAmountField from '../shared/CurrencyAmountField';
 import DonorListModal from '../shared/DonorListModal';
+import {
+  DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, DonatedBy, CampaignGallery, type ThankYouInfo,
+} from '../shared/DonorTransparency';
 
 // ================= [ALUMNI: DONATIONPORTAL] =================
 
@@ -28,7 +31,8 @@ const HISTORY_TABS = [
 export default function DonationPortal() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { donations, campaigns, paymentDestinations, submitDonation, getProofUrl } = useDonations();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { donations, campaigns, paymentDestinations, submitDonation, setDonationAnonymity, getProofUrl } = useDonations();
   const { trigger } = useNotifications();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ campaign: '', amount: '', description: '' });
@@ -37,12 +41,27 @@ export default function DonationPortal() {
   const [proofFileName, setProofFileName] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
   const [selectedDestId, setSelectedDestId] = useState<string | null>(null);
   const [copiedDestId, setCopiedDestId] = useState<string | null>(null);
   const [historyTab, setHistoryTab] = useState<'pending' | 'confirmed' | 'all'>('all');
   const [donorListCampaign, setDonorListCampaign] = useState<Campaign | null>(null);
   const [acknowledgedNoRefund, setAcknowledgedNoRefund] = useState(false);
+  // Consent is opt-in: donors are anonymous unless they choose "Show my name".
+  const [anonymous, setAnonymous] = useState(true);
+  const [thankYou, setThankYou] = useState<ThankYouInfo | null>(null);
+
+  // Arrived from the homepage's "Donate" button (?donate=<campaign id>): open
+  // the donation form with that campaign already chosen.
+  useEffect(() => {
+    const wanted = searchParams.get('donate');
+    if (!wanted || campaigns.length === 0) return;
+    const c = campaigns.find(x => x.id === wanted && isCampaignLive(x));
+    if (c) { setForm(f => ({ ...f, campaign: c.name })); setShowForm(true); }
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaigns, searchParams]);
 
   const activeDestinations = paymentDestinations.filter(d => d.isActive);
   const destTypeIcon = (type: string) => type === 'Bank' ? <Building2 className="w-4 h-4 text-gray-500" /> : type === 'E-Wallet' ? <Wallet className="w-4 h-4 text-gray-500" /> : <CreditCard className="w-4 h-4 text-gray-500" />;
@@ -84,29 +103,29 @@ export default function DonationPortal() {
   const handleSubmit = async () => {
     if (!form.campaign || !form.amount || !proofFile || !acknowledgedNoRefund) return;
     setSubmitting(true);
-    await submitDonation({
+    const donationAmount = parseFloat(form.amount) || 0;
+    const donationCampaign = form.campaign || 'General Fund';
+    const donationId = await submitDonation({
       alumniName: user?.name || 'Alumni',
       alumniEmail: user?.email || '',
       department: user?.department || 'All',
-      campaign: form.campaign || 'General Fund',
-      amount: parseFloat(form.amount) || 0,
+      campaign: donationCampaign,
+      amount: donationAmount,
       type: 'Cash',
       description: form.description,
+      isAnonymous: anonymous,
     }, proofFile);
-    // Admin always needs to know; the donor's own faculty rep only needs
-    // to know about donations from their own department.
+    if (!donationId) {
+      setSubmitting(false);
+      setSubmitError('Your donation could not be saved. Please try again, or contact the alumni office.');
+      return;
+    }
+    // Admin is the only role that verifies donations.
     trigger({
       title: 'Donation Submitted',
       message: `A new donation from ${user?.name || 'an alumnus'} is pending verification.`,
       type: 'info',
       targetRole: 'admin',
-    });
-    trigger({
-      title: 'Donation Submitted',
-      message: `A new donation from ${user?.name || 'an alumnus'} is pending verification.`,
-      type: 'info',
-      targetRole: 'faculty',
-      targetDept: user?.department,
     });
     setSubmitting(false);
     setShowForm(false);
@@ -114,6 +133,14 @@ export default function DonationPortal() {
     setProofFile(null); setProofFileName('');
     setSelectedDestId(null);
     setAcknowledgedNoRefund(false);
+    setSubmitError('');
+    setThankYou({
+      donorName: user?.name || 'friend',
+      amount: donationAmount,
+      campaign: donationCampaign,
+      reference: referenceNo(donationId),
+      anonymous,
+    });
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 4000);
   };
@@ -176,6 +203,9 @@ export default function DonationPortal() {
         ))}
       </div>
 
+      {/* Donor ranking — verified gifts only; shows where you stand */}
+      <TopDonorsLeaderboard limit={10} />
+
       {/* Active campaigns */}
       <div>
         <h3 className="font-bold text-gray-800 mb-3">Active Campaigns</h3>
@@ -205,8 +235,13 @@ export default function DonationPortal() {
                   return (
                     <tr key={c.id} onClick={() => setDonorListCampaign(c)} className="border-b border-gray-50 last:border-0 align-top hover:bg-gray-50 transition-colors cursor-pointer">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-gray-800 hover:text-blue-600 hover:underline">{c.name}</p>
-                        <p className="text-xs text-gray-500 max-w-xs truncate">{c.description}</p>
+                        <div className="flex items-start gap-3">
+                          {c.coverImageUrl && <img src={c.coverImageUrl} alt="" loading="lazy" className="w-14 h-14 rounded-lg object-cover border border-gray-200 flex-shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-800 hover:text-blue-600 hover:underline">{c.name}</p>
+                            <p className="text-xs text-gray-500 max-w-xs truncate">{c.description}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">{c.department === 'All' ? 'All' : c.department}</span>
@@ -244,6 +279,33 @@ export default function DonationPortal() {
         )}
       </div>
 
+      {/* Funded projects — photos of where the money went, with a "Donated by" credit */}
+      {(() => {
+        const funded = campaigns.filter(c => c.current > 0 && (isCampaignFunded(c) || !!c.endedAt));
+        if (funded.length === 0) return null;
+        return (
+          <div>
+            <h3 className="font-bold text-gray-800 mb-3">Funded Projects</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {funded.map(c => (
+                <div key={c.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                  {c.coverImageUrl && <img src={c.coverImageUrl} alt={`${c.name} cover`} loading="lazy" className="w-full h-40 object-cover" />}
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-bold text-gray-800">{c.name}</p>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">₱{c.current.toLocaleString()} raised</span>
+                    </div>
+                    {c.description && <p className="text-xs text-gray-500 line-clamp-2">{c.description}</p>}
+                    <CampaignGallery photos={c.photos} title={c.name} />
+                    <DonatedBy campaignId={c.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* My history — tabbed instead of one long scroll */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -277,7 +339,7 @@ export default function DonationPortal() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-100">
-                    <tr>{['Date','Amount','Status','Reference No','Proof'].map(h => (
+                    <tr>{['Date','Amount','Status','Reference No','Credit','Proof'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
                     ))}</tr>
                   </thead>
@@ -303,6 +365,13 @@ export default function DonationPortal() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-500">{referenceNo(d.id)}</td>
+                          <td className="px-4 py-3 text-xs">
+                            <button onClick={() => setDonationAnonymity(d.id, !d.isAnonymous)}
+                              title="Change how you are credited for this donation"
+                              className="px-2 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 whitespace-nowrap">
+                              {d.isAnonymous ? 'Anonymous' : 'Name shown'}
+                            </button>
+                          </td>
                           <td className="px-4 py-3">
                             {d.proofUrl && proofUrls[d.id] ? (
                               <img src={proofUrls[d.id]} alt="proof" className="w-10 h-10 object-cover rounded-lg border border-gray-200" />
@@ -318,6 +387,8 @@ export default function DonationPortal() {
           );
         })()}
       </div>
+
+      {thankYou && <DonationThankYou info={thankYou} onClose={() => setThankYou(null)} />}
 
       {/* Donor list for a campaign — opened by clicking the campaign name/row, same as admin's Campaigns table */}
       {donorListCampaign && (
@@ -404,6 +475,10 @@ export default function DonationPortal() {
                   <input type="file" accept="image/*" className="hidden" onChange={handleProof} />
                 </label>
               </div>
+
+              <DonorVisibilityChoice anonymous={anonymous} onChange={setAnonymous} />
+
+              {submitError && <p className="text-xs text-red-600 font-semibold" role="alert">{submitError}</p>}
 
               <div className="bg-red-50 border border-red-200 rounded-xl p-3">
                 <p className="text-xs text-red-700 font-semibold mb-2">⚠️ All donations are final. Once submitted and verified, donations cannot be refunded, reversed, or exchanged for any reason.</p>

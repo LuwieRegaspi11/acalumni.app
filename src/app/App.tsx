@@ -23,7 +23,6 @@ import TermsPage from "./components/TermsPage";
 import PublicTracerSurveyPage from "./components/alumni/PublicTracerSurveyPage";
 import AdminDashboard from "./components/AdminDashboard";
 import AlumniDashboard from "./components/AlumniDashboard";
-import UserDashboard from "./components/UserDashboard";
 import RepresentativeDashboard from "./components/RepresentativeDashboard";
 
 // -- App-wide context providers (wrap the whole app, see bottom of file) -
@@ -35,6 +34,7 @@ import { NotificationProvider } from "./components/shared/NotificationContext";
 import { JobBoardProvider } from "./components/shared/JobBoardContext";
 import { AnnouncementProvider } from "./components/shared/AnnouncementContext";
 import { supabase } from "../lib/supabaseClient";
+import { PageSkeleton } from "./components/shared/Skeleton";
 
 // Graduate Tracer Survey gate — checked once the alumni's (or batch
 // representative's — a rep is an alumnus first, per the "Alumni-side
@@ -105,9 +105,7 @@ function ProtectedRoute({
   // /login while it's still in flight.
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-400 text-sm">Loading…</div>
-      </div>
+      <PageSkeleton />
     );
   }
 
@@ -117,7 +115,7 @@ function ProtectedRoute({
 
   // Pending accounts get a dedicated notice page instead of the
   // dashboard — see PendingApprovalPage.tsx. Only alumni registrations
-  // go through admin review; faculty/representative accounts are
+  // go through admin review; representative accounts are
   // auto-approved on signup (see handle_new_user() in
   // registration_simplification.sql), so a stale/incorrect pending
   // status on one of those roles should never gate them out here.
@@ -167,9 +165,34 @@ function MuiThemeBridge({ children }: { children: React.ReactNode }) {
       createTheme({
         palette: {
           mode: dark ? "dark" : "light",
+          // Brand colors (see src/styles/theme.css) instead of MUI's default blue/red.
+          primary: { main: "#2B5BA8", dark: "#1B3A6B", light: "#5B9BD5" },
+          error: { main: "#CC2200" },
           ...(dark && {
             background: { default: "#0d1117", paper: "#1a2332" },
           }),
+        },
+        // Same rounded corners and font as the rest of the app, and no ALL-CAPS buttons.
+        shape: { borderRadius: 12 },
+        typography: {
+          fontFamily: "inherit",
+          button: { textTransform: "none", fontWeight: 700 },
+        },
+        components: {
+          MuiCard: {
+            styleOverrides: {
+              root: {
+                borderRadius: 12,
+                border: dark ? "1px solid #263041" : "1px solid #f3f4f6",
+                boxShadow: "0 1px 2px rgba(16,24,40,0.06)",
+              },
+            },
+          },
+          MuiPaper: { styleOverrides: { rounded: { borderRadius: 12 } } },
+          MuiButton: { styleOverrides: { root: { borderRadius: 12, boxShadow: "none" } } },
+          MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
+          MuiTableCell: { styleOverrides: { head: { fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", textTransform: "uppercase" } } },
+          MuiDialog: { styleOverrides: { paper: { borderRadius: 16 } } },
         },
       }),
     [dark]
@@ -234,14 +257,6 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={["alumni"]}>
                 <AlumniDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/user/*"
-            element={
-              <ProtectedRoute allowedRoles={["faculty"]}>
-                <UserDashboard />
               </ProtectedRoute>
             }
           />

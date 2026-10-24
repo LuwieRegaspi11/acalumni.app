@@ -6,7 +6,7 @@ import { useDonations } from './DonationContext';
 import { supabase } from '../../../lib/supabaseClient';
 import PhoneNumberField from './PhoneNumberField';
 import JobInfoCard from './JobInfoCard';
-import { Sun, Moon, Camera, Mail, Phone, MapPin, Home, Link as LinkIcon, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Briefcase, Heart, DollarSign } from 'lucide-react';
+import { Sun, Moon, Camera, Mail, Phone, MapPin, Home, Link as LinkIcon, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Heart, DollarSign } from 'lucide-react';
 
 const DONATION_STATUS_LABELS: Record<string, string> = { Pending: 'Pending', Verified: 'Confirmed', Rejected: 'Rejected' };
 const DONATION_STATUS_COLOR: Record<string, string> = {
@@ -18,6 +18,8 @@ export default function ProfilePage() {
   const { dark, toggle } = useDarkMode();
   const { donations } = useDonations();
   const navigate = useNavigate();
+  // The administrator's profile is fixed (view only): no editing, no photo upload.
+  const isAdmin = user?.role === 'admin';
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,7 +31,6 @@ export default function ProfilePage() {
     currentPosition: user?.currentPosition || '',
     currentCompany: user?.currentCompany || '',
     username: user?.username || '',
-    position: user?.position || '',
     permanentAddress: '',
     socialNetworkId: '',
   });
@@ -67,7 +68,7 @@ export default function ProfilePage() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || isAdmin) return;
     setUploading(true);
     const ext = file.name.split('.').pop() || 'jpg';
     const path = `avatars/${user.id}/avatar.${ext}`;
@@ -85,7 +86,7 @@ export default function ProfilePage() {
     setForm({
       phone: user?.phone || '', address: user?.address || '',
       currentPosition: user?.currentPosition || '', currentCompany: user?.currentCompany || '',
-      username: user?.username || '', position: user?.position || '',
+      username: user?.username || '',
       permanentAddress: tracerOriginal.permanentAddress, socialNetworkId: tracerOriginal.socialNetworkId,
     });
     setSaveError(null);
@@ -96,13 +97,13 @@ export default function ProfilePage() {
   // independently optional here, so an alumnus can change just their
   // phone number (say) and leave everything else exactly as it was.
   const handleSave = async () => {
+    if (isAdmin) return;
     setSaving(true);
     setSaveError(null);
     const ok = await updateProfile({
       phone: form.phone, address: form.address,
       currentPosition: form.currentPosition, currentCompany: form.currentCompany,
       ...(user?.role === 'admin' ? { username: form.username } : {}),
-      ...(user?.role === 'faculty' ? { position: form.position } : {}),
     });
     if (!ok) {
       setSaving(false);
@@ -110,7 +111,7 @@ export default function ProfilePage() {
       return;
     }
     // Mirror Phone/Address plus the two tracer-only fields into the same
-    // Graduate Tracer Survey response admin/faculty's Alumni Tracer screen
+    // Graduate Tracer Survey response admin's Alumni Tracer screen
     // reads from — so this one Save is all it takes for the correction to
     // show up there too, instead of a second edit somewhere else.
     if (showTracerSync && hasTracerRecord && user) {
@@ -186,14 +187,16 @@ export default function ProfilePage() {
                   `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=1B3A6B&color=fff&bold=true`;
               }}
             />
-            <label
-              htmlFor="profile-upload"
-              className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:opacity-80"
-              style={{ background: 'linear-gradient(135deg, #1B3A6B, #2B5BA8)' }}
-            >
-              <Camera className="w-3.5 h-3.5 text-white" />
-              <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-            </label>
+            {!isAdmin && (
+              <label
+                htmlFor="profile-upload"
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-opacity hover:opacity-80"
+                style={{ background: 'linear-gradient(135deg, #1B3A6B, #2B5BA8)' }}
+              >
+                <Camera className="w-3.5 h-3.5 text-white" />
+                <input id="profile-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+              </label>
+            )}
           </div>
           <div>
             <h3 className={dark ? 'text-xl font-bold text-white' : 'text-xl font-bold text-gray-800'}>{user?.name}</h3>
@@ -309,138 +312,129 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Personal info */}
-      <div className={card}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className={dark ? 'text-white font-bold text-base' : 'text-gray-800 font-bold text-base'}>Personal Information</h3>
-          {!editing ? (
-            <button onClick={startEditing} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              <Pencil className="w-3.5 h-3.5" /> Edit
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setEditing(false)} className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border ${dark ? 'border-gray-600 text-gray-300' : 'border-gray-200 text-gray-600'}`}>
-                <X className="w-3.5 h-3.5" /> Cancel
+      {/* Personal info — the administrator has no personal-information card */}
+      {!isAdmin && (
+        <div className={card}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className={dark ? 'text-white font-bold text-base' : 'text-gray-800 font-bold text-base'}>Personal Information</h3>
+            {!editing ? (
+              <button onClick={startEditing} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${dark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                <Pencil className="w-3.5 h-3.5" /> Edit
               </button>
-              <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
-                <Check className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          )}
-        </div>
-        {showTracerSync && hasTracerRecord && (
-          <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-            Saving here also updates your contact details on the school's Alumni Tracer records — no need to change anything else.
-          </p>
-        )}
-        {saveError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 mb-4">{saveError}</div>
-        )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-gray-400" /><span className={label}>Email Address</span></div>
-            <p className={value}>{user?.email}</p>
-          </div>
-
-          {user?.role === 'admin' && (
-            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <div className="flex items-center gap-2 mb-1"><AtSign className="w-4 h-4 text-gray-400" /><span className={label}>Username</span></div>
-              {editing ? (
-                <input className={inputCls} value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="Username" />
-              ) : (
-                <p className={value}>{user?.username || '—'}</p>
-              )}
-            </div>
-          )}
-
-          {user?.role === 'faculty' && (
-            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <div className="flex items-center gap-2 mb-1"><Briefcase className="w-4 h-4 text-gray-400" /><span className={label}>Position</span></div>
-              {editing ? (
-                <input className={inputCls} value={form.position} onChange={e => setForm(f => ({ ...f, position: e.target.value }))} placeholder="e.g. Department Chair" />
-              ) : (
-                <p className={value}>{user?.position || '—'}</p>
-              )}
-            </div>
-          )}
-
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><Phone className="w-4 h-4 text-gray-400" /><span className={label}>Phone Number</span></div>
-            {editing ? (
-              <PhoneNumberField variant="compact" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="9XX XXX XXXX" hint="Start with 9 — leave out the leading 0" />
             ) : (
-              <p className={value}>{user?.phone || '—'}</p>
-            )}
-          </div>
-
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-gray-400" /><span className={label}>{showTracerSync && hasTracerRecord ? 'Current Address' : 'Address'}</span></div>
-            {editing ? (
-              <input className={inputCls} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street, City" />
-            ) : (
-              <p className={value}>{user?.address || '—'}</p>
-            )}
-          </div>
-
-          {/* Permanent Address / Social Network ID — Graduate Profile
-              columns that live only on the tracer response (see
-              showTracerSync/hasTracerRecord above), not on `profiles`. */}
-          {showTracerSync && hasTracerRecord && (
-            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <div className="flex items-center gap-2 mb-1"><Home className="w-4 h-4 text-gray-400" /><span className={label}>Permanent Address</span></div>
-              {editing ? (
-                <input className={inputCls} value={form.permanentAddress} onChange={e => setForm(f => ({ ...f, permanentAddress: e.target.value }))} placeholder="Street, City" />
-              ) : (
-                <p className={value}>{tracerOriginal.permanentAddress || '—'}</p>
-              )}
-            </div>
-          )}
-
-          {showTracerSync && hasTracerRecord && (
-            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <div className="flex items-center gap-2 mb-1"><LinkIcon className="w-4 h-4 text-gray-400" /><span className={label}>Social Network ID</span></div>
-              {editing ? (
-                <input className={inputCls} value={form.socialNetworkId} onChange={e => setForm(f => ({ ...f, socialNetworkId: e.target.value }))} placeholder="Facebook/Twitter name or link" />
-              ) : (
-                <p className={value}>{tracerOriginal.socialNetworkId || '—'}</p>
-              )}
-            </div>
-          )}
-
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><GraduationCap className="w-4 h-4 text-gray-400" /><span className={label}>Department</span></div>
-            <p className={value}>{user?.department || '—'}</p>
-          </div>
-
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Batch Year</span></div>
-            <p className={value}>{user?.batchYear?.toString() || '—'}</p>
-          </div>
-
-          {/* Set once from the Alumni Tracer Survey (or an admin's manual
-              approval) — see graduate_tracer_job_info_edit.sql's edit lock,
-              which treats these as permanent identity fields. Not editable
-              here, same split as GraduateTracerForm.tsx vs JobInfoCard.tsx. */}
-          {(user?.role === 'alumni' || user?.role === 'representative') && (
-            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Birthdate</span></div>
-              <p className={value}>{user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : '—'}</p>
-            </div>
-          )}
-
-          <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-1"><Building className="w-4 h-4 text-gray-400" /><span className={label}>Employment</span></div>
-            {editing ? (
-              <div className="space-y-2">
-                <input className={inputCls} value={form.currentPosition} onChange={e => setForm(f => ({ ...f, currentPosition: e.target.value }))} placeholder="Position" />
-                <input className={inputCls} value={form.currentCompany} onChange={e => setForm(f => ({ ...f, currentCompany: e.target.value }))} placeholder="Company" />
+              <div className="flex items-center gap-2">
+                <button onClick={() => setEditing(false)} className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border ${dark ? 'border-gray-600 text-gray-300' : 'border-gray-200 text-gray-600'}`}>
+                  <X className="w-3.5 h-3.5" /> Cancel
+                </button>
+                <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-60" style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
+                  <Check className="w-3.5 h-3.5" /> {saving ? 'Saving…' : 'Save'}
+                </button>
               </div>
-            ) : (
-              <p className={value}>{employment}</p>
             )}
           </div>
+          {showTracerSync && hasTracerRecord && (
+            <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Saving here also updates your contact details on the school's Alumni Tracer records — no need to change anything else.
+            </p>
+          )}
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 mb-4">{saveError}</div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Mail className="w-4 h-4 text-gray-400" /><span className={label}>Email Address</span></div>
+              <p className={value}>{user?.email}</p>
+            </div>
+  
+            {user?.role === 'admin' && (
+              <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2 mb-1"><AtSign className="w-4 h-4 text-gray-400" /><span className={label}>Username</span></div>
+                {editing ? (
+                  <input className={inputCls} value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="Username" />
+                ) : (
+                  <p className={value}>{user?.username || '—'}</p>
+                )}
+              </div>
+            )}
+  
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Phone className="w-4 h-4 text-gray-400" /><span className={label}>Phone Number</span></div>
+              {editing ? (
+                <PhoneNumberField variant="compact" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="9XX XXX XXXX" hint="Start with 9 — leave out the leading 0" />
+              ) : (
+                <p className={value}>{user?.phone || '—'}</p>
+              )}
+            </div>
+  
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><MapPin className="w-4 h-4 text-gray-400" /><span className={label}>{showTracerSync && hasTracerRecord ? 'Current Address' : 'Address'}</span></div>
+              {editing ? (
+                <input className={inputCls} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street, City" />
+              ) : (
+                <p className={value}>{user?.address || '—'}</p>
+              )}
+            </div>
+  
+            {/* Permanent Address / Social Network ID — Graduate Profile
+                columns that live only on the tracer response (see
+                showTracerSync/hasTracerRecord above), not on `profiles`. */}
+            {showTracerSync && hasTracerRecord && (
+              <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2 mb-1"><Home className="w-4 h-4 text-gray-400" /><span className={label}>Permanent Address</span></div>
+                {editing ? (
+                  <input className={inputCls} value={form.permanentAddress} onChange={e => setForm(f => ({ ...f, permanentAddress: e.target.value }))} placeholder="Street, City" />
+                ) : (
+                  <p className={value}>{tracerOriginal.permanentAddress || '—'}</p>
+                )}
+              </div>
+            )}
+  
+            {showTracerSync && hasTracerRecord && (
+              <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2 mb-1"><LinkIcon className="w-4 h-4 text-gray-400" /><span className={label}>Social Network ID</span></div>
+                {editing ? (
+                  <input className={inputCls} value={form.socialNetworkId} onChange={e => setForm(f => ({ ...f, socialNetworkId: e.target.value }))} placeholder="Facebook/Twitter name or link" />
+                ) : (
+                  <p className={value}>{tracerOriginal.socialNetworkId || '—'}</p>
+                )}
+              </div>
+            )}
+  
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><GraduationCap className="w-4 h-4 text-gray-400" /><span className={label}>Department</span></div>
+              <p className={value}>{user?.department || '—'}</p>
+            </div>
+  
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Batch Year</span></div>
+              <p className={value}>{user?.batchYear?.toString() || '—'}</p>
+            </div>
+  
+            {/* Set once from the Alumni Tracer Survey (or an admin's manual
+                approval) — see graduate_tracer_job_info_edit.sql's edit lock,
+                which treats these as permanent identity fields. Not editable
+                here, same split as GraduateTracerForm.tsx vs JobInfoCard.tsx. */}
+            {(user?.role === 'alumni' || user?.role === 'representative') && (
+              <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-2 mb-1"><Calendar className="w-4 h-4 text-gray-400" /><span className={label}>Birthdate</span></div>
+                <p className={value}>{user?.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : '—'}</p>
+              </div>
+            )}
+  
+            <div className={`p-3 rounded-lg ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2 mb-1"><Building className="w-4 h-4 text-gray-400" /><span className={label}>Employment</span></div>
+              {editing ? (
+                <div className="space-y-2">
+                  <input className={inputCls} value={form.currentPosition} onChange={e => setForm(f => ({ ...f, currentPosition: e.target.value }))} placeholder="Position" />
+                  <input className={inputCls} value={form.currentCompany} onChange={e => setForm(f => ({ ...f, currentCompany: e.target.value }))} placeholder="Company" />
+                </div>
+              ) : (
+                <p className={value}>{employment}</p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
         </>
       )}
 

@@ -26,7 +26,7 @@ import {
 // reads or writes those columns — see GraduateTracerForm.tsx for that
 // full, still-locked, read-only record.
 //
-// Since admin/faculty's "Alumni Tracer" and "Tracer Responses" screens
+// Since the admin's "Alumni Tracer" and "Tracer Responses" screens
 // (shared/AlumniManagementView.tsx, shared/TracerResponsesView.tsx) query
 // graduate_tracer_responses live on every load, a save here shows up
 // there automatically — no admin-side wiring needed beyond that.

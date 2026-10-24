@@ -1,5 +1,6 @@
 import { PROGRAMS_BY_DEPT, type DepartmentCode } from '../../../lib/academicPrograms';
 import { getBatchYearOptions } from '../../../lib/batchYears';
+import { isRealNamePart } from '../../../lib/realName';
 import { DEPARTMENT_LABELS } from '../AuthPage';
 import {
   ShieldCheck, IdCard, Briefcase, Building2, GraduationCap, Award, MessageSquare, ClipboardList,
@@ -122,7 +123,9 @@ export function buildRequirements(mode: 'public' | 'account'): Record<string, Re
     ],
     profile: [
       { check: a => !!a.first_name.trim(), label: 'First Name is required.', field: 'first_name' },
+      { check: a => !a.first_name.trim() || isRealNamePart(a.first_name), label: 'Please enter your real first name (letters only, no numbers or symbols).', field: 'first_name' },
       { check: a => !!a.last_name.trim(), label: 'Last Name is required.', field: 'last_name' },
+      { check: a => !a.last_name.trim() || isRealNamePart(a.last_name), label: 'Please enter your real last name (letters only, no numbers or symbols).', field: 'last_name' },
       ...(mode === 'public' ? [
         { check: (a: Answers) => !!a.date_of_birth, label: 'Birthdate is required.', field: 'date_of_birth' as const },
         { check: (a: Answers) => !!a.email.trim(), label: 'Email is required.', field: 'email' as const },

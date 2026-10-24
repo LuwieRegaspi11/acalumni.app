@@ -1,14 +1,15 @@
-import { useId, useState } from 'react';
-import { X, Zap, CalendarClock } from 'lucide-react';
+import { useEffect, useId, useState } from 'react';
+import { X, Zap, CalendarClock, ImagePlus, Trash2 } from 'lucide-react';
 import type { Campaign } from './DonationContext';
 import CurrencyAmountField from './CurrencyAmountField';
+import type { CampaignMediaChanges } from '../../../lib/campaignMedia';
 
 // ================= [SHARED: CAMPAIGNFORMMODAL] =================
-// The New/Edit Campaign form, extracted out of admin/DonationManagement.tsx
-// so faculty (department-scoped, no department picker) and admin
-// (always college-wide — no department picker either) share one
-// implementation instead of two copies drifting apart. Also doubles as
-// the Edit Campaign form when `initial` is passed.
+// The New/Edit Campaign form, shared by the admin Donation Management screen
+// for both creating and editing (`initial` set = editing). Besides the text
+// fields it collects the campaign's cover photo and project photo gallery
+// (Supabase Storage) — handed back as CampaignMediaChanges so
+// DonationContext can upload/delete them.
 //
 // Three distinct date fields are in play here — never conflate them:
 //   - eventStartDate: purely informational, no effect on status.
@@ -26,6 +27,7 @@ export interface NewCampaignInput {
   target: number;
   department: string;
   eventStartDate: string;
+  location?: string;
   releaseDate?: string;
   active: boolean;
   endedAt?: string;
@@ -33,18 +35,18 @@ export interface NewCampaignInput {
 
 interface Props {
   onClose: () => void;
-  onSubmit: (input: NewCampaignInput) => void;
-  // When set, every campaign this form creates/edits is fixed to this
-  // department (faculty use). Left unset for admin, whose campaigns are
-  // always college-wide ("All").
-  lockDepartment?: string;
+  onSubmit: (input: NewCampaignInput, media: CampaignMediaChanges) => void;
   // Present => editing this campaign instead of creating a new one.
   initial?: Campaign;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, initial }: Props) {
+const MAX_GALLERY_PHOTOS = 12;
+
+interface PendingPhoto { file: File; preview: string; caption: string }
+
+export default function CampaignFormModal({ onClose, onSubmit, initial }: Props) {
   const isEdit = !!initial;
   const initialReleaseDate = initial?.releaseDate ? new Date(initial.releaseDate) : null;
   const isAlreadyReleased = !!initialReleaseDate && initialReleaseDate.getTime() <= Date.now();
@@ -57,11 +59,57 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
     name: initial?.name || '', description: initial?.description || '',
     target: initial ? String(initial.target) : '',
     eventStartDate: initial?.eventStartDate || '',
+    location: initial?.location || '',
     releaseMode: (isCurrentlyScheduled ? 'schedule' : 'now') as 'now' | 'schedule',
     releaseDate: isCurrentlyScheduled && initialReleaseDate ? initialReleaseDate.toISOString().slice(0, 10) : '',
     releaseTime: isCurrentlyScheduled && initialReleaseDate ? `${pad2(initialReleaseDate.getHours())}:${pad2(initialReleaseDate.getMinutes())}` : '',
   });
   const formId = useId(); // ties each field's <label> to its input — see per-field ids below
+
+  // Cover + gallery state. Existing photos (edit mode) can be removed; new
+  // files are previewed locally and only uploaded when the form is saved.
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
+  const [newPhotos, setNewPhotos] = useState<PendingPhoto[]>([]);
+  const [removePhotoIds, setRemovePhotoIds] = useState<string[]>([]);
+  const [mediaError, setMediaError] = useState('');
+  const keptExisting = (initial?.photos || []).filter(p => !removePhotoIds.includes(p.id));
+  const galleryCount = keptExisting.length + newPhotos.length;
+
+  // Free the local preview URLs when the form closes.
+  useEffect(() => () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    newPhotos.forEach(p => URL.revokeObjectURL(p.preview));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pickImage = (file: File | undefined): File | null => {
+    if (!file) return null;
+    if (!file.type.startsWith('image/')) { setMediaError('Please choose an image file (JPG, PNG or WebP).'); return null; }
+    setMediaError('');
+    return file;
+  };
+
+  const handleCover = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = pickImage(e.target.files?.[0]);
+    e.target.value = '';
+    if (!file) return;
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+    setRemoveCover(false);
+  };
+
+  const handleGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    const room = MAX_GALLERY_PHOTOS - galleryCount;
+    if (files.length > room) setMediaError(`A project can have up to ${MAX_GALLERY_PHOTOS} photos — ${room > 0 ? `only the first ${room} were added.` : 'remove one to add another.'}`);
+    const accepted = files.slice(0, Math.max(room, 0)).filter(f => f.type.startsWith('image/'));
+    setNewPhotos(prev => [...prev, ...accepted.map(file => ({ file, preview: URL.createObjectURL(file), caption: '' }))]);
+  };
+
   const scheduledReleaseAt = () => {
     if (form.releaseMode !== 'schedule' || !form.releaseDate) return undefined;
     return new Date(`${form.releaseDate}T${form.releaseTime || '00:00'}`).toISOString();
@@ -81,11 +129,17 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
     const releaseDate = isAlreadyReleased && initial?.releaseDate ? initial.releaseDate : scheduledReleaseAt();
     onSubmit({
       name: form.name, description: form.description, target,
-      department: lockDepartment || initial?.department || 'All',
+      department: initial?.department || 'All',
       eventStartDate: form.eventStartDate,
+      location: form.location,
       releaseDate,
       active: true,
       endedAt: initial?.endedAt,
+    }, {
+      coverFile,
+      removeCover: removeCover && !coverFile,
+      newPhotos: newPhotos.map(p => ({ file: p.file, caption: p.caption })),
+      removePhotoIds,
     });
   };
 
@@ -123,14 +177,79 @@ export default function CampaignFormModal({ onClose, onSubmit, lockDepartment, i
             value={form.target}
             onChange={target => setForm(p => ({ ...p, target }))}
           />
-          {/* No Department field shown here — for faculty it's silently pinned
-              to `lockDepartment` in handleSubmit below (and enforced by RLS
-              regardless), and for admin it's always "All". Nothing for
-              either role to pick, so nothing to show. */}
+          {/* No Department field shown here — it's always "All"
+              (college-wide) for new campaigns. */}
+          <div>
+            <label htmlFor={`${formId}-location`} className="text-xs font-semibold text-gray-500 mb-1 block">Location (where)</label>
+            <input id={`${formId}-location`} type="text" value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+              placeholder="e.g. Asian College Gymnasium, Dumaguete City"
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
+          </div>
           <div>
             <label htmlFor={`${formId}-eventStartDate`} className="text-xs font-semibold text-gray-500 mb-1 block">Event Start Date</label>
             <input id={`${formId}-eventStartDate`} type="date" value={form.eventStartDate} onChange={e => setForm(p => ({ ...p, eventStartDate: e.target.value }))}
               className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
+          </div>
+
+          {/* Cover photo + project gallery — shown to donors and on the public
+              homepage so people can see where the money goes. */}
+          <div className="space-y-3">
+            <div>
+              <span className="text-xs font-semibold text-gray-500 mb-1 block">Cover Photo</span>
+              {(() => {
+                const shown = coverPreview || (!removeCover ? initial?.coverImageUrl : undefined);
+                return shown ? (
+                  <div className="relative">
+                    <img src={shown} alt="Campaign cover preview" className="w-full h-36 object-cover rounded-xl border border-gray-200" />
+                    <button type="button" onClick={() => { if (coverPreview) URL.revokeObjectURL(coverPreview); setCoverFile(null); setCoverPreview(null); setRemoveCover(true); }}
+                      aria-label="Remove cover photo" className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"><X className="w-3 h-3" /></button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center gap-1 border-2 border-dashed border-gray-300 rounded-xl py-5 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <ImagePlus className="w-6 h-6 text-gray-400" aria-hidden="true" />
+                    <span className="text-sm text-gray-500">Upload a cover photo</span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleCover} />
+                  </label>
+                );
+              })()}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-500">Project Photos <span className="font-normal text-gray-400">({galleryCount}/{MAX_GALLERY_PHOTOS}) — show where the money goes</span></span>
+                {galleryCount < MAX_GALLERY_PHOTOS && (
+                  <label className="flex items-center gap-1 text-xs font-semibold text-blue-700 cursor-pointer hover:underline">
+                    <ImagePlus className="w-3.5 h-3.5" aria-hidden="true" /> Add photos
+                    <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={handleGallery} />
+                  </label>
+                )}
+              </div>
+              {galleryCount === 0 ? (
+                <p className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl p-3 text-center">No project photos yet.</p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-2">
+                  {keptExisting.map(p => (
+                    <li key={p.id} className="relative">
+                      <img src={p.url} alt={p.caption || 'Project photo'} className="w-full h-24 object-cover rounded-lg border border-gray-200" />
+                      {p.caption && <p className="text-[11px] text-gray-500 truncate mt-0.5">{p.caption}</p>}
+                      <button type="button" onClick={() => setRemovePhotoIds(ids => [...ids, p.id])} aria-label="Remove this photo"
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"><Trash2 className="w-3 h-3" /></button>
+                    </li>
+                  ))}
+                  {newPhotos.map((p, i) => (
+                    <li key={p.preview} className="relative">
+                      <img src={p.preview} alt="New project photo preview" className="w-full h-24 object-cover rounded-lg border border-blue-300" />
+                      <input value={p.caption} placeholder="Caption (optional)" aria-label="Photo caption"
+                        onChange={e => setNewPhotos(list => list.map((x, j) => j === i ? { ...x, caption: e.target.value } : x))}
+                        className="w-full text-[11px] border border-gray-200 rounded-md px-1.5 py-1 mt-0.5 focus:outline-none focus:border-blue-400" />
+                      <button type="button" onClick={() => { URL.revokeObjectURL(p.preview); setNewPhotos(list => list.filter((_, j) => j !== i)); }} aria-label="Remove this photo"
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"><Trash2 className="w-3 h-3" /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {mediaError && <p className="text-xs text-red-500 font-semibold" role="alert">{mediaError}</p>}
           </div>
 
           {showReleaseToggle ? (

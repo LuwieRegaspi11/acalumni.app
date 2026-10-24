@@ -20,7 +20,6 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from './AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { PROGRAMS_BY_DEPT as PROGRAMS } from '../../lib/academicPrograms';
-import { getBatchYearOptions } from '../../lib/batchYears';
 
 // -- Icons (lucide-react) ------------------------------------------------
 import { Eye, EyeOff, ArrowLeft, Mail, Check, ClipboardList } from 'lucide-react';
@@ -50,9 +49,6 @@ export const PANEL_GRADIENT = `linear-gradient(135deg, ${NAVY} 0%, ${BLUE} 50%, 
 export const ALL_PROGRAMS = Object.entries(PROGRAMS).flatMap(([dept, progs]) =>
   progs.map(p => ({ ...p, department: dept }))
 );
-
-// Batch (graduation) year options, newest first.
-export const BATCH_YEAR_OPTIONS = getBatchYearOptions();
 
 // Friendly full names for the department picker shown on the Alumni
 // Tracer Survey and elsewhere. Matches the official Graduate Tracer
@@ -408,10 +404,19 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
     if (user) {
       if (user.role === 'alumni' && user.registrationStatus === 'pending') { navigate('/pending-approval'); return; }
       if (user.mustChangePassword) { navigate('/change-password'); return; }
+      // A "Donate" click on the public homepage remembers which campaign it
+      // was for (see landing/LandingSections.tsx); alumni and batch reps land
+      // straight on the donation form for it.
+      let donateCampaign: string | null = null;
+      let wantsEvents = false;
+      try {
+        donateCampaign = sessionStorage.getItem('donate-campaign'); sessionStorage.removeItem('donate-campaign');
+        wantsEvents = sessionStorage.getItem('after-login-events') === '1'; sessionStorage.removeItem('after-login-events');
+      } catch { /* ignore */ }
+      const donateQuery = donateCampaign ? `?donate=${encodeURIComponent(donateCampaign)}` : '';
       if (user.role === 'admin')          navigate('/admin');
-      else if (user.role === 'alumni')    navigate('/alumni');
-      else if (user.role === 'faculty')   navigate('/user');
-      else if (user.role === 'representative') navigate('/representative');
+      else if (user.role === 'alumni')    navigate(`/alumni${donateCampaign ? '/donations' + donateQuery : wantsEvents ? '/events' : ''}`);
+      else if (user.role === 'representative') navigate(`/representative${donateCampaign ? '/donations' + donateQuery : wantsEvents ? '/events' : ''}`);
     }
   }, [user, navigate]);
 

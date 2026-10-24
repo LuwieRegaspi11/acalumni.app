@@ -1,13 +1,15 @@
 // =====================================================================
 // ANNOUNCEMENT CONTEXT — announcements are now backed by Supabase
 // (announcements table), shared by both the admin Announcement
-// Management screen and the alumni/faculty Announcement Board — so
+// Management screen and the alumni Announcement Board — so
 // a post made by one role is now actually visible to the others
 // (previously these were two disconnected hardcoded lists).
 // =====================================================================
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import { useNotifications } from './NotificationContext';
+import { notifyAlumni, type NotifyChannels, type NotifyOutcome } from '../../../lib/notifyAlumni';
 
 export interface Announcement {
   id: string;
@@ -23,7 +25,10 @@ export interface Announcement {
 
 interface AnnouncementCtx {
   announcements: Announcement[];
-  addAnnouncement: (a: { title: string; content: string; category: string; targetDept: string }) => Promise<void>;
+  // Posts the announcement and, when `notify` is given, tells alumni about it
+  // in-app / by email / by SMS through the notify-alumni Edge Function.
+  // Resolves with a one-line outcome the form can show the admin.
+  addAnnouncement: (a: { title: string; content: string; category: string; targetDept: string }, notify?: NotifyChannels) => Promise<NotifyOutcome>;
   updateAnnouncement: (id: string, updates: Partial<{ title: string; content: string; category: string; targetDept: string }>) => Promise<void>;
   togglePin: (id: string, currentlyPinned: boolean) => Promise<void>;
   deleteAnnouncement: (id: string) => Promise<void>;
@@ -31,7 +36,7 @@ interface AnnouncementCtx {
 
 const Ctx = createContext<AnnouncementCtx>({
   announcements: [],
-  addAnnouncement: async () => {}, updateAnnouncement: async () => {},
+  addAnnouncement: async () => ({ ok: true, summary: '' }), updateAnnouncement: async () => {},
   togglePin: async () => {}, deleteAnnouncement: async () => {},
 });
 
@@ -51,6 +56,7 @@ function mapRow(r: any): Announcement {
 
 export function AnnouncementProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { trigger } = useNotifications();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const load = async () => {
@@ -62,15 +68,37 @@ export function AnnouncementProvider({ children }: { children: ReactNode }) {
     setAnnouncements((data || []).map(mapRow));
   };
 
-  useEffect(() => { load(); }, []);
+  // Reload when the signed-in user changes: these tables are protected by row-level
+  // security, so the load that ran at page start (before sign-in) came back empty.
+  useEffect(() => { load(); }, [user?.id]);
 
-  const addAnnouncement = async (a: { title: string; content: string; category: string; targetDept: string }) => {
-    if (!user) return;
-    await supabase.from('announcements').insert({
+  const addAnnouncement = async (a: { title: string; content: string; category: string; targetDept: string }, notify?: NotifyChannels): Promise<NotifyOutcome> => {
+    if (!user) return { ok: false, summary: 'You must be signed in to post an announcement.' };
+    const { error } = await supabase.from('announcements').insert({
       title: a.title, content: a.content, category: a.category,
       target_dept: a.targetDept, created_by: user.id,
     });
+    if (error) return { ok: false, summary: `Could not post the announcement: ${error.message}` };
     await load();
+    if (!notify) return { ok: true, summary: 'Announcement posted.' };
+
+    const preview = a.content.length > 400 ? `${a.content.slice(0, 397)}…` : a.content;
+    const outcome = await notifyAlumni({
+      title: a.title,
+      message: preview,
+      channels: notify,
+      audience: { department: a.targetDept },
+    });
+    // The Edge Function may not be deployed yet (or be unreachable). The
+    // in-app bell is the one channel that has an in-database fallback, so
+    // alumni still get that even then.
+    if (!outcome.ok && notify.inApp) {
+      const dept = a.targetDept === 'All Alumni' ? undefined : a.targetDept;
+      await Promise.all((['alumni', 'representative'] as const).map(role =>
+        trigger({ title: a.title, message: preview, type: 'info', targetRole: role, targetDept: dept })));
+      return { ok: true, summary: `Announcement posted. In-app notification sent; email/SMS could not be sent (${outcome.summary}).` };
+    }
+    return { ok: outcome.ok, summary: `Announcement posted. ${outcome.summary}` };
   };
 
   const updateAnnouncement = async (id: string, updates: Partial<{ title: string; content: string; category: string; targetDept: string }>) => {

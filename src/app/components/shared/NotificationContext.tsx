@@ -23,6 +23,7 @@ export interface Notification {
   targetRole?: string;   // who to notify when triggering (broadcast by role)
   targetDept?: string;   // optionally scope a role-broadcast to one department
   targetUserId?: string; // notify one specific account directly
+  offerId?: string;      // set on a batch-representative offer: the panel shows Accept / Decline for it
   read: boolean;
   createdAt: string;
 }
@@ -31,14 +32,14 @@ interface NotificationCtx {
   notifications: Notification[];
   unreadCount: (role?: string, dept?: string) => number;
   trigger: (n: Omit<Notification, 'id' | 'read' | 'createdAt'>) => Promise<void>;
-  markRead: (id: string) => void;
-  markAllRead: (role?: string, dept?: string) => void;
+  markRead: (id: string) => Promise<void>;
+  markAllRead: (role?: string, dept?: string) => Promise<void>;
   getFor: (role?: string, dept?: string) => Notification[];
 }
 
 const Ctx = createContext<NotificationCtx>({
   notifications: [], unreadCount: () => 0,
-  trigger: async () => {}, markRead: () => {}, markAllRead: () => {}, getFor: () => [],
+  trigger: async () => {}, markRead: async () => {}, markAllRead: async () => {}, getFor: () => [],
 });
 
 function mapRow(r: any): Notification {
@@ -49,6 +50,7 @@ function mapRow(r: any): Notification {
     type: r.type,
     read: r.read,
     createdAt: r.created_at,
+    offerId: r.offer_id ?? undefined,
   };
 }
 
@@ -111,16 +113,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const markRead = useCallback((id: string) => {
+  // The UI flips to "read" immediately, and the change is then SAVED to the
+  // database. (A Supabase query only runs once it is awaited — before, these
+  // calls were never awaited, so nothing was saved and every notification
+  // came back unread after a refresh.) If the save fails, reload so the list
+  // shows the truth instead of pretending it was read.
+  const markRead = useCallback(async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    supabase.from('notifications').update({ read: true }).eq('id', id);
-  }, []);
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
+    if (error) { console.error('[notifications] markRead failed', error); load(); }
+  }, [load]);
 
-  const markAllRead = useCallback((_role?: string, _dept?: string) => {
+  const markAllRead = useCallback(async (_role?: string, _dept?: string) => {
     if (!user) return;
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
-  }, [user]);
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    if (error) { console.error('[notifications] markAllRead failed', error); load(); }
+  }, [user, load]);
 
   return <Ctx.Provider value={{ notifications, unreadCount, trigger, markRead, markAllRead, getFor }}>{children}</Ctx.Provider>;
 }

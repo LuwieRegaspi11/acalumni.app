@@ -4,7 +4,6 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 import { supabase } from '../../../lib/supabaseClient';
 import { useNotifications } from '../shared/NotificationContext';
 import { rowToAnswers, renderProfileSummary, renderEmploymentStatusSummary, renderEmploymentInfoSummary, renderCurriculumSummary, renderLicensureSummary, renderFeedbackSummary } from '../alumni/tracerSurveySections';
-import TracerCredentialsReveal from '../alumni/TracerCredentialsReveal';
 import BulkImportResponses from './BulkImportResponses';
 
 // =====================================================================
@@ -27,25 +26,16 @@ import BulkImportResponses from './BulkImportResponses';
 // produced by new submissions, kept only so historical rows still
 // display sensibly.) An admin looks at the full submitted survey (the
 // same fields the alumnus answered — see the read-only render below) to
-// identify the person, then Approves or Rejects.
+// identify the person, then presses Confirm. Confirm is the only action:
+// there is no Reject, and an admin never creates, sees or resets a password.
 //
-// Important: a "Pending" submission here USUALLY already has a real
-// account that can sign in — every ordinary submission gets one
-// immediately (see tracer-intake's header comment) — it just lands on
-// the pending-approval status page instead of the dashboard. So the
-// common case for Approve is just lifting that gate
-// (registration_status -> 'approved'); there's no password left to
-// relay, the alumnus already got their own the moment they submitted.
-//
-// Two exceptions still show a one-time credentials screen on Approve:
-// the rare fallback where account creation itself failed back at
-// submission time (this is the first time it's created); and a
-// "possible duplicate" — the submitted email already matched an
-// existing account, but the automatic password reset call itself
-// technically failed (see tracer-intake's handleSubmit), so NO password
-// was actually reset at submission time. Approving here just retries
-// that password reset and shows new sign-in details to relay. See the
-// Edge Function's "approve" action for all three branches.
+// A "Pending" submission here USUALLY already has a real account that can
+// sign in — every ordinary submission gets one immediately (see
+// tracer-intake's header comment) — it just lands on the pending-approval
+// status page instead of the dashboard. Confirming lifts that gate
+// (registration_status -> 'approved'). An alumnus who forgot their password
+// uses "Forgot your password?" on the sign-in page, which emails them a reset
+// link (see AuthPage.tsx / ResetPasswordPage.tsx).
 // =====================================================================
 
 interface Submission {
@@ -93,9 +83,6 @@ export default function PendingRegistrations() {
   const [batchYearFilter, setBatchYearFilter] = useState('All');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [reveal, setReveal] = useState<{ name: string; email: string; password: string; wasReset?: boolean } | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [rejecting, setRejecting] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [approveNotice, setApproveNotice] = useState<string | null>(null);
 
@@ -128,11 +115,14 @@ export default function PendingRegistrations() {
   const handleView = (s: Submission) => {
     setSelected(s);
     setActionError('');
-    setRejectReason('');
     setViewDialogOpen(true);
   };
 
-  const handleApprove = async (submission: Submission) => {
+  // Confirm only: the alumnus already has their account from when they submitted
+  // the survey, so confirming just lifts the pending gate. Admins never create,
+  // see or reset passwords — an alumnus who forgot theirs uses "Forgot your
+  // password?" on the sign-in page and gets a reset link by email.
+  const handleConfirm = async (submission: Submission) => {
     setActionLoading(true);
     setActionError('');
     const { data, error } = await supabase.functions.invoke('tracer-intake', {
@@ -140,82 +130,22 @@ export default function PendingRegistrations() {
     });
     setActionLoading(false);
     if (error || !data || data.error) {
-      let message = 'Could not approve this submission. Please try again.';
+      let message = 'Could not confirm this registration. Please try again.';
       try { const body = await error?.context?.json?.(); if (body?.error) message = body.error; } catch { /* keep generic */ }
       setActionError(message);
       return;
     }
     setViewDialogOpen(false);
-    // A password to relay means either the rare fallback (account never
-    // existed, just created) or a "possible duplicate" the admin just
-    // confirmed (existing account, password reset) — both need the
-    // one-time reveal. No password at all is the common case: the
-    // account already had its own credentials from submission time, so
-    // approving here just lifts the pending gate.
-    if (data.password) {
-      if (data.userId) {
-        trigger({
-          title: data.wasReset ? 'Password Reset' : 'Welcome to the Alumni Portal',
-          message: data.wasReset
-            ? 'Your identity was confirmed and your password has been reset — check with the Alumni Office for your new sign-in details.'
-            : 'Your Alumni Tracer Survey submission has been verified and your account is ready.',
-          type: 'success',
-          targetUserId: data.userId,
-        });
-      }
-      setReveal({ name: data.name, email: data.email, password: data.password, wasReset: !!data.wasReset });
-      loadSubmissions();
-      return;
-    }
-    // Common case: this account already exists — it was created the
-    // moment the survey was submitted (see tracer-intake's header
-    // comment) — so there's no new password to relay, just the
-    // pending gate to lift.
-    const existingUserId = submission.raw?.linked_profile_id;
-    if (existingUserId) {
+    const userId = data.userId || submission.raw?.linked_profile_id || submission.raw?.possible_duplicate_profile_id;
+    if (userId) {
       trigger({
-        title: 'Account Verified',
-        message: 'Your Alumni Tracer Survey submission has been verified — sign in to access your dashboard.',
+        title: 'Registration Confirmed',
+        message: 'Your registration has been confirmed — sign in to access your dashboard. If you forgot your password, use “Forgot your password?” on the sign-in page and a reset link will be sent to your email.',
         type: 'success',
-        targetUserId: existingUserId,
+        targetUserId: userId,
       });
     }
-    setApproveNotice(`Approved — ${submission.name} already has their sign-in details from when they submitted the survey and can now reach their dashboard.`);
-    loadSubmissions();
-  };
-
-  const handleReject = async (submission: Submission) => {
-    setRejecting(true);
-    setActionError('');
-    const { error } = await supabase.functions.invoke('tracer-intake', {
-      body: { action: 'reject', intakeId: submission.id, reason: rejectReason || undefined },
-    });
-    setRejecting(false);
-    if (error) {
-      setActionError('Could not reject this submission. Please try again.');
-      return;
-    }
-    setViewDialogOpen(false);
-    // Mirrors handleApprove's trigger() call below. Most rejected accounts
-    // can never actually see this — AuthContext.tsx's login() signs a
-    // rejected account straight back out, so the notifications bell is
-    // unreachable for them afterward (AuthPage.tsx's status screen is what
-    // they see instead, now including this same reason — see
-    // check_registration_status_rejection_reason.sql). Still worth sending:
-    // a still-'pending' account can already sign in and have a live session
-    // open (see AuthContext.tsx's login()), so this can arrive in real time
-    // right up until that session's next status check signs them out.
-    const existingUserId = submission.raw?.linked_profile_id;
-    if (existingUserId) {
-      trigger({
-        title: 'Registration Rejected',
-        message: rejectReason
-          ? `Your Alumni Tracer Survey submission was not approved: ${rejectReason}`
-          : 'Your Alumni Tracer Survey submission was not approved. Contact the Alumni Office for details.',
-        type: 'error',
-        targetUserId: existingUserId,
-      });
-    }
+    setApproveNotice(`Confirmed — ${submission.name} can now sign in. If they forgot their password they can use “Forgot your password?” on the sign-in page.`);
     loadSubmissions();
   };
 
@@ -395,10 +325,10 @@ export default function PendingRegistrations() {
               {selected.status === 'pending' && (
                 <div className={`px-3 py-2 rounded-md text-sm ${selected.raw?.possible_duplicate_profile_id ? 'bg-amber-50 border border-amber-200 text-amber-700' : 'bg-blue-50 border border-blue-200 text-blue-700'}`}>
                   {selected.raw?.possible_duplicate_profile_id
-                    ? "This email already has an account, but we couldn't automatically confirm this submission is the same person (name, department, or program didn't fully match what's on file). Check the survey below carefully — approving will reset that account's password and show new sign-in details to relay, so only do this if you're confident it's really them. Rejecting leaves the existing account untouched."
+                    ? "This email already has an account, but the name, department or program didn't fully match what's on file. Check the survey answers below, then confirm. Confirming does not change their password — if they forgot it they can use “Forgot your password?” on the sign-in page."
                     : selected.raw?.linked_profile_id
-                      ? 'This person already has an account and their own sign-in details from when they submitted — signing in currently shows them a pending-approval status page. Approving lifts that; nothing new is created or relayed.'
-                      : "This submission's account couldn't be created automatically — approving will create it now and show a one-time password to relay."}
+                      ? 'This person already has an account from when they submitted the survey — signing in currently shows them a pending-approval page. Confirming lifts that.'
+                      : "This submission's account couldn't be created automatically — confirming creates it now. They then use “Forgot your password?” on the sign-in page to set their own password."}
                 </div>
               )}
               {selected.status === 'rejected' && selected.rejectionReason && (
@@ -436,43 +366,18 @@ export default function PendingRegistrations() {
                 );
               })()}
 
-              {selected.status === 'pending' && (
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Rejection reason (optional — shown to the alumnus on their status screen if provided)</p>
-                  <TextField fullWidth size="small" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="e.g. Could not verify identity" />
-                </div>
-              )}
             </div>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
           {selected?.status === 'pending' && (
-            <>
-              <Button color="error" startIcon={<XCircle className="w-4 h-4" />} disabled={actionLoading || rejecting}
-                onClick={() => selected && handleReject(selected)}>
-                {rejecting ? 'Rejecting…' : 'Reject'}
-              </Button>
-              <Button variant="contained" color="success" startIcon={<CheckCircle className="w-4 h-4" />} disabled={actionLoading || rejecting}
-                onClick={() => selected && handleApprove(selected)}>
-                {actionLoading ? 'Approving…' : selected?.raw?.possible_duplicate_profile_id ? 'Confirm & Reset Password' : 'Approve'}
-              </Button>
-            </>
+            <Button variant="contained" color="success" startIcon={<CheckCircle className="w-4 h-4" />} disabled={actionLoading}
+              onClick={() => selected && handleConfirm(selected)}>
+              {actionLoading ? 'Confirming…' : 'Confirm'}
+            </Button>
           )}
         </DialogActions>
-      </Dialog>
-
-      {/* One-time credentials reveal, right after Approve succeeds */}
-      <Dialog open={!!reveal} onClose={() => setReveal(null)} maxWidth="sm" fullWidth>
-        <DialogContent sx={{ p: 0 }}>
-          {reveal && (
-            <TracerCredentialsReveal
-              name={reveal.name} email={reveal.email} password={reveal.password}
-              audience="admin" reset={reveal.wasReset}
-              onContinue={() => setReveal(null)}
-            />
-          )}
-        </DialogContent>
       </Dialog>
 
       <BulkImportResponses

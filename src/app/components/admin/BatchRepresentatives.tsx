@@ -34,6 +34,19 @@ interface AlumniOption {
   profile_image?: string | null;
 }
 
+interface OfferRow {
+  id: string; status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  batchYear: number; department: string; program: string;
+  name: string; email: string; createdAt: string; respondedAt: string | null;
+}
+
+const OFFER_STATUS: Record<OfferRow['status'], { label: string; color: 'warning' | 'success' | 'error' | 'default' }> = {
+  pending: { label: 'Waiting for answer', color: 'warning' },
+  accepted: { label: 'Accepted', color: 'success' },
+  rejected: { label: 'Declined', color: 'error' },
+  cancelled: { label: 'Withdrawn', color: 'default' },
+};
+
 export default function BatchRepresentatives() {
   const [representatives, setRepresentatives] = useState<Representative[]>([]);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -52,6 +65,8 @@ export default function BatchRepresentatives() {
   const [selectedAlumnus, setSelectedAlumnus] = useState<AlumniOption | null>(null);
   const [assignError, setAssignError] = useState('');
   const [assigning, setAssigning] = useState(false);
+  const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [notice, setNotice] = useState('');
 
   const load = async () => {
     const { data } = await supabase
@@ -71,7 +86,27 @@ export default function BatchRepresentatives() {
     })));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadOffers = async () => {
+    const { data } = await supabase
+      .from('rep_offers')
+      .select('id, status, batch_year, department, program, created_at, responded_at, alumni:profiles!rep_offers_alumni_id_fkey(name, email)')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    setOffers((data || []).map((o: any) => ({
+      id: o.id, status: o.status, batchYear: o.batch_year, department: o.department, program: o.program,
+      name: o.alumni?.name || 'Unknown', email: o.alumni?.email || '', createdAt: o.created_at, respondedAt: o.responded_at,
+    })));
+  };
+
+  useEffect(() => { load(); loadOffers(); }, []);
+
+  // Keep this screen current when an alumnus answers an offer.
+  useEffect(() => {
+    const channel = supabase.channel('rep-offers-admin')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rep_offers' }, () => { load(); loadOffers(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   // Debounced search over alumni/representative profiles for the Assign
   // dialog's picker — only fetches while the dialog is open.
@@ -123,61 +158,34 @@ export default function BatchRepresentatives() {
       setAssignError('This profile is missing a batch year, department, or program — complete their profile before assigning them as a representative.');
       return;
     }
+    if (selectedAlumnus.role !== 'alumni') {
+      setAssignError(`${selectedAlumnus.name} is already a batch representative. Remove them first if you want to change their assignment.`);
+      return;
+    }
     setAssigning(true);
     try {
-      const yearNum = selectedAlumnus.batch_year;
-      const dept = selectedAlumnus.department;
-      const program = selectedAlumnus.program;
-
-      // Enforce one rep per (batch_year, department, program): demote any
-      // existing rep for this exact combo back to alumni first.
-      await supabase
-        .from('profiles')
-        .update({ role: 'alumni', assigned_batch_year: null, assigned_department: null, assigned_program: null, assigned_at: null })
-        .eq('role', 'representative')
-        .eq('assigned_batch_year', yearNum)
-        .eq('assigned_department', dept)
-        .eq('assigned_program', program);
-
-      // Admin picking someone as a representative *is* the verification —
-      // don't leave them stuck behind the separate pending-approval queue
-      // (registration_status) or deactivated. Only alumni-role accounts
-      // are gated by registrationStatus === 'pending' (see App.tsx's
-      // ProtectedRoute), so a still-pending alumnus promoted to
-      // representative already fell through that check by virtue of the
-      // role change alone — but leaving registration_status untouched is
-      // fragile (it'd flip back to being enforced the moment they're ever
-      // demoted back to 'alumni', e.g. via handleRemove) and inconsistent
-      // with what the admin just asserted. Set it explicitly instead.
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          role: 'representative',
-          assigned_batch_year: yearNum, assigned_department: dept, assigned_program: program,
-          assigned_at: new Date().toISOString(),
-          registration_status: 'approved',
-          active: true,
-        })
-        .eq('id', selectedAlumnus.id);
-
+      // The alumnus is NOT promoted here — they get an offer (a notification
+      // with Accept / Decline). Their account only becomes a batch
+      // representative when they accept; the database function also checks
+      // that the profile is approved and complete. See
+      // supabase/batch_rep_offers.sql.
+      const { error } = await supabase.rpc('offer_batch_rep', { p_alumni_id: selectedAlumnus.id });
       if (error) {
-        setAssignError('Could not assign this profile as a representative. Only admins can do this — make sure you\'re signed in as an admin.');
+        setAssignError(error.message || 'Could not send the offer.');
         return;
       }
-
-      await supabase.rpc('log_audit', {
-        p_action: `Assigned ${selectedAlumnus.name} as batch representative`,
-        p_module: 'Batch Representatives',
-        p_details: `Batch ${yearNum} · ${dept} · ${program}`,
-        p_severity: 'Medium',
-      });
-
+      setNotice(`Offer sent to ${selectedAlumnus.name}. They can accept or decline from their notifications — you'll be notified of their answer.`);
       setAssignDialogOpen(false);
       resetAssignForm();
-      await load();
+      await loadOffers();
     } finally {
       setAssigning(false);
     }
+  };
+
+  const cancelOffer = async (offerId: string) => {
+    await supabase.from('rep_offers').update({ status: 'cancelled', responded_at: new Date().toISOString() }).eq('id', offerId).eq('status', 'pending');
+    await loadOffers();
   };
 
   const handleRemove = async (rep: Representative) => {
@@ -209,9 +217,16 @@ export default function BatchRepresentatives() {
           onClick={() => setAssignDialogOpen(true)}
           className="bg-gradient-to-r from-teal-600 to-green-600"
         >
-          Assign Representative
+          Offer Representative Role
         </Button>
       </div>
+
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800 flex items-start justify-between gap-3">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       {/* Info Banner */}
       <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 shadow-lg">
@@ -374,14 +389,55 @@ export default function BatchRepresentatives() {
         </Table>
       </TableContainer>
 
+      {/* Offers — what the Alumni Head has sent and how each alumnus answered */}
+      <TableContainer component={Paper} className="shadow-lg">
+        <div className="px-4 pt-4">
+          <h3 className="font-bold text-gray-800">Representative Offers</h3>
+          <p className="text-xs text-gray-500">An alumnus becomes a batch representative only after accepting. Their answer also arrives as a notification.</p>
+        </div>
+        <div className="overflow-x-auto">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Alumnus</TableCell>
+              <TableCell>Offered for</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Sent</TableCell>
+              <TableCell>Answered</TableCell>
+              <TableCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {offers.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center py-6"><p className="text-gray-500 text-sm">No offers sent yet</p></TableCell></TableRow>
+            ) : offers.map(o => (
+              <TableRow key={o.id} hover>
+                <TableCell>
+                  <p className="text-sm">{o.name}</p>
+                  <p className="text-xs text-gray-500">{o.email}</p>
+                </TableCell>
+                <TableCell>Batch {o.batchYear} · {o.department} · {o.program}</TableCell>
+                <TableCell><Chip size="small" label={OFFER_STATUS[o.status].label} color={OFFER_STATUS[o.status].color} /></TableCell>
+                <TableCell>{new Date(o.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell>{o.respondedAt ? new Date(o.respondedAt).toLocaleDateString() : '—'}</TableCell>
+                <TableCell>
+                  {o.status === 'pending' && <Button size="small" color="error" onClick={() => cancelOffer(o.id)}>Withdraw</Button>}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        </div>
+      </TableContainer>
+
       {/* Assign Dialog */}
       <Dialog open={assignDialogOpen} onClose={() => { setAssignDialogOpen(false); resetAssignForm(); }} maxWidth="sm" fullWidth>
-        <DialogTitle>Assign Batch Representative</DialogTitle>
+        <DialogTitle>Offer Batch Representative Role</DialogTitle>
         <DialogContent>
           <div className="space-y-4 pt-4">
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-4">
               <p className="text-xs text-gray-700">
-                ⚠️ <strong>Unique Constraint:</strong> Only ONE representative can be assigned per <strong>Batch Year + Department + Program</strong> combination. Assigning a new representative will replace any existing one for that specific combination.
+                ⚠️ <strong>Unique Constraint:</strong> Only ONE representative can be assigned per <strong>Batch Year + Department + Program</strong> combination. If the alumnus accepts, they replace any existing representative for that specific combination. Nothing changes until they accept.
               </p>
             </div>
             {assignError && (
@@ -415,7 +471,7 @@ export default function BatchRepresentatives() {
                   {...params}
                   label="Search & Select Alumni"
                   placeholder="Type a name or email…"
-                  helperText="Pick the alumni to assign — their own batch year, department, and program become the assignment automatically"
+                  helperText="Pick the alumnus to make the offer to — their own batch year, department, and program become the assignment if they accept"
                   InputProps={{
                     ...params.InputProps,
                     startAdornment: <Search className="w-4 h-4 text-gray-400 ml-2" />,
@@ -433,7 +489,7 @@ export default function BatchRepresentatives() {
             {selectedAlumnus && (
               <Card variant="outlined" className="bg-teal-50/50">
                 <CardContent>
-                  <p className="text-xs text-gray-500 mb-2">Will be assigned to represent:</p>
+                  <p className="text-xs text-gray-500 mb-2">Will be offered to represent:</p>
                   <div className="flex flex-wrap gap-2">
                     <Chip label={`Batch ${selectedAlumnus.batch_year}`} size="small" color="primary" />
                     <Chip label={selectedAlumnus.department} size="small" />
@@ -452,7 +508,7 @@ export default function BatchRepresentatives() {
             disabled={assigning}
             className="bg-gradient-to-r from-teal-600 to-green-600"
           >
-            Assign Representative
+            {assigning ? 'Sending…' : 'Send Offer'}
           </Button>
         </DialogActions>
       </Dialog>

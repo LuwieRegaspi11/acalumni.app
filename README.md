@@ -2,7 +2,7 @@
 
 A web application for **Asian College – Dumaguete Campus** that manages alumni records,
 tracer surveys, donations, events, job postings, and batch representative verification.
-Built as a single-page React app with role-based dashboards for Admins, Alumni, Faculty,
+Built as a single-page React app with role-based dashboards for the Alumni Head (Admin), Alumni,
 and Batch Representatives.
 
 Progressively cleaned up, made responsive, and given working dark mode support.
@@ -57,10 +57,10 @@ same data. See `DATABASE-SETUP.md` for the schema this project runs on.
 ### Accounts
 
 There's no generic demo-password table anymore — the four seed accounts (one per
-role: admin, alumni, faculty, representative) were carried over from an earlier
+role: admin, alumni, representative) were carried over from an earlier
 Supabase project the app owner already has credentials for. New alumni can
 self-register through the `/register` page; new accounts start `pending` until an
-admin approves them in **Pending Registrations**.
+admin confirms them in **Pending Registrations**.
 
 ---
 
@@ -81,11 +81,10 @@ src/
         ├── AuthContext.tsx      # Mock auth provider (login/register/logout, mock user list)
         ├── AdminDashboard.tsx   # Admin shell + routes (see below)
         ├── AlumniDashboard.tsx  # Alumni shell + routes
-        ├── UserDashboard.tsx    # Faculty shell + routes
         ├── RepresentativeDashboard.tsx  # Batch Representative shell + routes
         ├── admin/                # Admin-only feature pages
         ├── alumni/                # Alumni-only feature pages
-        ├── faculty/               # Faculty-only feature pages
+        ├── landing/               # Live homepage sections (campaigns, projects, news feed)
         ├── representative/        # Batch Representative feature pages
         ├── shared/                # Cross-role components (layout, dark mode, notifications,
         │                          # events/donations/job-board contexts, profile page, etc.)
@@ -102,7 +101,6 @@ each role lands on its own dashboard shell with nested routes:
   announcements, job board, department management, user accounts, reports, audit logs,
   system settings.
 - **`/alumni/*`** — Alumni: profile, tracer survey, donations, events, job board.
-- **`/user/*`** — Faculty: tracer survey view, dashboard home.
 - **`/representative/*`** — Batch Representative: verification tools for their assigned
   batch/department/program.
 - **`/login`, `/register`** — Public auth pages.

@@ -15,7 +15,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   email text not null,
-  role text not null check (role in ('admin', 'alumni', 'faculty', 'representative')),
+  role text not null check (role in ('admin', 'alumni', 'representative')),  -- 'faculty' removed by remove_faculty_role.sql
   department text,
   batch_year integer,
   program text,
@@ -53,7 +53,7 @@ create policy "Users can insert their own profile"
 --     ));
 -- Add that once you're ready to connect those screens to real data too.
 
--- 3. (Optional but recommended) seed the 4 demo accounts shown on the
+-- 3. (Optional but recommended) seed the demo accounts shown on the
 --    sign-in screen, so the "Demo Accounts" quick-login buttons keep
 --    working. Run this section AFTER you have manually created these
 --    4 users once via the app's Sign Up form (or via Supabase Auth ->
@@ -63,4 +63,3 @@ create policy "Users can insert their own profile"
 -- update public.profiles set role = 'admin' where email = 'admin@asiancollege.edu';
 -- update public.profiles set role = 'alumni', department = 'CSE', batch_year = 2022, program = 'BSIT' where email = 'alumni@asiancollege.edu';
 -- update public.profiles set role = 'representative', department = 'CSE', batch_year = 2022, program = 'BSIT', assigned_batch_year = 2022, assigned_department = 'CSE', assigned_program = 'BSIT' where email = 'rep@asiancollege.edu';
--- update public.profiles set role = 'faculty', department = 'CSE' where email = 'faculty@asiancollege.edu';

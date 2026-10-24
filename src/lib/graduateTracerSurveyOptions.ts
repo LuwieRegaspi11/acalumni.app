@@ -180,66 +180,6 @@ export interface TracerQuestion {
   options?: string[];
 }
 
-// Full field list per section — every graduate_tracer_responses column,
-// grouped the same way GraduateTracerForm.tsx sections them. Shared by
-// admin/TracerResponses.tsx (the "View" dialog) and admin/AlumniInformation.tsx
-// (the alumni detail page's Graduate Tracer Survey summary), so both read
-// the exact same field/label list instead of drifting apart. Keyed the
-// same as ALL_SECTIONS above so a caller can pick a subset of sections
-// (e.g. everything except 'curriculum') and still find its fields here.
-export const TRACER_DETAIL_FIELDS: Record<string, { key: string; label: string }[]> = {
-  profile: [
-    { key: 'first_name', label: 'First Name' }, { key: 'last_name', label: 'Last Name' },
-    { key: 'date_of_birth', label: 'Birthdate' },
-    { key: 'email', label: 'Email' },
-    { key: 'mobile_number', label: 'Mobile Number' }, { key: 'social_network_id', label: 'Social Network ID' },
-    { key: 'current_address', label: 'Current Address' }, { key: 'permanent_address', label: 'Permanent Address' },
-    { key: 'sex', label: 'Sex' }, { key: 'civil_status', label: 'Civil Status' },
-    { key: 'year_graduated', label: 'Year Graduated' }, { key: 'college_department', label: 'College Department' },
-    { key: 'program_graduated', label: 'Program Graduated' },
-  ],
-  employment_status: [
-    { key: 'employment_status', label: 'Current Employment Status' },
-    { key: 'employment_classification', label: 'Employment Classification' },
-  ],
-  employment_info: [
-    { key: 'company_organization', label: 'Company / Organization' },
-    { key: 'company_change_reason', label: 'Reason for Changing Employer' }, { key: 'company_change_reason_other', label: 'Reason for Changing Employer (Other)' },
-    { key: 'job_title', label: 'Job Title' },
-    { key: 'job_classification', label: 'Job Classification' }, { key: 'job_classification_other', label: 'Job Classification (Other)' },
-    { key: 'industry_sector', label: 'Industry / Sector' }, { key: 'industry_sector_other', label: 'Industry / Sector (Other)' },
-    { key: 'job_related_to_degree', label: 'Job Related to Degree' },
-    { key: 'time_to_first_job', label: 'Time to First Job' },
-    { key: 'number_of_employers', label: 'Number of Companies Worked For Since Graduation' },
-    { key: 'reasons_for_leaving_job', label: 'Reasons for Leaving Previous Job' }, { key: 'reasons_for_leaving_job_other', label: 'Reasons for Leaving (Other)' },
-    { key: 'monthly_salary_range', label: 'Monthly Salary Range' },
-    { key: 'first_job_source', label: 'How First Job Was Obtained' }, { key: 'first_job_source_other', label: 'How First Job Was Obtained (Other)' },
-    { key: 'current_work_location', label: 'Current Work Location' },
-    { key: 'job_satisfaction_rating', label: 'Job Satisfaction (1–5)' },
-    { key: 'job_securing_factors', label: 'Factors That Helped Secure Job' }, { key: 'job_securing_factors_other', label: 'Other Factor' },
-  ],
-  curriculum: [
-    { key: 'education_quality_rating', label: 'Education Quality (1–5)' },
-    { key: 'program_relevance', label: 'Program Relevance' },
-    { key: 'employability_experiences', label: 'Experiences That Helped Employability' }, { key: 'employability_experiences_other', label: 'Other Experience' },
-    { key: 'areas_to_strengthen', label: 'Areas to Strengthen' }, { key: 'areas_to_strengthen_other', label: 'Other Area' },
-    { key: 'training_satisfaction_rating', label: 'Training Satisfaction (1–5)' },
-  ],
-  licensure: [
-    { key: 'licensure_exam_status', label: 'Licensure Exam Status' },
-    { key: 'has_certifications', label: 'Certifications Since Graduating' }, { key: 'certifications_detail', label: 'Certifications (Detail)' },
-    { key: 'has_professional_training', label: 'Professional Training/Seminars' }, { key: 'professional_training_detail', label: 'Training (Detail)' },
-    { key: 'interested_in_alumni_activities', label: 'Interested in Future Alumni Activities' },
-    { key: 'preferred_alumni_activities', label: 'Preferred Alumni Activities' }, { key: 'preferred_alumni_activities_other', label: 'Other Activity' },
-  ],
-  feedback: [
-    { key: 'program_improvements', label: 'Suggested Program Improvements' }, { key: 'program_improvements_other', label: 'Other Improvement' },
-    { key: 'additional_services_needed', label: 'Additional Services Needed' }, { key: 'additional_services_needed_other', label: 'Other Service' },
-    { key: 'would_recommend_college', label: 'Would Recommend College' },
-    { key: 'additional_comments', label: 'Additional Comments' },
-  ],
-};
-
 export const TRACER_QUESTIONS: TracerQuestion[] = [
   { key: 'sex', label: 'Sex', section: 'Graduate Profile', type: 'single', options: SEX_OPTIONS },
   { key: 'civil_status', label: 'Civil Status', section: 'Graduate Profile', type: 'single', options: CIVIL_STATUS_OPTIONS },

@@ -19,7 +19,6 @@ These Terms of Service ("Terms") govern your access to and use of the Asian Coll
 Registration on the Platform is limited to the following user categories, each subject to verification by the College:
 
 - **Alumni** — individuals who have graduated from or completed a program at Asian College.
-- **Faculty** — current or former faculty and staff members authorized to support alumni engagement within their department.
 - **Batch Representatives** — alumni designated to coordinate communication and activities for a specific batch year.
 - **Administrators** — College personnel authorized to manage the Platform, verify accounts, and oversee donations and records.
 
@@ -96,14 +95,14 @@ We may revise these Terms from time to time to reflect changes in the Platform's
 
 *(Compliant with Republic Act No. 10173, the Data Privacy Act of 2012, and its Implementing Rules and Regulations)*
 
-Asian College is committed to protecting the privacy and security of personal data entrusted to it by alumni, faculty, and other users of the Platform. This Privacy Policy explains what data we collect, why we collect it, how it is used and protected, and what rights you have over your information.
+Asian College is committed to protecting the privacy and security of personal data entrusted to it by alumni and other users of the Platform. This Privacy Policy explains what data we collect, why we collect it, how it is used and protected, and what rights you have over your information.
 
 ### 1. What Data Is Collected
 
 Through your use of the Platform, we may collect and process the following categories of personal data:
 
 - **Identity and contact information:** full name, email address, home/mailing address, phone number.
-- **Academic/affiliation information:** department/program, batch year, and role (alumni, faculty, batch representative, administrator).
+- **Academic/affiliation information:** department/program, batch year, and role (alumni, batch representative, administrator).
 - **Identity verification documents:** an uploaded photo or scan of a valid ID, used solely to confirm your identity and eligibility.
 - **Donation history:** records of donations made through the Platform, including amount, date, campaign/purpose, and payment reference (excluding full payment card/account details, which are handled by our payment processor).
 - **Survey and tracer study responses:** answers submitted to alumni tracer studies, employment surveys, or other institutional surveys.
@@ -134,7 +133,6 @@ Access to personal data within the Platform is restricted according to role, enf
 | Role | Access Scope |
 |---|---|
 | **Administrator** | Full access to all alumni records, donation data, and survey responses, for verification, reporting, and system administration purposes. |
-| **Faculty** | Access limited to alumni records within their own department only. |
 | **Batch Representative** | Access limited to alumni records within their own assigned batch year only. |
 | **Alumni** | Access limited to their own personal data and records; cannot view other alumni's personal information beyond what is intentionally made visible in the public/shared alumni directory (if any). |
 
@@ -171,11 +169,11 @@ To exercise any of these rights, please contact our Data Protection Officer usin
 We implement appropriate organizational, physical, and technical security measures to protect your personal data, including:
 
 - **Encryption** of data in transit (via HTTPS/TLS) and, where applicable, at rest.
-- **Access control** based on user roles, ensuring users can only view or modify data appropriate to their role (alumni, faculty, batch representative, administrator).
-- **Row-Level Security (RLS) policies** enforced at the database level, restricting data queries so that each role can only retrieve records it is authorized to access — for example, faculty are restricted to their own department, and batch representatives to their own batch year.
+- **Access control** based on user roles, ensuring users can only view or modify data appropriate to their role (alumni, batch representative, administrator).
+- **Row-Level Security (RLS) policies** enforced at the database level, restricting data queries so that each role can only retrieve records it is authorized to access — for example, batch representatives are restricted to their own batch year.
 - **Secure storage of uploaded ID documents**, with access limited to authorized personnel involved in the verification process.
 - Regular review of access permissions and system configurations to identify and remediate security gaps.
-- Internal policies governing staff access to and handling of personal data, including confidentiality obligations for administrators and faculty with elevated access.
+- Internal policies governing staff access to and handling of personal data, including confidentiality obligations for administrators with elevated access.
 
 While we take reasonable measures to protect your data, no system can guarantee absolute security. We encourage you to safeguard your account credentials and to notify us immediately of any suspected unauthorized access.
 

@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { Briefcase, Plus, MapPin, Clock, X, Edit } from 'lucide-react';
 import { useJobBoard, Job } from './JobBoardContext';
 
-type ViewerRole = 'admin' | 'faculty' | 'representative' | 'alumni';
+type ViewerRole = 'admin' | 'representative' | 'alumni';
 
 interface Props {
   role: ViewerRole;
@@ -39,14 +39,12 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
   const [filterDept, setFilterDept] = useState('All');
   const [filterType, setFilterType] = useState('All');
 
-  const canPost = role === 'admin' || role === 'faculty';
-  // Faculty can only manage postings in their own assigned department;
-  // admin manages everything. Alumni/representatives are view-only.
-  const canManageJob = (j: Job) => role === 'admin' || (role === 'faculty' && j.department === department);
+  const canPost = role === 'admin';
+  // Admin manages everything. Alumni/representatives are view-only.
+  const canManageJob = (_j: Job) => role === 'admin';
 
   const visible = jobs.filter(j => {
     if (role === 'admin') return true; // admin sees every job, any department, any status
-    if (role === 'faculty') return j.department === department || j.department === 'All';
     // alumni & representative: view only, scoped to their own department (or 'All')
     return j.status === 'Active' && (j.department === department || j.department === 'All');
   }).filter(j => {
@@ -82,7 +80,6 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
           <p className="text-sm text-gray-500">
             {role === 'alumni' ? `Browse job opportunities for the ${department || 'your'} department` :
              role === 'representative' ? `View job opportunities for the ${department || 'your'} department` :
-             role === 'faculty' ? `Manage job postings for ${department} department` :
              'Manage all job listings across departments'}
           </p>
         </div>
@@ -192,7 +189,7 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
                     placeholder={f.placeholder} className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-blue-400" />
                 </div>
               ))}
-              <div className={`grid grid-cols-1 gap-3 ${role === 'faculty' && department ? '' : 'sm:grid-cols-2'}`}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor={`${formId}-type`} className="text-xs font-semibold text-gray-500 mb-1 block">Job Type</label>
                   <select id={`${formId}-type`} value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value as Job['type']}))}
@@ -200,7 +197,7 @@ export default function JobBoard({ role, department, userName = 'User' }: Props)
                     {['Full-time','Part-time','Remote','Contract','Internship'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
-                {!(role === 'faculty' && department) && (
+                {(
                   <div>
                     <label htmlFor={`${formId}-dept`} className="text-xs font-semibold text-gray-500 mb-1 block">Department</label>
                     {department ? (
