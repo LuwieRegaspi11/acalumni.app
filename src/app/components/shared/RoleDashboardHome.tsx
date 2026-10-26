@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
 import { useEvents } from './EventsContext';
-import { DollarSign, Calendar, Megaphone, Briefcase, Users, Clock, Shield } from 'lucide-react';
+import { PhilippinePeso, Calendar, Megaphone, Briefcase, Users, Clock, Shield } from 'lucide-react';
 
 interface QuickLink { label: string; desc: string; icon: React.ReactNode; path: string; color: string; }
 
@@ -10,17 +10,17 @@ function DashboardBanner({ title, subtitle, gradient, onDonateClick }: { title: 
   return (
     <div className="rounded-2xl p-6 text-white relative overflow-hidden" style={{ background: gradient }}>
       <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/5 -translate-y-1/2 translate-x-1/2" />
+      <p className="text-white/70 text-sm mb-1">Welcome back,</p>
+      <h2 className="text-2xl font-bold mb-1">{title}</h2>
+      <p className="text-white/60 text-sm">{subtitle}</p>
       {onDonateClick && (
         <button
           onClick={onDonateClick}
-          className="donate-cta-glow absolute top-4 right-4 z-10 px-10 py-5 rounded-full text-2xl font-bold text-white tracking-wide bg-white/15 border border-white/30 hover:bg-white/25 transition-colors"
+          className="donate-cta-glow relative sm:absolute sm:top-4 sm:right-4 z-10 mt-4 sm:mt-0 w-full sm:w-auto px-6 sm:px-10 py-3 sm:py-5 rounded-full text-xl sm:text-2xl font-bold text-white tracking-wide bg-white/15 border border-white/30 hover:bg-white/25 transition-colors"
         >
           Donate
         </button>
       )}
-      <p className="text-white/70 text-sm mb-1">Welcome back,</p>
-      <h2 className="text-2xl font-bold mb-1">{title}</h2>
-      <p className="text-white/60 text-sm">{subtitle}</p>
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function RepDashboardHome() {
 
   const links: QuickLink[] = [
     { label: 'Alumni Directory', desc: 'View & verify batch members', icon: <Users className="w-5 h-5" />, path: 'verification', color: '#2B5BA8' },
-    { label: 'Donation Center', desc: 'Monitor batch donations', icon: <DollarSign className="w-5 h-5" />, path: 'donations', color: '#059669' },
+    { label: 'Donation Center', desc: 'Monitor batch donations', icon: <PhilippinePeso className="w-5 h-5" />, path: 'donations', color: '#059669' },
     { label: 'Event Calendar', desc: 'View all alumni events', icon: <Calendar className="w-5 h-5" />, path: 'events', color: '#0891b2' },
     { label: 'Announcements', desc: 'Read latest updates', icon: <Megaphone className="w-5 h-5" />, path: 'announcements', color: '#d97706' },
     { label: 'Job Board', desc: 'View and manage job listings', icon: <Briefcase className="w-5 h-5" />, path: 'jobs', color: '#7c3aed' },
@@ -87,7 +87,7 @@ export function RepDashboardHome() {
         gradient="linear-gradient(135deg, #1B3A6B 0%, #2B5BA8 55%, #5B9BD5 100%)"
         onDonateClick={() => navigate('/representative/donations')}
       />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         <StatCard label="Assigned Batch" value={user?.assignedBatchYear || '—'} sub={`${user?.assignedDepartment} ${user?.assignedProgram}`} color="#2B5BA8" icon={<Users className="w-5 h-5" />} />
         <StatCard label="Pending Verification" value={0} sub="Batch members" color="#d97706" icon={<Clock className="w-5 h-5" />} />
         <StatCard label="Upcoming Events" value={upcomingEvents} sub="Visible to you" color="#7c3aed" icon={<Calendar className="w-5 h-5" />} />

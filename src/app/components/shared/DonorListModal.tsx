@@ -9,7 +9,7 @@
 // click is what gives us a real loading state to show.
 // =====================================================================
 import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react';
-import { X, DollarSign, ArrowUp, ArrowDown, Eye, Plus, Upload, Image, Trash2 } from 'lucide-react';
+import { X, PhilippinePeso, ArrowUp, ArrowDown, Eye, Plus, Upload, Image, Trash2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useDonations, type Campaign } from './DonationContext';
@@ -338,7 +338,7 @@ export default function DonorListModal({ campaign, onClose }: Props) {
             </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center py-14 text-center">
-              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><DollarSign className="w-7 h-7 text-gray-300" /></div>
+              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><PhilippinePeso className="w-7 h-7 text-gray-300" /></div>
               <p className="font-semibold text-gray-500">No donations yet for this campaign</p>
             </div>
           ) : (

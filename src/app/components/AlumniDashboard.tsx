@@ -11,7 +11,7 @@ import { Routes, Route } from 'react-router';
 import { useAuth } from './AuthContext';
 
 // -- 3. Icons (lucide-react) -------------------------------------------
-import { BarChart3, DollarSign, ClipboardList, Calendar, Megaphone, BriefcaseBusiness } from 'lucide-react';
+import { BarChart3, PhilippinePeso, ClipboardList, Calendar, Megaphone, BriefcaseBusiness } from 'lucide-react';
 
 // -- 4. Shared components (reused across roles) -----------------------
 import DashboardLayout from './shared/DashboardLayout'; // <- the header + sidebar frame
@@ -30,7 +30,7 @@ import GraduateTracerForm from './alumni/GraduateTracerForm';
 // Sidebar nav links shown for this role (label, icon, and URL path)
 const NAV_ITEMS = [
   { label: 'Dashboard',              icon: <BarChart3 className="w-4 h-4" />,       path: '' },
-  { label: 'Donation Center',        icon: <DollarSign className="w-4 h-4" />,       path: 'donations' },
+  { label: 'Donation Center',        icon: <PhilippinePeso className="w-4 h-4" />,       path: 'donations' },
   { label: 'Tracer Survey',          icon: <ClipboardList className="w-4 h-4" />,    path: 'surveys' },
   { label: 'Events / Calendar',      icon: <Calendar className="w-4 h-4" />,         path: 'events' },
   { label: 'Announcements',          icon: <Megaphone className="w-4 h-4" />,        path: 'announcements' },

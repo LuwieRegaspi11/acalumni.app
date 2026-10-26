@@ -1,0 +1,12 @@
+/* Phone polish that applies across the whole app. */
+
+/* Soft fade on the right edge of a wide table that still has columns to swipe to
+   (toggled by src/lib/scrollHints.ts). Fades the box's own contents, never the
+   page, and disappears once the table is scrolled to its end. */
+@media (max-width: 767px) {
+  .has-more-right {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+  }
+
+}

@@ -222,7 +222,7 @@ export default function PendingRegistrations() {
       </Card>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
         <Card className="shadow-lg hover:shadow-xl transition-shadow border-l-4 border-orange-500 animate-slide-up">
           <CardContent>
             <div className="flex items-center justify-between mb-2">

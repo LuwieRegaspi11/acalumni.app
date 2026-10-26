@@ -123,7 +123,7 @@ export function InputField({
           <button type="button" onClick={() => setShow(s => !s)}
             aria-label={show ? 'Hide password' : 'Show password'}
             aria-pressed={show}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 text-gray-500 hover:text-gray-600">
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         )}
@@ -293,7 +293,7 @@ export function PasswordStrengthField({
           <button type="button" onClick={() => setShow(s => !s)}
             aria-label={show ? 'Hide password' : 'Show password'}
             aria-pressed={show}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600">
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 text-gray-500 hover:text-gray-600">
             {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
@@ -644,7 +644,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
           onChange={setPassword} required />
 
         <div className="text-center">
-          <button type="button" onClick={() => setForgotMode(true)} className="text-xs text-gray-500 hover:text-gray-600 transition-colors">
+          <button type="button" onClick={() => setForgotMode(true)} className="text-xs text-gray-500 hover:text-gray-600 transition-colors py-2.5 px-2">
             Forgot your password?
           </button>
         </div>
@@ -710,7 +710,7 @@ export default function AuthPage() {
       <div className="mb-4 ml-auto mr-auto flex gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors self-start" style={{ maxWidth: '860px', width: '100%' }}>
         <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-1.5"
+        className="flex items-center gap-1.5 py-2.5"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Home
@@ -772,7 +772,7 @@ export default function AuthPage() {
 
       {/* Mobile-only survey CTA (branding panel above is md+ only) */}
       <button onClick={() => navigate('/tracer-survey')}
-        className="md:hidden mt-4 flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
+        className="md:hidden mt-2 py-2.5 flex items-center gap-2 text-sm font-bold" style={{ color: NAVY }}>
         <ClipboardList className="w-4 h-4" /> New here? Take the Alumni Tracer Survey
       </button>
 

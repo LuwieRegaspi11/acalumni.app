@@ -13,7 +13,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 
 // -- 3. Icons (lucide-react) -------------------------------------------
-import { BarChart3, Users, DollarSign, ClipboardList, Calendar, Megaphone, BriefcaseBusiness, Shield, CheckCircle, Search, Send } from 'lucide-react';
+import { BarChart3, Users, PhilippinePeso, ClipboardList, Calendar, Megaphone, BriefcaseBusiness, Shield, CheckCircle, Search, Send } from 'lucide-react';
 
 // -- 4. Third-party UI library (Material UI) --------------------------
 import { Avatar, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert } from '@mui/material';
@@ -40,7 +40,7 @@ import RepDonationMonitor from './representative/RepDonationMonitor';
 const NAV_ITEMS = [
   { label: 'Dashboard',         icon: <BarChart3 className="w-4 h-4" />,        path: '' },
   { label: 'Alumni Directory',  icon: <Users className="w-4 h-4" />,             path: 'verification' },
-  { label: 'Donation Center',   icon: <DollarSign className="w-4 h-4" />,        path: 'donations' },
+  { label: 'Donation Center',   icon: <PhilippinePeso className="w-4 h-4" />,        path: 'donations' },
   { label: 'Tracer Survey',     icon: <ClipboardList className="w-4 h-4" />,     path: 'surveys' },
   { label: 'Events / Calendar', icon: <Calendar className="w-4 h-4" />,          path: 'events' },
   { label: 'Announcements',     icon: <Megaphone className="w-4 h-4" />,         path: 'announcements' },

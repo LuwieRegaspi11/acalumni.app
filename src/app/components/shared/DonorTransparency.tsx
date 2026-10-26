@@ -122,9 +122,9 @@ export interface PodiumItem {
 }
 
 const METALS = {
-  1: { stops: ['#FFF3B0', '#F5C542', '#B8860B'], block: 'linear-gradient(180deg,#FBE08A 0%,#E9B52B 55%,#C28E12 100%)', num: '#6b4b00', height: 132, statue: 158 },
-  2: { stops: ['#FFFFFF', '#CBD3DE', '#7B8794'], block: 'linear-gradient(180deg,#EEF1F5 0%,#BCC5D1 55%,#8A94A3 100%)', num: '#3a4350', height: 100, statue: 136 },
-  3: { stops: ['#F8D7B0', '#CD7F32', '#7A4A1A'], block: 'linear-gradient(180deg,#EBC08E 0%,#C58540 55%,#8A5522 100%)', num: '#4a2a0c', height: 76, statue: 136 },
+  1: { stops: ['#FFF3B0', '#F5C542', '#B8860B'], block: 'linear-gradient(180deg,#FBE08A 0%,#E9B52B 55%,#C28E12 100%)', num: '#6b4b00', height: 132, statue: 66, maxStatue: 150 },
+  2: { stops: ['#FFFFFF', '#CBD3DE', '#7B8794'], block: 'linear-gradient(180deg,#EEF1F5 0%,#BCC5D1 55%,#8A94A3 100%)', num: '#3a4350', height: 100, statue: 56, maxStatue: 128 },
+  3: { stops: ['#F8D7B0', '#CD7F32', '#7A4A1A'], block: 'linear-gradient(180deg,#EBC08E 0%,#C58540 55%,#8A5522 100%)', num: '#4a2a0c', height: 76, statue: 56, maxStatue: 128 },
 } as const;
 
 function StatueFigure({ place }: { place: 1 | 2 | 3 }) {
@@ -138,8 +138,8 @@ function StatueFigure({ place }: { place: 1 | 2 | 3 }) {
       ? (<><path d="M36 48 L20 22" {...limb} /><path d="M64 48 L78 68 L62 84" {...limb} /></>)
       : (<><path d="M36 48 L22 88" {...limb} /><path d="M64 48 L78 88" {...limb} /></>);
   return (
-    <svg viewBox="0 0 100 170" width={m.statue * 100 / 170} height={m.statue} role="img" aria-label={`Statue for place ${place}`}
-      style={{ filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.45))', overflow: 'visible' }}>
+    <svg viewBox="0 0 100 162" role="img" aria-label={`Statue for place ${place}`}
+      style={{ width: `${m.statue}%`, maxWidth: m.maxStatue, height: 'auto', display: 'block', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,.45))', overflow: 'visible' }}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={m.stops[0]} /><stop offset="0.5" stopColor={m.stops[1]} /><stop offset="1" stopColor={m.stops[2]} />
@@ -168,9 +168,11 @@ function StatueSpot({ item }: { item?: PodiumItem }) {
   const m = METALS[item.place];
   return (
     <div className="flex-1 min-w-0 flex flex-col items-center">
-      <StatueFigure place={item.place} />
+      <div className="w-full flex justify-center pt-3">
+        <StatueFigure place={item.place} />
+      </div>
       {/* the numbered block the statue stands on */}
-      <div className="w-full rounded-t-lg flex items-center justify-center border border-white/50 shadow-[0_8px_20px_rgba(0,0,0,.3)] -mt-1"
+      <div className="w-full rounded-t-lg flex items-center justify-center border border-white/50 shadow-[0_8px_20px_rgba(0,0,0,.3)] -mt-px"
         style={{ height: m.height, background: m.block }}>
         <span className="font-extrabold leading-none" style={{ fontSize: item.place === 1 ? 54 : 44, color: m.num, textShadow: '0 1px 0 rgba(255,255,255,.5)' }}>{item.place}</span>
       </div>
@@ -187,7 +189,7 @@ function StatueSpot({ item }: { item?: PodiumItem }) {
 export function StatuePodium({ items }: { items: PodiumItem[] }) {
   const at = (p: 1 | 2 | 3) => items.find(i => i.place === p);
   return (
-    <div className="flex items-end gap-2 sm:gap-4 pt-2">
+    <div className="flex items-end gap-2 sm:gap-3 pt-2 w-full max-w-2xl mx-auto">
       <StatueSpot item={at(2)} />
       <StatueSpot item={at(1)} />
       <StatueSpot item={at(3)} />
@@ -299,16 +301,14 @@ export function TopDonorsLeaderboard({ limit = 10, compact = false }: { limit?: 
         ) : (
           <>
             {/* Podium: 2nd | 1st (raised) | 3rd */}
-            <div className="flex items-end gap-2 sm:gap-4 pt-2">
-              <StatuePodium items={([1, 2, 3] as const).flatMap(p => {
-                const d = byRank(p);
-                return d ? [{
-                  place: p, title: d.displayName,
-                  subtitle: d.isAnonymous ? 'Anonymous donor' : (d.batchYear ? `Batch ${d.batchYear}` : d.program || ''),
-                  amount: d.totalAmount,
-                }] : [];
-              })} />
-            </div>
+            <StatuePodium items={([1, 2, 3] as const).flatMap(p => {
+              const d = byRank(p);
+              return d ? [{
+                place: p, title: d.displayName,
+                subtitle: d.isAnonymous ? 'Anonymous donor' : (d.batchYear ? `Batch ${d.batchYear}` : d.program || ''),
+                amount: d.totalAmount,
+              }] : [];
+            })} />
 
             {showMine && <MyRankCard mine={mine} />}
 

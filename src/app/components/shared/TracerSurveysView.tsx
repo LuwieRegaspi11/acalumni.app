@@ -299,7 +299,7 @@ export default function TracerSurveysView() {
       </Card>
 
       {/* Survey Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
         <Card>
           <CardContent>
             <div className="flex items-center justify-between mb-2">

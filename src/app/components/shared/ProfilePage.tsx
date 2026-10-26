@@ -1,3 +1,4 @@
+import { formatDate } from '../../../lib/formatDate';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
@@ -6,7 +7,7 @@ import { useDonations } from './DonationContext';
 import { supabase } from '../../../lib/supabaseClient';
 import PhoneNumberField from './PhoneNumberField';
 import JobInfoCard from './JobInfoCard';
-import { Sun, Moon, Camera, Mail, Phone, MapPin, Home, Link as LinkIcon, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Heart, DollarSign } from 'lucide-react';
+import { Sun, Moon, Camera, Mail, Phone, MapPin, Home, Link as LinkIcon, Calendar, GraduationCap, Building, Shield, Pencil, Check, X, AtSign, Heart, PhilippinePeso } from 'lucide-react';
 
 const DONATION_STATUS_LABELS: Record<string, string> = { Pending: 'Pending', Verified: 'Confirmed', Rejected: 'Rejected' };
 const DONATION_STATUS_COLOR: Record<string, string> = {
@@ -251,7 +252,7 @@ export default function ProfilePage() {
               </button>
             </div>
             <div className={`p-3 rounded-lg mb-4 flex items-center gap-2 ${dark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <DollarSign className="w-4 h-4 text-green-500" />
+              <PhilippinePeso className="w-4 h-4 text-green-500" />
               <span className={label}>Total confirmed: </span>
               <span className={value}>₱{confirmedTotal.toLocaleString()}</span>
             </div>
@@ -268,7 +269,7 @@ export default function ProfilePage() {
                   <tbody className={dark ? 'divide-y divide-gray-700' : 'divide-y divide-gray-50'}>
                     {myDonations.map(d => (
                       <tr key={d.id}>
-                        <td className={`px-3 py-2 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{d.submittedAt}</td>
+                        <td className={`px-3 py-2 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{formatDate(d.submittedAt)}</td>
                         <td className={`px-3 py-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>{d.campaign}</td>
                         <td className={`px-3 py-2 font-semibold ${dark ? 'text-white' : 'text-gray-800'}`}>₱{d.amount.toLocaleString()}</td>
                         <td className="px-3 py-2">

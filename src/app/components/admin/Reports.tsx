@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
-import { Users, TrendingUp, DollarSign, FileText, Download } from 'lucide-react';
+import { Users, TrendingUp, PhilippinePeso, FileText, Download } from 'lucide-react';
 import { useDarkMode } from '../shared/DarkModeContext';
 import { Button, Select, MenuItem, FormControl, InputLabel, Card, CardContent } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -63,11 +63,11 @@ export default function Reports() {
       </div>
 
       {/* Quick Export Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Card className="opacity-60 cursor-not-allowed" title="Coming soon">
           <CardContent>
             <div className="flex items-center justify-between mb-3">
-              <DollarSign className="w-8 h-8 text-green-500" />
+              <PhilippinePeso className="w-8 h-8 text-green-500" />
               <Download className="w-4 h-4 text-gray-400" />
             </div>
             <h4 className="text-sm mb-1">Donation Summary</h4>

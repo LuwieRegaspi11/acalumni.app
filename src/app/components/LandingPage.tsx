@@ -297,7 +297,7 @@ export default function LandingPage() {
       </header>
 
       {/* -- Hero Slider -- */}
-      <section className="relative h-[580px] md:h-[660px] overflow-hidden">
+      <section className="relative h-[520px] sm:h-[580px] md:h-[660px] overflow-hidden">
         {HERO_SLIDES.map((s, i) => (
           <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
             <img src={s.image} alt={s.title} className="w-full h-full object-cover" />
@@ -311,7 +311,7 @@ export default function LandingPage() {
               style={{ background: 'rgba(91,155,213,0.35)', border: '1px solid rgba(91,155,213,0.5)' }}>
               <Star className="w-3 h-3 fill-white" /> {slide.tag}
             </span>
-            <h1 className="text-4xl md:text-6xl text-white mb-5 leading-tight drop-shadow-lg whitespace-pre-line">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl text-white mb-4 sm:mb-5 leading-tight drop-shadow-lg whitespace-pre-line">
               {slide.title}
             </h1>
             <p className="text-base md:text-lg text-white/80 mb-8 max-w-xl leading-relaxed">
@@ -336,18 +336,19 @@ export default function LandingPage() {
         {/* Slide controls */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10">
           {HERO_SLIDES.map((_, i) => (
-            <button key={i} onClick={() => setCurrentSlide(i)}
-              className="h-2 rounded-full transition-all duration-300"
-              style={{ width: i === currentSlide ? 32 : 8, background: i === currentSlide ? 'white' : 'rgba(255,255,255,0.45)' }}
-            />
+            <button key={i} onClick={() => setCurrentSlide(i)} aria-label={`Go to slide ${i + 1}`}
+              className="flex items-center justify-center h-11 px-1">
+              <span className="block h-2 rounded-full transition-all duration-300"
+                style={{ width: i === currentSlide ? 32 : 8, background: i === currentSlide ? 'white' : 'rgba(255,255,255,0.45)' }} />
+            </button>
           ))}
         </div>
-        <button className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full text-white hover:bg-white/20 transition-all"
+        <button aria-label="Previous slide" className="hidden lg:block absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full text-white hover:bg-white/20 transition-all"
           style={{ background: 'rgba(255,255,255,0.15)' }}
           onClick={() => setCurrentSlide(s => (s - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}>
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <button className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full text-white hover:bg-white/20 transition-all"
+        <button aria-label="Next slide" className="hidden lg:block absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full text-white hover:bg-white/20 transition-all"
           style={{ background: 'rgba(255,255,255,0.15)' }}
           onClick={() => setCurrentSlide(s => (s + 1) % HERO_SLIDES.length)}>
           <ChevronRight className="w-6 h-6" />
@@ -356,10 +357,10 @@ export default function LandingPage() {
 
       {/* -- Quick Links Bar -- */}
       <section style={{ background: PANEL }}>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-white/20">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 [&>*]:border-white/20 [&>*]:border-b max-md:[&>*:nth-child(odd)]:border-r md:[&>*]:border-r md:[&>*:nth-child(3n)]:border-r-0 lg:[&>*]:border-b-0 lg:[&>*:nth-child(3n)]:border-r lg:[&>*:last-child]:border-r-0">
           {QUICK_LINKS.map((ql, i) => (
             <button key={i} onClick={() => navigate(`/${ql.action}`)}
-              className="flex flex-col items-center gap-2 py-5 px-3 text-white hover:bg-white/15 transition-all duration-200 group">
+              className="flex flex-col items-center gap-2 py-4 sm:py-5 px-2 sm:px-3 text-white hover:bg-white/15 transition-all duration-200 group">
               <div className="group-hover:scale-110 transition-transform duration-200">{ql.icon}</div>
               <span className="text-xs font-semibold text-center leading-tight">{ql.label}</span>
             </button>
@@ -368,7 +369,7 @@ export default function LandingPage() {
       </section>
 
       {/* -- About -- */}
-      <section className="py-20 bg-gray-50" id="about">
+      <section className="py-12 sm:py-20 bg-gray-50" id="about">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -405,7 +406,7 @@ export default function LandingPage() {
                 src={photo(3)}
                 alt="Asian College alumni" className="rounded-2xl shadow-2xl w-full object-cover h-80 md:h-[440px]"
               />
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-5 border border-gray-100">
+              <div className="absolute bottom-3 left-3 sm:-bottom-6 sm:-left-6 bg-white rounded-xl shadow-xl p-3 sm:p-5 border border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: PANEL }}>
                     <GraduationCap className="w-6 h-6 text-white" />
@@ -416,7 +417,7 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-              <div className="absolute -top-5 -right-5 rounded-xl shadow-xl p-5 text-white" style={{ background: PANEL }}>
+              <div className="absolute top-3 right-3 sm:-top-5 sm:-right-5 rounded-xl shadow-xl p-3 sm:p-5 text-white" style={{ background: PANEL }}>
                 <div className="text-2xl font-extrabold">{yearsOfExcellence}+</div>
                 <div className="text-xs opacity-80">Years of Excellence</div>
               </div>
@@ -426,16 +427,16 @@ export default function LandingPage() {
       </section>
 
       {/* -- Stats Bar -- */}
-      <section className="py-16" style={{ background: PANEL }}>
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+      <section className="py-10 sm:py-16" style={{ background: PANEL }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-6 sm:gap-6">
             {stats.map((s, i) => (
               <div key={i} className="text-center group">
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3 group-hover:bg-white/25 transition-all duration-300"
                   style={{ background: 'rgba(255,255,255,0.15)' }}>
                   <div className="text-white">{s.icon}</div>
                 </div>
-                <div className="text-3xl font-extrabold text-white mb-1">{s.value}</div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-white mb-1">{s.value}</div>
                 <div className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{s.label}</div>
               </div>
             ))}
@@ -444,7 +445,7 @@ export default function LandingPage() {
       </section>
 
       {/* -- Programs -- */}
-      <section className="py-20 bg-white" id="programs">
+      <section className="py-12 sm:py-20 bg-white" id="programs">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
             <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-widest rounded-full mb-4"
@@ -534,7 +535,7 @@ export default function LandingPage() {
       <ProjectsSection palette={PALETTE} showcase={showcase} />
 
       {/* -- Alumni CTA -- */}
-      <section className="py-20 bg-white" id="alumni">
+      <section className="py-12 sm:py-20 bg-white" id="alumni">
         <div className="max-w-7xl mx-auto px-6">
           <div className="rounded-3xl overflow-hidden relative" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, ${BLUE} 60%, ${LBLUE} 100%)` }}>
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -543,7 +544,7 @@ export default function LandingPage() {
               <div className="absolute inset-0 opacity-5"
                 style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
             </div>
-            <div className="relative z-10 p-10 md:p-16 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="relative z-10 p-6 sm:p-10 md:p-16 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6"
                   style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>
@@ -669,7 +670,7 @@ export default function LandingPage() {
                 {['About Asian College', 'Alumni Registration', 'Alumni Directory', 'Tracer Survey', 'Event Calendar', 'Donate Now'].map(l => (
                   <li key={l}>
                     <button onClick={() => navigate('/login')}
-                      className="text-sm flex items-center gap-2 group transition-colors hover:text-white"
+                      className="text-sm flex items-center gap-2 group transition-colors hover:text-white py-2"
                       style={{ color: 'rgba(255,255,255,0.55)' }}>
                       <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" style={{ color: LBLUE }} />
                       {l}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
-import { DollarSign, FileText, Calendar, Shield, Eye, Edit, Trash2 } from 'lucide-react';
+import { PhilippinePeso, FileText, Calendar, Shield, Eye, Edit, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Select, MenuItem, FormControl, InputLabel, Chip, Card, CardContent } from '@mui/material';
 
 // ================= [ADMIN: AUDITLOGS] =================
@@ -32,7 +32,7 @@ function mapRow(r: any): AuditLog {
 }
 
 const actionIcons: Record<string, React.ReactNode> = {
-  'Verified Donation': <DollarSign className="w-4 h-4" />,
+  'Verified Donation': <PhilippinePeso className="w-4 h-4" />,
   'Modified Alumni Record': <Edit className="w-4 h-4" />,
   'Viewed Alumni Directory': <Eye className="w-4 h-4" />,
   'Created Event': <Calendar className="w-4 h-4" />,
@@ -77,7 +77,7 @@ export default function AuditLogs() {
       </div>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         <Card>
           <CardContent>
             <div className="flex items-center justify-between mb-2">

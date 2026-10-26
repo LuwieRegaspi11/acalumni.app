@@ -1,6 +1,7 @@
+import { formatDate } from '../../../lib/formatDate';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../AuthContext';
-import { DollarSign, Calendar, Megaphone, FileText, Briefcase, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { PhilippinePeso, Calendar, Megaphone, FileText, Briefcase, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useDonations } from '../shared/DonationContext';
 import { useEvents } from '../shared/EventsContext';
 import { TopDonorsLeaderboard } from '../shared/DonorTransparency';
@@ -20,7 +21,7 @@ export default function AlumniDashboardHome() {
 
   const quickLinks = [
     { label: 'Tracer Survey', desc: 'Complete your employment survey', icon: <FileText className="w-5 h-5" />, path: 'surveys', color: '#2B5BA8' },
-    { label: 'Make a Donation', desc: 'Support your alma mater', icon: <DollarSign className="w-5 h-5" />, path: 'donations', color: '#059669' },
+    { label: 'Make a Donation', desc: 'Support your alma mater', icon: <PhilippinePeso className="w-5 h-5" />, path: 'donations', color: '#059669' },
     { label: 'View Events', desc: 'Browse upcoming alumni events', icon: <Calendar className="w-5 h-5" />, path: 'events', color: '#7c3aed' },
     { label: 'Job Board', desc: 'Find or suggest job opportunities', icon: <Briefcase className="w-5 h-5" />, path: 'jobs', color: '#d97706' },
     { label: 'Announcements', desc: 'Read the latest updates', icon: <Megaphone className="w-5 h-5" />, path: 'announcements', color: '#0891b2' },
@@ -57,16 +58,16 @@ export default function AlumniDashboardHome() {
               onClick={() => navigate('donations')}
               className="donate-cta-glow flex-shrink-0 flex items-center justify-center gap-2 bg-[#ffffff] text-[#1B3A6B] font-bold text-2xl px-10 py-5 rounded-xl shadow-lg hover:bg-[#ffffff]/90 active:scale-[0.98] transition-all w-full sm:w-auto"
             >
-              <DollarSign className="w-6 h-6" /> Make a Donation
+              <PhilippinePeso className="w-6 h-6" /> Make a Donation
             </button>
           )}
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         {[
-          { label: 'Total Donated', value: `₱${totalDonated.toLocaleString()}`, sub: 'Verified', color: '#059669', icon: <DollarSign className="w-5 h-5" /> },
+          { label: 'Total Donated', value: `₱${totalDonated.toLocaleString()}`, sub: 'Verified', color: '#059669', icon: <PhilippinePeso className="w-5 h-5" /> },
           { label: 'Pending Donations', value: pendingDonations, sub: 'Awaiting review', color: '#d97706', icon: <Clock className="w-5 h-5" /> },
           { label: 'Upcoming Events', value: upcomingEvents.length, sub: 'This month', color: '#2B5BA8', icon: <Calendar className="w-5 h-5" /> },
         ].map((s, i) => (
@@ -113,7 +114,7 @@ export default function AlumniDashboardHome() {
               <div key={d.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
                   <p className="text-sm font-semibold text-gray-800">{d.campaign}</p>
-                  <p className="text-xs text-gray-400">{d.submittedAt} · ₱{d.amount.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">{formatDate(d.submittedAt)} · ₱{d.amount.toLocaleString()}</p>
                 </div>
                 <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold border ${
                   d.status === 'Verified' ? 'bg-green-100 text-green-700 border-green-200' :

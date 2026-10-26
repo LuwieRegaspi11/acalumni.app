@@ -1,10 +1,12 @@
+import { formatDate } from '../../../lib/formatDate';
 import React, { useId, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../AuthContext';
-import { DollarSign, CheckCircle, Clock, AlertCircle, TrendingUp, Heart, Building2, Upload, Image, Copy, Check, Wallet, CreditCard, X, ChevronRight } from 'lucide-react';
+import { PhilippinePeso, CheckCircle, Clock, AlertCircle, TrendingUp, Heart, Building2, Upload, Image, Copy, Check, Wallet, CreditCard, X, ChevronRight } from 'lucide-react';
 import { useDonations, isCampaignLive, type Campaign } from '../shared/DonationContext';
 import { useNotifications } from '../shared/NotificationContext';
 import CurrencyAmountField from '../shared/CurrencyAmountField';
+import CampaignMobileCards from '../shared/CampaignMobileCards';
 import DonorListModal from '../shared/DonorListModal';
 import { DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, type ThankYouInfo } from '../shared/DonorTransparency';
 
@@ -180,9 +182,9 @@ export default function RepDonationMonitor() {
       {/* My own donation stats */}
       <div>
         <h3 className="font-bold text-gray-800 mb-3">My Donations</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
           {[
-            { label: 'Total Donated', value: `₱${myTotalVerified.toLocaleString()}`, sub: 'Confirmed contributions', icon: <DollarSign className="w-5 h-5" />, color: '#059669' },
+            { label: 'Total Donated', value: `₱${myTotalVerified.toLocaleString()}`, sub: 'Confirmed contributions', icon: <PhilippinePeso className="w-5 h-5" />, color: '#059669' },
             { label: 'Transactions', value: myDonations.length, sub: 'All time', icon: <TrendingUp className="w-5 h-5" />, color: '#2B5BA8' },
             { label: 'Pending', value: myPendingCount, sub: 'Awaiting verification', icon: <Clock className="w-5 h-5" />, color: '#d97706' },
           ].map((s, i) => (
@@ -212,7 +214,7 @@ export default function RepDonationMonitor() {
                   const cfg = statusConfig[d.status];
                   return (
                     <tr key={d.id} className="hover:bg-gray-50 transition-colors align-top">
-                      <td className="px-4 py-3 text-xs text-gray-500">{d.submittedAt}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{formatDate(d.submittedAt)}</td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-gray-800">₱{d.amount.toLocaleString()}</p>
                         <p className="text-xs text-gray-400">{d.campaign}</p>
@@ -245,7 +247,7 @@ export default function RepDonationMonitor() {
           <p className="text-xs text-amber-700 font-medium">You have <strong>monitoring access only</strong> over your batch's donations. Verification is handled by the Alumni Head (Admin).</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 [&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(odd)]:col-span-1">
           {[
             { label: 'Total Verified', value: `₱${batchTotal.toLocaleString()}`, color: '#059669', icon: <CheckCircle className="w-5 h-5" /> },
             { label: 'Pending Review', value: batchPending, color: '#d97706', icon: <Clock className="w-5 h-5" /> },
@@ -262,7 +264,7 @@ export default function RepDonationMonitor() {
           {batchDonations.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-center">
               <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                <DollarSign className="w-7 h-7 text-gray-300" />
+                <PhilippinePeso className="w-7 h-7 text-gray-300" />
               </div>
               <h3 className="font-semibold text-gray-500 mb-1">No Donations Yet</h3>
               <p className="text-sm text-gray-400 max-w-xs">No alumni from Batch {user?.assignedBatchYear} {user?.assignedDepartment} have submitted donations yet. Encourage your batch to contribute!</p>
@@ -282,7 +284,7 @@ export default function RepDonationMonitor() {
                       <td className="px-4 py-3 text-gray-600 text-xs">{d.campaign}</td>
                       <td className="px-4 py-3 font-bold">₱{d.amount.toLocaleString()}</td>
                       <td className="px-4 py-3 text-xs text-gray-500">{d.type}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{d.submittedAt}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400">{formatDate(d.submittedAt)}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                           d.status === 'Verified' ? 'bg-green-100 text-green-700' :
@@ -306,7 +308,9 @@ export default function RepDonationMonitor() {
       {/* Active campaigns */}
       <div>
         <h3 className="font-bold text-gray-800 mb-3">Active Campaigns</h3>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+        <CampaignMobileCards campaigns={campaigns.filter(isCampaignLive)} onOpen={setDonorListCampaign}
+          onDonate={c => { setForm(f => ({ ...f, campaign: c.name })); setShowForm(true); }} />
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-400 border-b border-gray-100">

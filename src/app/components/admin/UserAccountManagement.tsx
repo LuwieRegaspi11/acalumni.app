@@ -109,7 +109,7 @@ export default function UserAccountManagement() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(odd)]:col-span-1">
         {[
           { label: 'Total Users', value: users.length, color: '#2B5BA8' },
           { label: 'Active', value: active, color: '#059669' },

@@ -17,7 +17,7 @@ import { useEvents } from './shared/EventsContext';
 import { supabase } from '../../lib/supabaseClient';
 
 // -- 3. Icons (lucide-react) — used throughout the sidebar/nav & UI ---
-import { Trophy, Users, TrendingUp, DollarSign, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Settings, BookOpen, Sun, Moon, User, ClipboardList, IdCard } from 'lucide-react';
+import { Trophy, Users, TrendingUp, PhilippinePeso, FileText, Calendar, LogOut, BarChart3, Shield, Bell, UserCheck, UserCog, ChevronRight, Menu, X, Megaphone, Settings, BookOpen, Sun, Moon, User, ClipboardList, IdCard } from 'lucide-react';
 
 // -- 5. Shared components (reused across admin/alumni/rep) ----
 import NotificationPanel from './shared/NotificationPanel';
@@ -74,7 +74,7 @@ const NAV_GROUPS = [
   {
     label: 'Programs',
     items: [
-{ label: 'Donation Center',  icon: <DollarSign className="w-4 h-4" />, path: 'donations' },
+{ label: 'Donation Center',  icon: <PhilippinePeso className="w-4 h-4" />, path: 'donations' },
       { label: 'Donor Ranking',    icon: <Trophy className="w-4 h-4" />,     path: 'donor-ranking' },
       { label: 'Events / Calendar',icon: <Calendar className="w-4 h-4" />,   path: 'events' },
       { label: 'Announcements',    icon: <Megaphone className="w-4 h-4" />,  path: 'announcements' },
@@ -386,8 +386,8 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
 
   const stats = [
     { label: 'Total Alumni', value: counts.totalAlumni.toLocaleString(), sub: 'Registered accounts', icon: <Users className="w-5 h-5" />, color: '#2B5BA8', path: 'alumni' },
-    { label: 'Total Donations', value: `₱${totalDonationsVerified.toLocaleString()}`, sub: 'Verified only', icon: <DollarSign className="w-5 h-5" />, color: '#d97706', path: 'donations' },
-    { label: 'Active Campaigns', value: String(activeCampaignsCount), sub: `${campaigns.length} total`, icon: <DollarSign className="w-5 h-5" />, color: '#7c3aed', path: 'donations' },
+    { label: 'Total Donations', value: `₱${totalDonationsVerified.toLocaleString()}`, sub: 'Verified only', icon: <PhilippinePeso className="w-5 h-5" />, color: '#d97706', path: 'donations' },
+    { label: 'Active Campaigns', value: String(activeCampaignsCount), sub: `${campaigns.length} total`, icon: <PhilippinePeso className="w-5 h-5" />, color: '#7c3aed', path: 'donations' },
     { label: 'Upcoming Events', value: String(upcomingEventsCount), sub: `${events.length} total`, icon: <Calendar className="w-5 h-5" />, color: '#0891b2', path: 'events' },
     { label: 'Pending Registrations', value: String(counts.pendingRegistrations), sub: 'Needs review', icon: <UserCheck className="w-5 h-5" />, color: '#dc2626', path: 'registrations' },
     { label: 'Survey Responses', value: String(counts.surveyResponses), sub: 'Total submitted', icon: <FileText className="w-5 h-5" />, color: '#1B3A6B', path: 'surveys' },
@@ -401,7 +401,7 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
         {stats.map((s, i) => (
           <div key={i} onClick={() => onNavigate(s.path)}
             role="button" tabIndex={0}
@@ -486,7 +486,7 @@ function DashboardOverview({ onNavigate }: { onNavigate: (path: string) => void 
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-bold text-gray-800 mb-4">Department Distribution</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
           {departmentDist.length === 0 && <p className="text-sm text-gray-400 col-span-full">No alumni yet.</p>}
           {departmentDist.map((d, i) => {
             const pct = Math.round((d.count / totalDeptCount) * 100);

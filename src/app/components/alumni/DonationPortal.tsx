@@ -1,10 +1,12 @@
+import { formatDate } from '../../../lib/formatDate';
 import React, { useId, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../AuthContext';
-import { DollarSign, CheckCircle, Clock, AlertCircle, Building2, Upload, Heart, TrendingUp, X, Image, ChevronRight, Copy, Check, Wallet, CreditCard } from 'lucide-react';
+import { PhilippinePeso, CheckCircle, Clock, AlertCircle, Building2, Upload, Heart, TrendingUp, X, Image, ChevronRight, Copy, Check, Wallet, CreditCard } from 'lucide-react';
 import { useDonations, getEventStartStatus, isCampaignLive, isCampaignFunded, type Campaign } from '../shared/DonationContext';
 import { useNotifications } from '../shared/NotificationContext';
 import CurrencyAmountField from '../shared/CurrencyAmountField';
+import CampaignMobileCards from '../shared/CampaignMobileCards';
 import DonorListModal from '../shared/DonorListModal';
 import {
   DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, DonatedBy, CampaignGallery, type ThankYouInfo,
@@ -186,9 +188,9 @@ export default function DonationPortal() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         {[
-          { label: 'Total Donated', value: `₱${totalVerified.toLocaleString()}`, sub: 'Confirmed contributions', icon: <DollarSign className="w-5 h-5" />, color: '#059669' },
+          { label: 'Total Donated', value: `₱${totalVerified.toLocaleString()}`, sub: 'Confirmed contributions', icon: <PhilippinePeso className="w-5 h-5" />, color: '#059669' },
           { label: 'Transactions', value: myDonations.length, sub: 'All time', icon: <TrendingUp className="w-5 h-5" />, color: '#2B5BA8' },
           { label: 'Pending', value: pendingCount, sub: 'Awaiting verification', icon: <Clock className="w-5 h-5" />, color: '#d97706' },
         ].map((s, i) => (
@@ -216,7 +218,10 @@ export default function DonationPortal() {
             <p className="text-sm text-gray-400">Check back later for fundraising campaigns.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+          <>
+          <CampaignMobileCards campaigns={campaigns.filter(isCampaignLive)} onOpen={setDonorListCampaign}
+            onDonate={c => { setForm(f => ({ ...f, campaign: c.name })); setShowForm(true); }} />
+          <div className="hidden md:block bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-gray-400 border-b border-gray-100">
@@ -276,6 +281,7 @@ export default function DonationPortal() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -348,7 +354,7 @@ export default function DonationPortal() {
                       const cfg = statusConfig[d.status];
                       return (
                         <tr key={d.id} className="hover:bg-gray-50 transition-colors align-top">
-                          <td className="px-4 py-3 text-xs text-gray-500">{d.submittedAt}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{formatDate(d.submittedAt)}</td>
                           <td className="px-4 py-3">
                             <p className="font-semibold text-gray-800">₱{d.amount.toLocaleString()}</p>
                             <p className="text-xs text-gray-400">{d.campaign}</p>
@@ -361,7 +367,7 @@ export default function DonationPortal() {
                               <p className="text-xs text-red-600 mt-1 max-w-[16rem]">Reason: {d.rejectionReason}</p>
                             )}
                             {d.status === 'Verified' && (
-                              <p className="text-xs text-green-600 mt-1">By {d.verifiedBy} on {d.verifiedAt}</p>
+                              <p className="text-xs text-green-600 mt-1">By {d.verifiedBy} on {formatDate(d.verifiedAt)}</p>
                             )}
                           </td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-500">{referenceNo(d.id)}</td>

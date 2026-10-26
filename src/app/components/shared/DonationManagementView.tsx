@@ -1,8 +1,9 @@
+import { formatDate } from '../../../lib/formatDate';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '../AuthContext';
 
-import { Users, TrendingUp, DollarSign, X, Eye, Trash2, CheckCircle, Plus, XCircle, Clock, Zap, Archive, Pencil } from 'lucide-react';
+import { Users, TrendingUp, PhilippinePeso, X, Eye, Trash2, CheckCircle, Plus, XCircle, Clock, Zap, Archive, Pencil } from 'lucide-react';
 import { useNotifications } from './NotificationContext';
 import { useDonations, getCampaignPhase, CampaignPhase, Campaign } from './DonationContext';
 import CampaignFormModal, { NewCampaignInput } from './CampaignFormModal';
@@ -177,9 +178,9 @@ export default function DonationManagementView() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { label: 'Total Received', value: `₱${totalVerified.toLocaleString()}`, color: '#059669', icon: <DollarSign className="w-5 h-5" /> },
+          { label: 'Total Received', value: `₱${totalVerified.toLocaleString()}`, color: '#059669', icon: <PhilippinePeso className="w-5 h-5" /> },
           { label: 'Pending Verification', value: pending, color: '#d97706', icon: <Clock className="w-5 h-5" /> },
           { label: 'Active Campaigns', value: scopedCampaigns.filter(c => getCampaignPhase(c) === 'Active').length, color: '#2B5BA8', icon: <TrendingUp className="w-5 h-5" /> },
           { label: 'Total Donors', value: new Set(scopedDonations.map(d => d.alumniEmail)).size, color: '#7c3aed', icon: <Users className="w-5 h-5" /> },
@@ -241,7 +242,7 @@ export default function DonationManagementView() {
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center py-14 text-center">
-                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><DollarSign className="w-7 h-7 text-gray-300" /></div>
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><PhilippinePeso className="w-7 h-7 text-gray-300" /></div>
                 <p className="font-semibold text-gray-500">No transactions found</p>
                 <p className="text-sm text-gray-400 mt-1">Try adjusting your filters.</p>
               </div>
@@ -268,7 +269,7 @@ export default function DonationManagementView() {
                           <p className="font-bold text-gray-800">₱{d.amount.toLocaleString()}</p>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{d.type}</td>
-                        <td className="px-4 py-3 text-xs text-gray-400">{d.submittedAt}</td>
+                        <td className="px-4 py-3 text-xs text-gray-400">{formatDate(d.submittedAt)}</td>
                         <td className="px-4 py-3">
                           <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold w-fit ${statusConfig[d.status].color}`}>
                             {statusConfig[d.status].icon} {STATUS_LABELS[d.status]}
@@ -554,7 +555,7 @@ export default function DonationManagementView() {
                 if (campaignDonations.length === 0) {
                   return (
                     <div className="flex flex-col items-center py-14 text-center">
-                      <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><DollarSign className="w-7 h-7 text-gray-300" /></div>
+                      <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3"><PhilippinePeso className="w-7 h-7 text-gray-300" /></div>
                       <p className="font-semibold text-gray-500">No donations for this campaign yet</p>
                     </div>
                   );
@@ -575,7 +576,7 @@ export default function DonationManagementView() {
                           </td>
                           <td className="px-4 py-3 font-bold text-gray-800">₱{d.amount.toLocaleString()}</td>
                           <td className="px-4 py-3 text-xs text-gray-500">{d.type}</td>
-                          <td className="px-4 py-3 text-xs text-gray-400">{d.submittedAt}</td>
+                          <td className="px-4 py-3 text-xs text-gray-400">{formatDate(d.submittedAt)}</td>
                           <td className="px-4 py-3">
                             <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold w-fit ${statusConfig[d.status].color}`}>
                               {statusConfig[d.status].icon} {STATUS_LABELS[d.status]}

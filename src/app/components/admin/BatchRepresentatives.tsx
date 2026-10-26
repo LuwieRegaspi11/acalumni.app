@@ -246,7 +246,7 @@ export default function BatchRepresentatives() {
       </Card>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
         <Card className="shadow-lg hover:shadow-xl transition-all border-l-4 border-teal-500 animate-slide-up">
           <CardContent>
             <div className="flex items-center justify-between mb-2">

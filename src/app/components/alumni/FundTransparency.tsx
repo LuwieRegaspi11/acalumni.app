@@ -46,7 +46,7 @@ export default function FundTransparency({ backTo = '/alumni/donations' }: { bac
       </div>
 
       {/* Site-wide summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1">
         {[
           { label: 'Total Funds Raised', value: `₱${totalRaised.toLocaleString()}`, sub: `From ${totalDonors} donor${totalDonors === 1 ? '' : 's'}`, color: '#059669' },
           { label: 'Total Allocated / Spent', value: `₱${totalSpent.toLocaleString()}`, sub: 'Across all campaigns', color: '#d97706' },
