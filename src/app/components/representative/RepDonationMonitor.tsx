@@ -8,7 +8,7 @@ import { useNotifications } from '../shared/NotificationContext';
 import CurrencyAmountField from '../shared/CurrencyAmountField';
 import CampaignMobileCards from '../shared/CampaignMobileCards';
 import DonorListModal from '../shared/DonorListModal';
-import { DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, type ThankYouInfo } from '../shared/DonorTransparency';
+import { DonorVisibilityChoice, DonationThankYou, type ThankYouInfo } from '../shared/DonorTransparency';
 
 // ================= [BATCH REPRESENTATIVE: REPDONATIONMONITOR] =================
 // Batch reps get the same "make a donation" flow alumni get (they're alumni
@@ -301,9 +301,6 @@ export default function RepDonationMonitor() {
           )}
         </div>
       </div>
-
-      {/* Donor ranking — verified gifts only; shows where you stand */}
-      <TopDonorsLeaderboard limit={10} />
 
       {/* Active campaigns */}
       <div>

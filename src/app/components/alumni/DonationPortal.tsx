@@ -9,7 +9,7 @@ import CurrencyAmountField from '../shared/CurrencyAmountField';
 import CampaignMobileCards from '../shared/CampaignMobileCards';
 import DonorListModal from '../shared/DonorListModal';
 import {
-  DonorVisibilityChoice, DonationThankYou, TopDonorsLeaderboard, DonatedBy, CampaignGallery, type ThankYouInfo,
+  DonorVisibilityChoice, DonationThankYou, DonatedBy, CampaignGallery, type ThankYouInfo,
 } from '../shared/DonorTransparency';
 
 // ================= [ALUMNI: DONATIONPORTAL] =================
@@ -204,9 +204,6 @@ export default function DonationPortal() {
           </div>
         ))}
       </div>
-
-      {/* Donor ranking — verified gifts only; shows where you stand */}
-      <TopDonorsLeaderboard limit={10} />
 
       {/* Active campaigns */}
       <div>

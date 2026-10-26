@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Heart, Eye, X } from 'lucide-react';
 import { useDonations, isCampaignLive } from '../shared/DonationContext';
-import { TopDonorsLeaderboard, CampaignGallery, DonatedBy } from '../shared/DonorTransparency';
+import { CampaignGallery, DonatedBy } from '../shared/DonorTransparency';
 
 // =====================================================================
 // FUND TRANSPARENCY — its own page (not just a tab) so donors have a
@@ -79,8 +79,6 @@ export default function FundTransparency({ backTo = '/alumni/donations' }: { bac
           </div>
         </div>
       )}
-
-      <TopDonorsLeaderboard limit={10} />
 
       {/* Per-campaign breakdown */}
       {campaigns.length === 0 ? (

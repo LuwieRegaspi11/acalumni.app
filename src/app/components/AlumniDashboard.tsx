@@ -11,7 +11,7 @@ import { Routes, Route } from 'react-router';
 import { useAuth } from './AuthContext';
 
 // -- 3. Icons (lucide-react) -------------------------------------------
-import { BarChart3, PhilippinePeso, ClipboardList, Calendar, Megaphone, BriefcaseBusiness } from 'lucide-react';
+import { BarChart3, PhilippinePeso, Trophy, ClipboardList, Calendar, Megaphone, BriefcaseBusiness } from 'lucide-react';
 
 // -- 4. Shared components (reused across roles) -----------------------
 import DashboardLayout from './shared/DashboardLayout'; // <- the header + sidebar frame
@@ -22,6 +22,7 @@ import JobBoard from './shared/JobBoard';
 // -- 6. Alumni-only sub-pages (one file per sidebar item, routed below) -
 import AlumniDashboardHome from './alumni/AlumniDashboardHome';
 import DonationPortal from './alumni/DonationPortal';
+import DonorRankingPage from './shared/DonorRankingPage';
 import FundTransparency from './alumni/FundTransparency';
 import EventsView from './alumni/EventsView';
 import TracerSurveyAlumni from './alumni/TracerSurveyAlumni';
@@ -31,6 +32,7 @@ import GraduateTracerForm from './alumni/GraduateTracerForm';
 const NAV_ITEMS = [
   { label: 'Dashboard',              icon: <BarChart3 className="w-4 h-4" />,       path: '' },
   { label: 'Donation Center',        icon: <PhilippinePeso className="w-4 h-4" />,       path: 'donations' },
+  { label: 'Donor Ranking',         icon: <Trophy className="w-4 h-4" />,          path: 'donor-ranking' },
   { label: 'Tracer Survey',          icon: <ClipboardList className="w-4 h-4" />,    path: 'surveys' },
   { label: 'Events / Calendar',      icon: <Calendar className="w-4 h-4" />,         path: 'events' },
   { label: 'Announcements',          icon: <Megaphone className="w-4 h-4" />,        path: 'announcements' },
@@ -56,6 +58,7 @@ export default function AlumniDashboard() {
         <Route path="profile"       element={<ProfilePage />} />
         <Route path="donations"     element={<DonationPortal />} />
         <Route path="donations/transparency" element={<FundTransparency />} />
+        <Route path="donor-ranking" element={<DonorRankingPage />} />
         <Route path="surveys"       element={<TracerSurveyAlumni />} />
         {/* Gate route only — no sidebar nav item points here anymore.
             App.tsx's ProtectedRoute <Navigate>s here until the Graduate
