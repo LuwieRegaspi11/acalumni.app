@@ -150,7 +150,7 @@ export default function AdminDashboard() {
       <header className={`flex-shrink-0 h-16 flex items-center justify-between px-4 border-b z-40 ${dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
 
         {/* Left: hamburger/sidebar toggle + logo */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => setMobileOpen(true)} className={`lg:hidden p-2 rounded-lg transition-colors ${dark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}>
             <Menu className="w-5 h-5" />
           </button>
@@ -158,12 +158,12 @@ export default function AdminDashboard() {
             <Menu className="w-4 h-4" />
           </button>
           <div className="flex-shrink-0 leading-none">
-            <img src={asianCollegeLogo} alt="Asian College" className="h-14 w-auto object-contain" />
+            <img src={asianCollegeLogo} alt="Asian College" className="h-11 sm:h-14 w-auto object-contain max-w-full" />
           </div>
         </div>
 
         {/* Right: dark mode + notifications + profile dropdown */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           <button onClick={toggle} title={dark ? 'Light Mode' : 'Dark Mode'}
             className={`p-2 rounded-lg transition-colors ${dark ? 'hover:bg-gray-700 text-yellow-400' : 'hover:bg-gray-100 text-gray-500'}`}>
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -181,9 +181,9 @@ export default function AdminDashboard() {
           {/* Profile dropdown */}
           <div className="relative" ref={dropRef}>
             <button onClick={() => setProfileDropOpen(o => !o)}
-              className={`flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl transition-colors ${dark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+              className={`flex items-center gap-2.5 pl-1 pr-1 sm:pr-3 py-1.5 rounded-xl transition-colors ${dark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
               <img src={avatarSrc} alt={user?.name}
-                className="w-8 h-8 rounded-full object-cover border-2"
+                className="w-8 h-8 flex-shrink-0 rounded-full object-cover border-2"
                 style={{ borderColor: ACCENT_COLOR }}
                 onError={(e) => { (e.target as HTMLImageElement).src = avatarSrc; }} />
               <div className="text-left hidden sm:block">

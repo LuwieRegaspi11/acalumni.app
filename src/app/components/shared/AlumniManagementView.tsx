@@ -598,7 +598,7 @@ export default function AlumniManagementView() {
           this same roster/filters instead of a separate fetch), plus a
           third, admin-only "Alumni Roster" tab for the registrar
           match-source importer (admin/AlumniRoster.tsx). */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto [&>button]:whitespace-nowrap [&>button]:flex-shrink-0">
         <button onClick={() => setView('records')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${view === 'records' ? 'text-white' : 'text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
           style={view === 'records' ? { background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' } : {}}>

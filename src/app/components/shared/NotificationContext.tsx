@@ -83,6 +83,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           setNotifications(prev => [mapRow(payload.new), ...prev]);
         }
       )
+      // Read/unread changes made in another tab or device show up here too.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setNotifications(prev => prev.map(n => n.id === (payload.new as any).id ? { ...n, read: !!(payload.new as any).read } : n));
+        }
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
