@@ -206,8 +206,8 @@ const REQUIRED_FIELDS = [
 // Mirrors src/lib/realName.ts (this function can't import from src/).
 function isRealNamePart(value: string): boolean {
   const v = value.trim();
-  if (!/^[p{L}][p{L}p{M}s.'’-]*$/u.test(v)) return false;
-  const letters = v.replace(/[^p{L}]/gu, "");
+  if (!/^[\p{L}][\p{L}\p{M}\s.'’-]*$/u.test(v)) return false;
+  const letters = v.replace(/[^\p{L}]/gu, "");
   if (letters.length < 2) return false;
   return new Set(letters.toLowerCase()).size > 1;
 }
