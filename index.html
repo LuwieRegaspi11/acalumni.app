@@ -6,13 +6,13 @@
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <script>
-        // On phones, show the exact desktop layout scaled to fit the screen
-        // (pinch to zoom in). Desktops and tablets keep the normal responsive view.
+        // On phones and tablets, show the exact desktop layout scaled to fit the
+        // screen (pinch to zoom in). Desktop browsers ignore this and are unaffected.
         // To go back to the phone-friendly layout, delete this script.
         (function () {
           try {
             var w = Math.min(screen.width, screen.height);
-            if (w < 700) {
+            if (w < 1100) {
               document.querySelector('meta[name="viewport"]')
                 .setAttribute('content', 'width=1280, minimum-scale=0.1, maximum-scale=5, user-scalable=yes');
             }
