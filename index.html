@@ -5,6 +5,20 @@
       
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <script>
+        // On phones, show the exact desktop layout scaled to fit the screen
+        // (pinch to zoom in). Desktops and tablets keep the normal responsive view.
+        // To go back to the phone-friendly layout, delete this script.
+        (function () {
+          try {
+            var w = Math.min(screen.width, screen.height);
+            if (w < 700) {
+              document.querySelector('meta[name="viewport"]')
+                .setAttribute('content', 'width=1280, minimum-scale=0.1, maximum-scale=5, user-scalable=yes');
+            }
+          } catch (e) {}
+        })();
+      </script>
       <link rel="icon" type="image/png" href="/src/imports/AAA-logo-circle.png" />
       <title>ACT- Alumni Tracer and Donation System</title>
       <meta name="description" content="This platform streamlines alumni tracking and donation management for Asian College, offering secure profiles, automated job matching, and real-time donation monitoring." />
