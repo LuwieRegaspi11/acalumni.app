@@ -21,10 +21,8 @@ import { Avatar, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions
 // -- 5. Shared components (reused across roles) -----------------------
 import DashboardLayout from './shared/DashboardLayout'; // <- the header + sidebar frame
 import ProfilePage from './shared/ProfilePage';
-import EventCalendar from './shared/EventCalendar';
 import AnnouncementBoard from './shared/AnnouncementBoard';
 import JobBoard from './shared/JobBoard';
-import { RepDashboardHome } from './shared/RoleDashboardHome';
 
 // -- 6. Alumni-side pages a rep gets too, since a rep is an alumnus first --
 // (they keep their own department/batch/program fields, so these render
@@ -34,7 +32,9 @@ import FundTransparency from './alumni/FundTransparency';
 import GraduateTracerForm from './alumni/GraduateTracerForm';
 
 // -- 7. Representative-only sub-pages (routed below) -------------------
-import RepDonationMonitor from './representative/RepDonationMonitor';
+import AlumniDashboardHome from './alumni/AlumniDashboardHome';
+import DonationPortal from './alumni/DonationPortal';
+import EventsView from './alumni/EventsView';
 import DonorRankingPage from './shared/DonorRankingPage';
 
 // Sidebar nav links shown for this role (label, icon, and URL path)
@@ -47,7 +47,6 @@ const NAV_ITEMS = [
   { label: 'Events / Calendar', icon: <Calendar className="w-4 h-4" />,          path: 'events' },
   { label: 'Announcements',     icon: <Megaphone className="w-4 h-4" />,         path: 'announcements' },
   { label: 'Job Board',         icon: <BriefcaseBusiness className="w-4 h-4" />, path: 'jobs' },
-  { label: 'Activity Log',      icon: <Shield className="w-4 h-4" />,            path: 'activity' },
 ];
 
 export default function RepresentativeDashboard() {
@@ -65,10 +64,10 @@ export default function RepresentativeDashboard() {
       accentGradient="linear-gradient(135deg, #1B3A6B 0%, #2B5BA8 55%, #5B9BD5 100%)"
     >
       <Routes>
-        <Route index              element={<RepDashboardHome />} />
+        <Route index              element={<AlumniDashboardHome />} />
         <Route path="profile"       element={<ProfilePage />} />
         <Route path="verification"  element={<BatchVerificationView batchYear={user?.assignedBatchYear || 2021} department={user?.assignedDepartment || 'CSE'} program={user?.assignedProgram || 'BSIT'} />} />
-        <Route path="donations"     element={<RepDonationMonitor />} />
+        <Route path="donations"     element={<DonationPortal />} />
         <Route path="donations/transparency" element={<FundTransparency backTo="/representative/donations" />} />
         <Route path="donor-ranking" element={<DonorRankingPage />} />
         <Route path="surveys"       element={<TracerSurveyAlumni />} />
@@ -79,10 +78,9 @@ export default function RepresentativeDashboard() {
             GraduateTracerForm.tsx still renders its read-only "review
             mode" if this route is ever reached directly. */}
         <Route path="tracer-form"   element={<GraduateTracerForm />} />
-        <Route path="events"        element={<EventCalendar department={user?.assignedDepartment} />} />
-        <Route path="announcements" element={<AnnouncementBoard role="representative" department={user?.assignedDepartment} />} />
-        <Route path="jobs"          element={<JobBoard role="representative" department={user?.assignedDepartment} userName={user?.name} />} />
-        <Route path="activity"      element={<ActivityLogView />} />
+        <Route path="events"        element={<EventsView />} />
+        <Route path="announcements" element={<AnnouncementBoard role="representative" department={user?.department} />} />
+        <Route path="jobs"          element={<JobBoard role="representative" department={user?.department} userName={user?.name} />} />
       </Routes>
     </DashboardLayout>
   );
@@ -305,65 +303,6 @@ function BatchVerificationView({ batchYear, department, program }: { batchYear: 
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
-  );
-}
-
-/* -- Activity Log -- */
-interface ActivityLogEntry { id: string; timestamp: string; action: string; module: string; details: string; severity: string; }
-
-function ActivityLogView() {
-  const { user } = useAuth();
-  const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('audit_logs')
-      .select('id, occurred_at, action, module, details, severity')
-      .eq('actor_id', user.id)
-      .order('occurred_at', { ascending: false })
-      .then(({ data }) => setLogs((data || []).map((r: any) => ({
-        id: r.id, timestamp: r.occurred_at, action: r.action, module: r.module, details: r.details || '', severity: r.severity,
-      }))));
-  }, [user]);
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Activity Log</h2>
-        <p className="text-sm text-gray-500">RA 10175 compliant audit trail of all your actions</p>
-      </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-        <Shield className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-        <p className="text-xs text-blue-700">Per RA 10175 (Cybercrime Prevention Act), all verification actions are timestamped, logged, and cannot be deleted. These logs are accessible to administrators.</p>
-      </div>
-      {logs.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex flex-col items-center py-16 text-center">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <Shield className="w-7 h-7 text-gray-300" />
-            </div>
-            <h3 className="font-semibold text-gray-500 mb-1">No Activity Yet</h3>
-            <p className="text-sm text-gray-400 max-w-xs">Your verification actions will appear here. Start by reviewing your assigned batch members in the Alumni Directory.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
-          {logs.map(log => (
-            <div key={log.id} className="p-4 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{log.action}</p>
-                <p className="text-xs text-gray-500">{log.details}</p>
-                <p className="text-xs text-gray-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

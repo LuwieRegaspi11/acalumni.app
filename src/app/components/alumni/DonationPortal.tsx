@@ -162,7 +162,7 @@ export default function DonationPortal() {
       </div>
 
       {/* Link to the Fund Transparency page */}
-      <button onClick={() => navigate('/alumni/donations/transparency')}
+      <button onClick={() => navigate(`/${user?.role === 'representative' ? 'representative' : 'alumni'}/donations/transparency`)}
         className="w-full flex items-center justify-between gap-3 bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-left hover:border-blue-200 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
