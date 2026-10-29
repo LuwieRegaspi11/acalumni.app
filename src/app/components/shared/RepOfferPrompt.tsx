@@ -3,7 +3,7 @@ import { Shield, X } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useNotifications } from './NotificationContext';
-import RepOfferActions from './RepOfferActions';
+import RepOfferActions, { fetchOffer, REOPEN_OFFER_EVENT } from './RepOfferActions';
 
 // Popup shown to an alumnus the moment the Alumni Head offers them the batch
 // representative role (and again on their next sign-in if they haven't
@@ -27,13 +27,26 @@ export default function RepOfferPrompt() {
     return () => { active = false; };
   }, [user?.id, user?.role, offerNotificationIds]);
 
+  // Clicking the offer in the notification bell brings this popup back.
+  useEffect(() => {
+    const reopen = async (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      const offer = id ? await fetchOffer(id) : null;
+      if (!offer || offer.status !== 'pending') return;
+      setDismissed(prev => { const next = new Set(prev); next.delete(id); return next; });
+      setOfferId(id);
+    };
+    window.addEventListener(REOPEN_OFFER_EVENT, reopen);
+    return () => window.removeEventListener(REOPEN_OFFER_EVENT, reopen);
+  }, []);
+
   if (!offerId || dismissed.has(offerId)) return null;
 
   const close = () => setDismissed(prev => new Set(prev).add(offerId));
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Batch representative offer">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+    <div onClick={close} className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Batch representative offer">
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
         <button onClick={close} aria-label="Decide later" className="absolute top-4 right-4"><X className="w-5 h-5 text-gray-400" /></button>
         <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mb-3">
           <Shield className="w-7 h-7 text-blue-600" aria-hidden="true" />

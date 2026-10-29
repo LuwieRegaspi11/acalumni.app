@@ -14,6 +14,9 @@ import { useAuth } from '../AuthContext';
 // they are taken straight to the batch representative dashboard.
 // =====================================================================
 
+// Fired by the notification bell so the popup (RepOfferPrompt) can open again.
+export const REOPEN_OFFER_EVENT = 'reopen-rep-offer';
+
 export interface OfferInfo {
   id: string;
   status: 'pending' | 'accepted' | 'rejected' | 'cancelled';

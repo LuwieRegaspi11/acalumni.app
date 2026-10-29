@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, X, CheckCheck, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { useNotifications } from './NotificationContext';
-import RepOfferActions from './RepOfferActions';
+import RepOfferActions, { REOPEN_OFFER_EVENT } from './RepOfferActions';
 
 const typeIcon: Record<string, React.ReactNode> = {
   info: <Info className="w-4 h-4 text-blue-500" />,
@@ -28,6 +28,16 @@ export default function NotificationPanel({ role, department, open, onClose }: P
   const { getFor, markRead, markAllRead, unreadCount } = useNotifications();
   const items = getFor(role, department);
   const count = unreadCount(role, department);
+
+  // Tapping a notification marks it read; tapping a batch-representative offer
+  // also closes the bell and brings the Accept / Decline popup back.
+  const openItem = (n: { id: string; read: boolean; offerId?: string }) => {
+    if (!n.read) markRead(n.id);
+    if (n.offerId) {
+      onClose();
+      window.dispatchEvent(new CustomEvent(REOPEN_OFFER_EVENT, { detail: n.offerId }));
+    }
+  };
 
   if (!open) return null;
 
@@ -70,8 +80,8 @@ export default function NotificationPanel({ role, department, open, onClose }: P
                   tabIndex={0}
                   aria-label={`${n.title}. ${n.read ? 'Read' : 'Unread'} notification.`}
                   className={`px-5 py-4 border-l-4 ${typeBg[n.type]} ${n.read ? 'bg-white' : 'bg-blue-50/40'} hover:bg-gray-50 transition-colors cursor-pointer`}
-                  onClick={() => { if (!n.read) markRead(n.id); }}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!n.read) markRead(n.id); } }}>
+                  onClick={() => openItem(n)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(n); } }}>
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">{typeIcon[n.type]}</div>
                     <div className="flex-1 min-w-0">
