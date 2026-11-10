@@ -200,9 +200,25 @@ function MuiThemeBridge({ children }: { children: React.ReactNode }) {
   return <ThemeProvider theme={theme}>{children}</ThemeProvider>;
 }
 
+// Sets the browser-tab title per page so tabs/history are distinguishable.
+const PAGE_TITLES: [string, string][] = [
+  ["/login", "Sign In"], ["/tracer-survey", "Alumni Tracer Survey"], ["/reset-password", "Reset Password"],
+  ["/change-password", "Change Password"], ["/pending-approval", "Pending Approval"], ["/terms", "Terms & Privacy"],
+  ["/admin", "Admin"], ["/alumni", "Alumni"], ["/representative", "Batch Representative"],
+];
+function PageTitle() {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    const hit = PAGE_TITLES.find(([p]) => pathname === p || pathname.startsWith(p + "/"));
+    document.title = hit ? `${hit[1]} | Asian College ACT` : "ACT- Alumni Tracer and Donation System";
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <PageTitle />
       <AuthProvider>
       <DarkModeProvider>
       <MuiThemeBridge>

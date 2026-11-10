@@ -25,7 +25,7 @@ import { PROGRAMS_BY_DEPT as PROGRAMS } from '../../lib/academicPrograms';
 import { Eye, EyeOff, ArrowLeft, Mail, Check, ClipboardList } from 'lucide-react';
 
 // -- Local image assets --------------------------------------------------
-import aaaLogo from '../../imports/AAA logo.png';
+import asianCollegeLogo from '../../imports/asiancollege_logo.jpeg';
 
 // AUTH PAGE COLORS — edit these to change the sign-in branding panel
 // color. (Mirrors src/styles/theme.css brand colors.)
@@ -68,6 +68,8 @@ export function InputField({
 }) {
   const [show, setShow]       = useState(false);
   const [focused, setFocused] = useState(false);
+  // Password fields warn when Caps Lock is on (a common cause of "wrong password").
+  const [capsOn, setCapsOn]   = useState(false);
   const isPw    = type === 'password';
   const floated = focused || value.length > 0;
   // Ties the floating <label> to its <input> via htmlFor/id so screen
@@ -113,7 +115,8 @@ export function InputField({
           value={value}
           onChange={e => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => { setFocused(false); setCapsOn(false); }}
+          onKeyUp={isPw ? (e => setCapsOn(e.getModifierState('CapsLock'))) : undefined}
           placeholder=""
           required={required}
           className="w-full px-3 bg-transparent outline-none rounded-md text-sm text-gray-800"
@@ -128,6 +131,9 @@ export function InputField({
           </button>
         )}
       </div>
+      {isPw && capsOn && (
+        <p role="status" className="mt-1 text-xs font-medium text-amber-600">Caps Lock is on</p>
+      )}
     </div>
   );
 }
@@ -383,7 +389,12 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string | null; onAutoChecked?: () => void }) {
   const { login, user } = useAuth();
   const navigate        = useNavigate();
-  const [email, setEmail]       = useState('');
+  const [email, setEmail]       = useState(() => {
+    try { return localStorage.getItem('remembered-login-email') ?? ''; } catch { return ''; }
+  });
+  const [remember, setRemember] = useState(() => {
+    try { return localStorage.getItem('remembered-login-email') !== null; } catch { return false; }
+  });
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -466,6 +477,10 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
     setLoading(true);
     await new Promise(r => setTimeout(r, 400));
     const { status, detail } = await login(email, password);
+    try {
+      if (remember && status !== 'invalid') localStorage.setItem('remembered-login-email', email);
+      else if (!remember) localStorage.removeItem('remembered-login-email');
+    } catch { /* storage unavailable — skip */ }
     // 'pending' now signs the person in (they land on a restricted view
     // inside the app — see AlumniDashboard) so it's handled by the normal
     // redirect effect above, same as 'success'. 'rejected' and
@@ -627,7 +642,7 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
 
   return (
     <div className="flex flex-col items-center justify-start h-full px-5 sm:px-8 pt-10 pb-6 overflow-y-auto">
-      <img src={aaaLogo} alt="Asian College" className="w-28 h-28 object-contain" style={{ marginBottom: '-12px' }} />
+      <img src={asianCollegeLogo} alt="Asian College" className="h-32 w-auto object-contain" style={{ marginBottom: '4px' }} />
       <h2 className="text-2xl mb-1" style={{ color: NAVY }}>Sign In</h2>
       <p className="text-xs text-gray-500 mb-6">Use the email and password from your Alumni Tracer Survey confirmation</p>
 
@@ -643,7 +658,11 @@ function SignInForm({ autoCheckEmail, onAutoChecked }: { autoCheckEmail?: string
         <InputField placeholder="Password" type="password" value={password}
           onChange={setPassword} required />
 
-        <div className="text-center">
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer py-2.5">
+            <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="w-4 h-4 accent-blue-700" />
+            Remember my email
+          </label>
           <button type="button" onClick={() => setForgotMode(true)} className="text-xs text-gray-500 hover:text-gray-600 transition-colors py-2.5 px-2">
             Forgot your password?
           </button>

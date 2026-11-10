@@ -424,6 +424,14 @@ export default function DonationPortal() {
                 value={form.amount}
                 onChange={amount => setForm(f => ({ ...f, amount }))}
               />
+              <div className="flex flex-wrap gap-2 -mt-2" role="group" aria-label="Quick amounts">
+                {[100, 500, 1000, 5000].map(n => (
+                  <button key={n} type="button" onClick={() => setForm(f => ({ ...f, amount: String(n) }))}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${form.amount === String(n) ? 'bg-blue-700 text-white border-blue-700' : 'border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-700'}`}>
+                    ₱{n.toLocaleString()}
+                  </button>
+                ))}
+              </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-500 mb-1 block">Pay To</label>
