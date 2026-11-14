@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
-import { Heart, Trophy, X, ChevronLeft, ChevronRight, EyeOff, Eye } from 'lucide-react';
+import { Heart, Trophy, X, ChevronLeft, ChevronRight, EyeOff, Eye, Ticket } from 'lucide-react';
 import { fetchTopDonors, fetchDonorCredits, fetchMyRank, type TopDonor, type DonorCredit, type MyRank } from '../../../lib/donorApi';
 import { useAuth } from '../AuthContext';
 import { useDonations } from './DonationContext';
@@ -48,6 +48,14 @@ export function DonorVisibilityChoice({ anonymous, onChange }: { anonymous: bool
   );
 }
 
+// ---- Raffle entries ----------------------------------------------------------
+// Every full ₱1,000 of VERIFIED donations earns one raffle entry (₱2,500 = 2
+// entries), so the more someone donates, the more chances they have. Computed
+// from the verified total the ranking already provides — nothing is stored.
+export const RAFFLE_PESO_PER_ENTRY = 1000;
+export const raffleEntries = (total: number) => Math.max(0, Math.floor((Number(total) || 0) / RAFFLE_PESO_PER_ENTRY));
+export const entriesLabel = (n: number) => `${n} raffle ${n === 1 ? 'entry' : 'entries'}`;
+
 // ---- Thank-you after a donation -------------------------------------------
 
 export interface ThankYouInfo {
@@ -69,13 +77,13 @@ export function DonationThankYou({ info, onClose }: { info: ThankYouInfo; onClos
         </div>
         <h3 className="text-xl font-bold text-gray-800 mb-1">Thank you, {firstName}!</h3>
         <p className="text-sm text-gray-600 leading-relaxed">
-          Your generous gift of <strong>{money(info.amount)}</strong> to <strong>{info.campaign}</strong> means the world to
-          your alma mater and to the students and alumni it will help.
+          Thank you for your donation of <strong>{money(info.amount)}</strong> to <strong>{info.campaign}</strong>.
         </p>
         <div className="mt-4 text-xs bg-gray-50 border border-gray-100 rounded-xl p-3 text-gray-500 space-y-1">
           <p>Reference no. <span className="font-mono font-semibold text-gray-700">{info.reference}</span></p>
           <p>The Alumni Head will verify your proof of payment and you’ll be notified here once it’s confirmed.</p>
-          <p>{info.anonymous ? 'You chose to remain anonymous — your name will not be shown publicly.' : 'You chose to show your name — you may be credited as a donor once your gift is confirmed.'}</p>
+          <p>{info.anonymous ? 'You chose to remain anonymous — your name will not be shown publicly.' : 'You chose to show your name — you may be credited as a donor once your donation is confirmed.'}</p>
+          <p>Raffle: every {money(RAFFLE_PESO_PER_ENTRY)} of confirmed donations earns 1 entry.</p>
         </div>
         <button onClick={onClose} className="mt-6 w-full py-2.5 rounded-xl text-sm font-bold text-white"
           style={{ background: 'linear-gradient(135deg,#1B3A6B,#2B5BA8)' }}>
@@ -228,9 +236,13 @@ function MyRankCard({ mine, onDonate }: { mine: MyRank | null; onDonate?: () => 
       <div className="flex-1 min-w-0 text-sm">
         {mine ? (
           <>
-            <p className="font-bold text-white">Your rank: #{mine.rank} · {money(mine.total)} given</p>
+            <p className="font-bold text-white">Your rank: #{mine.rank} · {money(mine.total)} donated</p>
             <p className="text-xs text-blue-100/80">
-              {mine.rank === 1 ? 'You are leading the board — thank you!' : `${money(mine.gapToNext)} more moves you up a rank.`}
+              {mine.rank === 1 ? 'You are leading the board.' : `${money(mine.gapToNext)} more moves you up a rank.`}
+            </p>
+            <p className="text-xs mt-0.5 font-semibold" style={{ color: '#F5C542' }}>
+              <Ticket className="w-3 h-3 inline -mt-0.5 mr-1" aria-hidden="true" />
+              {entriesLabel(raffleEntries(mine.total))} · {money(RAFFLE_PESO_PER_ENTRY - (mine.total % RAFFLE_PESO_PER_ENTRY))} more for the next entry
             </p>
           </>
         ) : (
@@ -289,7 +301,11 @@ export function TopDonorsLeaderboard({ limit = 10, compact = false }: { limit?: 
             </select>
           )}
         </div>
-        <p className="text-xs text-blue-100/80 mb-4">Alumni whose confirmed gifts are building the future of Asian College.</p>
+        <p className="text-xs text-blue-100/80 mb-3">Ranked by donations confirmed by the Alumni Head.</p>
+        <div className="mb-4 rounded-xl border border-amber-300/40 bg-amber-300/15 px-3 py-2 flex items-start gap-2 text-xs text-amber-100">
+          <Ticket className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#F5C542' }} aria-hidden="true" />
+          <p><strong>Raffle:</strong> every {money(RAFFLE_PESO_PER_ENTRY)} you donate earns 1 entry — the more you donate, the more chances to win.</p>
+        </div>
 
         {donors === null ? (
           <SkeletonLines rows={4} tone="glass" />
@@ -307,6 +323,7 @@ export function TopDonorsLeaderboard({ limit = 10, compact = false }: { limit?: 
                 place: p, title: d.displayName,
                 subtitle: d.isAnonymous ? 'Anonymous donor' : (d.batchYear ? `Batch ${d.batchYear}` : d.program || ''),
                 amount: d.totalAmount,
+                note: entriesLabel(raffleEntries(d.totalAmount)),
               }] : [];
             })} />
 
@@ -328,7 +345,7 @@ export function TopDonorsLeaderboard({ limit = 10, compact = false }: { limit?: 
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-sm font-bold" style={{ color: '#F5C542' }}>{money(d.totalAmount)}</p>
-                      <p className="text-[11px] text-blue-100/60">{d.donationCount} {d.donationCount === 1 ? 'gift' : 'gifts'}</p>
+                      <p className="text-[11px] text-blue-100/60">{d.donationCount} {d.donationCount === 1 ? 'donation' : 'donations'} · {entriesLabel(raffleEntries(d.totalAmount))}</p>
                     </div>
                   </li>
                 ))}
@@ -336,7 +353,7 @@ export function TopDonorsLeaderboard({ limit = 10, compact = false }: { limit?: 
             )}
           </>
         )}
-        <p className="text-[11px] text-blue-100/60 mt-4">Only donations confirmed by the Alumni Head are counted. Donors who chose “Anonymous” are never named. Every gift inspires the next!</p>
+        <p className="text-[11px] text-blue-100/60 mt-4">Only donations confirmed by the Alumni Head are counted. Donors who chose “Anonymous” are never named.</p>
       </div>
     </section>
   );

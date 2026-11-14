@@ -5,7 +5,8 @@
 //   * in-app  — a row in public.notifications for every recipient
 //               (shows up in the bell panel live, via Realtime)
 //   * email   — one email per recipient through Resend
-//   * SMS     — optional; Semaphore (Philippine SMS gateway)
+//   * SMS     — IPROG SMS (https://www.iprogsms.com); falls back to
+//               Semaphore only if IPROG_SMS_API_TOKEN is not set
 //
 // Called from the admin screens only (verified against profiles.role):
 //   - Announcements  (shared/AnnouncementContext.tsx -> addAnnouncement)
@@ -50,10 +51,12 @@ const EMAIL_FROM_ADDRESS = Deno.env.get("EMAIL_FROM_ADDRESS") || "";
 const EMAIL_FROM_NAME = Deno.env.get("EMAIL_FROM_NAME") || "Asian College Alumni";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || (EMAIL_FROM_ADDRESS ? `${EMAIL_FROM_NAME} <${EMAIL_FROM_ADDRESS}>` : "");
+const IPROG_SMS_API_TOKEN = Deno.env.get("IPROG_SMS_API_TOKEN") || "";
 const SEMAPHORE_API_KEY = Deno.env.get("SEMAPHORE_API_KEY") || "";
 const SMS_SENDER_NAME = Deno.env.get("SMS_SENDER_NAME") || "";
 const SITE_URL = Deno.env.get("SITE_URL") || "";
 
+const IPROG_BASE = "https://www.iprogsms.com/api/v1";
 const MAX_RECIPIENTS = 5000;
 
 const CORS_HEADERS: Record<string, string> = {
@@ -195,22 +198,64 @@ async function sendEmails(recipients: Recipient[], title: string, message: strin
   return { sent, failed };
 }
 
-// Profile phones are stored as typed in PhoneNumberField ("9XX XXX XXXX"),
-// but older rows may hold 09XXXXXXXXX or +639XXXXXXXXX. Semaphore wants
-// 639XXXXXXXXX (or 09XXXXXXXXX).
+// Profile phones may be "9XX XXX XXXX", 09XXXXXXXXX or +639XXXXXXXXX.
+// Both IPROG and Semaphore accept 639XXXXXXXXX.
 function normalizePhone(raw: string | null): string | null {
-  const d = (raw || "").replace(/\D/g, "");
+  const d = (raw || "").replace(/D/g, "");
   if (d.length === 10 && d.startsWith("9")) return `63${d}`;
   if (d.length === 11 && d.startsWith("09")) return `63${d.slice(1)}`;
   if (d.length === 12 && d.startsWith("639")) return d;
   return null;
 }
 
-async function sendSms(recipients: Recipient[], title: string, message: string) {
-  if (!SEMAPHORE_API_KEY) return { sent: 0, failed: 0, skipped: "SEMAPHORE_API_KEY not configured" };
-  const numbers = recipients.map(r => normalizePhone(r.phone)).filter((n): n is string => !!n);
-  if (numbers.length === 0) return { sent: 0, failed: 0, skipped: "No recipient has a valid mobile number" };
-  const text = `Asian College Alumni: ${title}. ${message}`.slice(0, 300);
+// IPROG returns HTTP 200 with a JSON body; treat a numeric status >= 400
+// or an explicit error field in the body as a failure too.
+async function iprogOk(res: Response, label: string): Promise<boolean> {
+  const text = await res.text();
+  let body: any = null;
+  try { body = JSON.parse(text); } catch { /* not JSON */ }
+  const bodyStatus = typeof body?.status === "number" ? body.status : Number(body?.status);
+  const ok = res.ok && !(Number.isFinite(bodyStatus) && bodyStatus >= 400) && !body?.error;
+  if (!ok) console.error(`[notify-alumni] iprog ${label} failed`, res.status, text);
+  return ok;
+}
+
+async function sendSmsIprog(numbers: string[], text: string) {
+  let sent = 0, failed = 0;
+  if (numbers.length === 1) {
+    try {
+      const res = await fetch(`${IPROG_BASE}/sms_messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ api_token: IPROG_SMS_API_TOKEN, phone_number: numbers[0], message: text }),
+      });
+      (await iprogOk(res, "single")) ? sent++ : failed++;
+    } catch (err) {
+      failed++;
+      console.error("[notify-alumni] iprog single threw", err);
+    }
+    return { sent, failed, provider: "iprog" };
+  }
+  // Bulk endpoint takes a comma-separated phone_number list.
+  for (let i = 0; i < numbers.length; i += 100) {
+    const chunk = numbers.slice(i, i + 100);
+    try {
+      const res = await fetch(`${IPROG_BASE}/sms_messages/send_bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ api_token: IPROG_SMS_API_TOKEN, phone_number: chunk.join(","), message: text }),
+      });
+      if (await iprogOk(res, "bulk")) sent += chunk.length;
+      else failed += chunk.length;
+    } catch (err) {
+      failed += chunk.length;
+      console.error("[notify-alumni] iprog bulk threw", err);
+    }
+  }
+  return { sent, failed, provider: "iprog" };
+}
+
+async function sendSmsSemaphore(numbers: string[], text: string) {
   let sent = 0, failed = 0;
   for (let i = 0; i < numbers.length; i += 500) {
     const chunk = numbers.slice(i, i + 500);
@@ -225,7 +270,17 @@ async function sendSms(recipients: Recipient[], title: string, message: string) 
       console.error("[notify-alumni] semaphore threw", err);
     }
   }
-  return { sent, failed };
+  return { sent, failed, provider: "semaphore" };
+}
+
+async function sendSms(recipients: Recipient[], title: string, message: string) {
+  if (!IPROG_SMS_API_TOKEN && !SEMAPHORE_API_KEY) {
+    return { sent: 0, failed: 0, skipped: "No SMS provider configured (set IPROG_SMS_API_TOKEN)" };
+  }
+  const numbers = [...new Set(recipients.map(r => normalizePhone(r.phone)).filter((n): n is string => !!n))];
+  if (numbers.length === 0) return { sent: 0, failed: 0, skipped: "No recipient has a valid mobile number" };
+  const text = `Asian College Alumni: ${title}. ${message}`.slice(0, 300);
+  return IPROG_SMS_API_TOKEN ? sendSmsIprog(numbers, text) : sendSmsSemaphore(numbers, text);
 }
 
 async function sendInApp(recipients: Recipient[], title: string, message: string) {

@@ -3,7 +3,7 @@ import { Trophy, Download, Printer, ShieldCheck, EyeOff } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../../lib/supabaseClient';
 import { useDonations } from '../shared/DonationContext';
-import { StatuePodium, PodiumPanel } from '../shared/DonorTransparency';
+import { StatuePodium, PodiumPanel, raffleEntries, entriesLabel, RAFFLE_PESO_PER_ENTRY } from '../shared/DonorTransparency';
 import { SkeletonTableRows } from '../shared/Skeleton';
 
 // =====================================================================
@@ -77,7 +77,7 @@ export default function DonorRanking() {
   const downloadFull = () => {
     const sheet = XLSX.utils.json_to_sheet(rows.map(r => ({
       Rank: r.rank, Name: r.name, Email: r.email, Program: r.program || '', 'Batch Year': r.batchYear || '',
-      'Total Donated (PHP)': r.total, Gifts: r.count,
+      'Total Donated (PHP)': r.total, 'Raffle Entries': raffleEntries(r.total), Donations: r.count,
       'Last Donation': r.lastDonated ? new Date(r.lastDonated).toLocaleDateString() : '',
       'Name Display Choice': r.canAnnounce ? 'Show my name' : 'Anonymous (keep private)',
     })));
@@ -90,15 +90,15 @@ export default function DonorRanking() {
   const printRecognition = () => {
     const body = rows.map(r => `<tr><td>${r.rank}</td><td>${r.canAnnounce ? escapeHtml(r.name) : '<i>Anonymous</i>'}</td>
       <td>${r.canAnnounce ? escapeHtml([r.program, r.batchYear ? `Batch ${r.batchYear}` : ''].filter(Boolean).join(' · ')) : ''}</td>
-      <td style="text-align:right">${peso(r.total)}</td></tr>`).join('');
+      <td style="text-align:right">${peso(r.total)}</td><td style="text-align:right">${raffleEntries(r.total)}</td></tr>`).join('');
     const w = window.open('', '_blank', 'width=800,height=900');
     if (!w) { setError('Allow pop-ups for this site to print the list.'); return; }
     w.document.write(`<!doctype html><html><head><title>Donor Recognition</title><style>
       body{font-family:Arial,sans-serif;margin:40px;color:#111} h1{margin:0 0 4px;color:#1B3A6B} p{margin:0 0 20px;color:#555}
       table{width:100%;border-collapse:collapse} th,td{padding:8px 10px;border-bottom:1px solid #ddd;text-align:left;font-size:14px}
       th{background:#f3f4f6}</style></head><body>
-      <h1>Asian College Alumni — Donor Recognition</h1><p>${escapeHtml(scopeLabel)} · verified donations only · thank you for your generosity!</p>
-      <table><thead><tr><th>#</th><th>Donor</th><th>Batch</th><th style="text-align:right">Total</th></tr></thead><tbody>${body}</tbody></table>
+      <h1>Asian College Alumni — Donor Recognition</h1><p>${escapeHtml(scopeLabel)} · verified donations only · every ${peso(RAFFLE_PESO_PER_ENTRY)} = 1 raffle entry</p>
+      <table><thead><tr><th>#</th><th>Donor</th><th>Batch</th><th style="text-align:right">Total</th><th style="text-align:right">Raffle entries</th></tr></thead><tbody>${body}</tbody></table>
       <script>window.onload=function(){window.print()}<\/script></body></html>`);
     w.document.close();
   };
@@ -148,7 +148,7 @@ export default function DonorRanking() {
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2 text-xs text-amber-800">
         <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
-        <p>Only donations you have <strong>verified</strong> are counted. Donors marked <strong>Keep anonymous</strong> chose not to be named — thank them privately, and don't read their name out at events. The printed recognition list already shows them as “Anonymous”.</p>
+        <p><strong>Raffle:</strong> every {peso(RAFFLE_PESO_PER_ENTRY)} of verified donations = 1 entry (rounded down), so more donations means more chances. Only donations you have <strong>verified</strong> are counted. Donors marked <strong>Keep anonymous</strong> chose not to be named — thank them privately, and don't read their name out at events. The printed recognition list already shows them as “Anonymous”.</p>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700" role="alert">{error}</div>}
@@ -157,13 +157,13 @@ export default function DonorRanking() {
           chose to stay anonymous are shown as "Anonymous" here so this can be
           displayed at an event; their real name is in the table below. */}
       {!loading && rows.length > 0 && (
-        <PodiumPanel title="Our Top Donors" subtitle={`${scopeLabel} · thank you for your generosity`}>
+        <PodiumPanel title="Our Top Donors" subtitle={`${scopeLabel} · every ${peso(RAFFLE_PESO_PER_ENTRY)} = 1 raffle entry`}>
           <StatuePodium items={rows.slice(0, 3).map(r => ({
             place: (r.rank <= 3 ? r.rank : 3) as 1 | 2 | 3,
             title: r.canAnnounce ? r.name : 'Anonymous',
             subtitle: r.canAnnounce ? ([r.program, r.batchYear ? `Batch ${r.batchYear}` : null].filter(Boolean).join(' · ')) : 'Anonymous donor',
             amount: r.total,
-            note: r.canAnnounce ? undefined : 'Thank privately',
+            note: [entriesLabel(raffleEntries(r.total)), r.canAnnounce ? null : 'Thank privately'].filter(Boolean).join(' · '),
           }))} />
         </PodiumPanel>
       )}
@@ -171,14 +171,14 @@ export default function DonorRanking() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>{['#', 'Donor', 'Batch / Program', 'Total donated', 'Gifts', 'Last gift', 'At events'].map(h => (
+            <tr>{['#', 'Donor', 'Batch / Program', 'Total donated', 'Raffle entries', 'Donations', 'Last donation', 'At events'].map(h => (
               <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {loading && <SkeletonTableRows cols={7} rows={5} />}
+            {loading && <SkeletonTableRows cols={8} rows={5} />}
             {!loading && rows.length === 0 && !error && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No verified donations for this selection yet.</td></tr>
+              <tr><td colSpan={8}className="px-4 py-8 text-center text-gray-400">No verified donations for this selection yet.</td></tr>
             )}
             {rows.map(r => (
               <tr key={r.donorId} className="hover:bg-gray-50 transition-colors">
@@ -189,6 +189,7 @@ export default function DonorRanking() {
                 </td>
                 <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{[r.program, r.batchYear ? `Batch ${r.batchYear}` : null].filter(Boolean).join(' · ') || '—'}</td>
                 <td className="px-4 py-3 font-bold text-emerald-700 whitespace-nowrap">{peso(r.total)}</td>
+                <td className="px-4 py-3 font-bold text-amber-700 whitespace-nowrap">{raffleEntries(r.total)}</td>
                 <td className="px-4 py-3 text-gray-600">{r.count}</td>
                 <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{r.lastDonated ? new Date(r.lastDonated).toLocaleDateString() : '—'}</td>
                 <td className="px-4 py-3">

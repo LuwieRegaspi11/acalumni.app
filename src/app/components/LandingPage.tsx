@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router';
 
 // -- Live homepage data (campaigns, projects, news feed, headline numbers) --
 import { ProjectsSection } from './landing/LandingSections';
+import FacebookSection from './landing/FacebookSection';
 import { fetchCampaignShowcase, fetchLandingStats, type ShowcaseCampaign, type LandingStats } from '../../lib/donorApi';
 import { PROGRAMS_BY_DEPT } from '../../lib/academicPrograms';
 
@@ -533,6 +534,9 @@ export default function LandingPage() {
 
       {/* -- Alumni projects: funded campaigns with photos + "Donated by" credits -- */}
       <ProjectsSection palette={PALETTE} showcase={showcase} />
+
+      {/* -- Facebook page posts: hidden until the facebook-feed token is configured -- */}
+      <FacebookSection palette={PALETTE} />
 
       {/* -- Alumni CTA -- */}
       <section className="py-12 sm:py-20 bg-white" id="alumni">
